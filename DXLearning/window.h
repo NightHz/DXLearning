@@ -21,7 +21,7 @@ public:
 	HINSTANCE GetHinstance() { return hinstance; }
 	HWND GetHwnd() { return hwnd; }
 	int GetWidth() { return width; }
-	int Getheight() { return height; }
+	int GetHeight() { return height; }
 	const char* GetTitle() { return title; }
 
 	bool CheckWindowState();
