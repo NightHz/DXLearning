@@ -18,5 +18,22 @@
     <ClCompile Include="main.cpp">
       <Filter>source</Filter>
     </ClCompile>
+    <ClCompile Include="window.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="dx9.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="window.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="input.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="dx9.h">
+      <Filter>header</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
