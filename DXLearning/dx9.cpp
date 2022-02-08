@@ -152,6 +152,7 @@ namespace Dx9
 		hr = obj->vb->Lock(0, 0, reinterpret_cast<void**>(&vertices), 0);
 		if (FAILED(hr))
 			return nullptr;
+		// xyz
 		vertices[0] = Vertex(-1, -1, 1);
 		vertices[1] = Vertex(1, -1, 1);
 		vertices[2] = Vertex(-1, 1, 1);
@@ -160,6 +161,15 @@ namespace Dx9
 		vertices[5] = Vertex(1, -1, -1);
 		vertices[6] = Vertex(-1, 1, -1);
 		vertices[7] = Vertex(1, 1, -1);
+		// color
+		vertices[0].color = D3DCOLOR_XRGB(0, 0, 0);
+		vertices[1].color = D3DCOLOR_XRGB(0xff, 0, 0);
+		vertices[2].color = D3DCOLOR_XRGB(0, 0xff, 0);
+		vertices[3].color = D3DCOLOR_XRGB(0xff, 0xff, 0);
+		vertices[4].color = D3DCOLOR_XRGB(0, 0, 0xff);
+		vertices[5].color = D3DCOLOR_XRGB(0xff, 0, 0xff);
+		vertices[6].color = D3DCOLOR_XRGB(0, 0xff, 0xff);
+		vertices[7].color = D3DCOLOR_XRGB(0xff, 0xff, 0xff);
 		hr = obj->vb->Unlock();
 		if (FAILED(hr))
 			return nullptr;

@@ -48,39 +48,45 @@ int dx9_example()
 	if (!camera)
 		return 1;
 
-	// set wireframe
-	hr = device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-	if (FAILED(hr))
-		return 1;
-
 	// set render obj
 	std::string active = "obj";
+
+	// set no light
+	hr = device->SetRenderState(D3DRS_LIGHTING, false);
+	if (FAILED(hr))
+		return 1;
 
 	cout << "finish setup" << endl;
 
 	while (true)
 	{
 		// clear
-		D3DCOLOR color = 0x00ffffff; // white
-		if (KeyIsDown('1')) color -= 0x00ff0000; // - red
-		if (KeyIsDown('2')) color -= 0x0000ff00; // - green
-		if (KeyIsDown('3')) color -= 0x000000ff; // - blue
-		device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, color, 1.0f, 0);
+		int bg_r = 199, bg_g = 220, bg_b = 104;
+		if (KeyIsDown('1')) bg_r = 30; // - red
+		if (KeyIsDown('2')) bg_g = 30; // - green
+		if (KeyIsDown('3')) bg_b = 30; // - blue
+		device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(bg_r, bg_g, bg_b), 1.0f, 0);
 
 		// fixed pipeline
-		// set rendering state
-		if (KeyIsDown('4'))
-			hr = device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-		else if (KeyIsDown('5'))
-			hr = device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
-		if (FAILED(hr))
-			return 1;
-
 		// set scene
 		if (KeyIsDown('9'))
 			active = "obj";
 		else if (KeyIsDown('0'))
 			active = "mesh";
+
+		// set rendering state
+		if (KeyIsDown('4'))
+			hr = device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+		else if (KeyIsDown('5'))
+			hr = device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID); // default
+		if (FAILED(hr))
+			return 1;
+		if (KeyIsDown('6'))
+			hr = device->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_FLAT);
+		else if (KeyIsDown('7'))
+			hr = device->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_GOURAUD); // default
+		if (FAILED(hr))
+			return 1;
 
 		// set camera and projection
 		if (KeyIsDown('W')) camera->pos.y += 0.1f;
