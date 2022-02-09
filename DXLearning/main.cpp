@@ -28,6 +28,9 @@ int dx9_example()
 	auto mesh_teapot = Dx9::Mesh::CreateD3DXTeapot(device);
 	if (!mesh_teapot)
 		return 1;
+	auto mesh_tetrahedron = Dx9::Mesh::CreateTetrahedronNormalColor(device);
+	if (!mesh_tetrahedron)
+		return 1;
 
 	// create cube
 	Dx9::Object cube(mesh_cube);
@@ -46,10 +49,14 @@ int dx9_example()
 		cubes_s[i].sx = 0.2f;
 		cubes_s[i].sy = 0.2f;
 		cubes_s[i].sz = 0.2f;
-		cubes_s[i].y = -5;
+		cubes_s[i].y = -8;
 		cubes_s[i].x = i / 10 - 4.5f;
 		cubes_s[i].z = i % 10 - 4.5f;
 	}
+
+	// create tetrahedron
+	Dx9::Object tetrahedron(mesh_tetrahedron);
+	tetrahedron.y = -4;
 
 	// create camera
 	Dx9::Camera camera;
@@ -59,14 +66,19 @@ int dx9_example()
 	// create light
 	D3DLIGHT9 light;
 	light.Type = D3DLIGHT_DIRECTIONAL;
-	light.Ambient = D3DXCOLOR(0xff, 0, 0, 0xff) * 0.4f;
-	light.Diffuse = D3DXCOLOR(0xff, 0, 0, 0xff);
-	light.Specular = D3DXCOLOR(0xff, 0, 0, 0xff) * 0.6f;
-	light.Direction = D3DXVECTOR3(0.2f, -0.8f, -0.2f);
+	light.Ambient = D3DXCOLOR(1, 1, 1, 1) * 0.3f;
+	light.Diffuse = D3DXCOLOR(1, 1, 1, 1);
+	light.Specular = D3DXCOLOR(1, 1, 1, 1) * 0.6f;
+	light.Direction = D3DXVECTOR3(-0.0f, -1.0f, -0.0f);
 	hr = device->SetLight(0, &light);
 	if (FAILED(hr))
 		return 1;
 	hr = device->LightEnable(0, true);
+	if (FAILED(hr))
+		return 1;
+
+	// normalize normal
+	hr = device->SetRenderState(D3DRS_NORMALIZENORMALS, true);
 	if (FAILED(hr))
 		return 1;
 
@@ -103,6 +115,12 @@ int dx9_example()
 			hr = device->SetRenderState(D3DRS_LIGHTING, false);
 		if (FAILED(hr))
 			return 1;
+		if (KeyIsDown('Z'))
+			hr = device->SetRenderState(D3DRS_SPECULARENABLE, true);
+		else if (KeyIsDown('X'))
+			hr = device->SetRenderState(D3DRS_SPECULARENABLE, false); // default
+		if (FAILED(hr))
+			return 1;
 
 		// set camera and projection
 		if (KeyIsDown('W')) camera.pos.y += 0.1f;
@@ -118,17 +136,20 @@ int dx9_example()
 		if (FAILED(hr))
 			return 1;
 
+		// control
+		auto control_obj = &tetrahedron;
+		if (KeyIsDown('I')) control_obj->theta -= 0.05f;
+		else if (KeyIsDown('K')) control_obj->theta += 0.05f;
+		if (KeyIsDown('J')) control_obj->psi += 0.05f;
+		else if (KeyIsDown('L')) control_obj->psi -= 0.05f;
+		if (KeyIsDown('T')) control_obj->y += 0.1f;
+		else if (KeyIsDown('G')) control_obj->y -= 0.1f;
+		if (KeyIsDown('F')) control_obj->x += 0.1f;
+		else if (KeyIsDown('H')) control_obj->x -= 0.1f;
+		if (KeyIsDown('R')) control_obj->z += 0.1f;
+		else if (KeyIsDown('Y')) control_obj->z -= 0.1f;
+
 		// draw cube
-		if (KeyIsDown('I')) cube.theta -= 0.05f;
-		else if (KeyIsDown('K')) cube.theta += 0.05f;
-		if (KeyIsDown('J')) cube.psi += 0.05f;
-		else if (KeyIsDown('L')) cube.psi -= 0.05f;
-		if (KeyIsDown('T')) cube.y += 0.1f;
-		else if (KeyIsDown('G')) cube.y -= 0.1f;
-		if (KeyIsDown('F')) cube.x += 0.1f;
-		else if (KeyIsDown('H')) cube.x -= 0.1f;
-		if (KeyIsDown('R')) cube.z += 0.1f;
-		else if (KeyIsDown('Y')) cube.z -= 0.1f;
 		if (!cube.Draw(device))
 			return 1;
 
@@ -142,6 +163,10 @@ int dx9_example()
 			if (!cubes_s[i].Draw(device))
 				return 1;
 		}
+
+		// draw tetrahedron
+		if (!tetrahedron.Draw(device))
+			return 1;
 
 		// end
 		hr = device->EndScene();

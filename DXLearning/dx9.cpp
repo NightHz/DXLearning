@@ -246,13 +246,101 @@ namespace Dx9
 		return mesh;
 	}
 
-	std::shared_ptr<Mesh> Mesh::CreateCubeNormal(IDirect3DDevice9* device)
+	std::shared_ptr<Mesh> Mesh::CreateTetrahedronNormal(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
 		HRESULT hr;
 
-		device;
-		hr;
+		// create buffer
+		mesh->vertex_size = sizeof(VertexNormal);
+		mesh->fvf = VertexNormal::FVF;
+		mesh->vertex_count = 12;
+		hr = device->CreateVertexBuffer(4 * 3 * sizeof(VertexNormal),
+			D3DUSAGE_WRITEONLY, VertexNormal::FVF, D3DPOOL_MANAGED, &mesh->vb, 0);
+		if (FAILED(hr))
+			return nullptr;
+
+		// fill buffer
+		VertexNormal* vertices;
+		hr = mesh->vb->Lock(0, 0, reinterpret_cast<void**>(&vertices), 0);
+		if (FAILED(hr))
+			return nullptr;
+		// xyz
+		vertices[0] = VertexNormal(-1, -1, 1);
+		vertices[1] = VertexNormal(1, -1, 1);
+		vertices[2] = VertexNormal(0, 1, 0);
+		vertices[3] = vertices[1];
+		vertices[4] = VertexNormal(0, -1, -1);
+		vertices[5] = vertices[2];
+		vertices[6] = vertices[4];
+		vertices[7] = vertices[0];
+		vertices[8] = vertices[2];
+		vertices[9] = vertices[0];
+		vertices[10] = vertices[4];
+		vertices[11] = vertices[1];
+		// normal
+		for (int i = 0; i < 12; i += 3)
+		{
+			D3DXVECTOR3 normal = TriangleNormal(vertices[i], vertices[i + 1], vertices[i + 2]);
+			VertexSetNormal(vertices[i], normal);
+			VertexSetNormal(vertices[i + 1], normal);
+			VertexSetNormal(vertices[i + 2], normal);
+		}
+		hr = mesh->vb->Unlock();
+		if (FAILED(hr))
+			return nullptr;
+
+		return mesh;
+	}
+
+	std::shared_ptr<Mesh> Mesh::CreateTetrahedronNormalColor(IDirect3DDevice9* device)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		// create buffer
+		mesh->vertex_size = sizeof(VertexNormalColor);
+		mesh->fvf = VertexNormalColor::FVF;
+		mesh->vertex_count = 12;
+		hr = device->CreateVertexBuffer(4 * 3 * sizeof(VertexNormalColor),
+			D3DUSAGE_WRITEONLY, VertexNormalColor::FVF, D3DPOOL_MANAGED, &mesh->vb, 0);
+		if (FAILED(hr))
+			return nullptr;
+
+		// fill buffer
+		VertexNormalColor* vertices;
+		hr = mesh->vb->Lock(0, 0, reinterpret_cast<void**>(&vertices), 0);
+		if (FAILED(hr))
+			return nullptr;
+		// xyz
+		vertices[0] = VertexNormalColor(-1, -1, 1);
+		vertices[1] = VertexNormalColor(1, -1, 1);
+		vertices[2] = VertexNormalColor(0, 1, 0);
+		vertices[4] = VertexNormalColor(0, -1, -1);
+		// color
+		vertices[0].color = D3DCOLOR_XRGB(0xff, 0, 0);
+		vertices[1].color = D3DCOLOR_XRGB(0, 0xff, 0);
+		vertices[2].color = D3DCOLOR_XRGB(0x80, 0x80, 0x80);
+		vertices[4].color = D3DCOLOR_XRGB(0, 0, 0xff);
+		vertices[3] = vertices[1];
+		vertices[5] = vertices[2];
+		vertices[6] = vertices[4];
+		vertices[7] = vertices[0];
+		vertices[8] = vertices[2];
+		vertices[9] = vertices[0];
+		vertices[10] = vertices[4];
+		vertices[11] = vertices[1];
+		// normal
+		for (int i = 0; i < 12; i += 3)
+		{
+			D3DXVECTOR3 normal = TriangleNormal(vertices[i], vertices[i + 1], vertices[i + 2]);
+			VertexSetNormal(vertices[i], normal);
+			VertexSetNormal(vertices[i + 1], normal);
+			VertexSetNormal(vertices[i + 2], normal);
+		}
+		hr = mesh->vb->Unlock();
+		if (FAILED(hr))
+			return nullptr;
 
 		return mesh;
 	}

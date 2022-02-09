@@ -34,8 +34,16 @@ namespace Dx9
 		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL;
 		VertexNormal() { x = y = z = 0;  nx = ny = nz = 0; }
 		VertexNormal(float _x, float _y, float _z) { x = _x; y = _y; z = _z; nx = ny = nz = 0; }
-		void SetNormal(float _nx, float _ny, float _nz) { nx = _nx; ny = _ny; nz = _nz; }
+	};
 
+	struct VertexNormalColor
+	{
+		float x, y, z;
+		float nx, ny, nz;
+		DWORD color;
+		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE;
+		VertexNormalColor() { x = y = z = 0;  nx = ny = nz = 0; color = 0xff000000; }
+		VertexNormalColor(float _x, float _y, float _z) { x = _x; y = _y; z = _z; nx = ny = nz = 0; color = 0xff000000; }
 	};
 
 	struct VertexNormalTex
@@ -45,13 +53,32 @@ namespace Dx9
 		float u, v;
 		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1;
 		VertexNormalTex() { x = y = z = 0;  nx = ny = nz = 0; u = v = 0; }
-		VertexNormalTex(float _x, float _y, float _z)
-		{
-			x = _x; y = _y; z = _z;
-			nx = ny = nz = 0;
-			u = v = 0;
-		}
+		VertexNormalTex(float _x, float _y, float _z) { x = _x; y = _y; z = _z; nx = ny = nz = 0; u = v = 0; }
 	};
+
+	template <class Vertex>
+	void VertexSetNormal(Vertex& v, D3DXVECTOR3 _n)
+	{
+		v.nx = _n.x;
+		v.ny = _n.y;
+		v.nz = _n.z;
+	}
+
+	template <class Vertex>
+	D3DXVECTOR3 VertexToVector(Vertex& v)
+	{
+		return D3DXVECTOR3(v.x, v.y, v.z);
+	}
+
+	template <class Vertex>
+	D3DXVECTOR3 TriangleNormal(Vertex& vertex1, Vertex& vertex2, Vertex& vertex3)
+	{
+		D3DXVECTOR3 p1 = VertexToVector(vertex1), p2 = VertexToVector(vertex2), p3 = VertexToVector(vertex3);
+		D3DXVECTOR3 v1 = p2 - p1, v2 = p3 - p1, v3, v4;
+		D3DXVec3Cross(&v3, &v1, &v2);
+		D3DXVec3Normalize(&v4, &v3);
+		return v4;
+	}
 
 	class Mesh
 	{
@@ -75,7 +102,8 @@ namespace Dx9
 
 		static std::shared_ptr<Mesh> CreateCubeXYZ(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateCubeColor(IDirect3DDevice9* device);
-		static std::shared_ptr<Mesh> CreateCubeNormal(IDirect3DDevice9* device);
+		static std::shared_ptr<Mesh> CreateTetrahedronNormal(IDirect3DDevice9* device);
+		static std::shared_ptr<Mesh> CreateTetrahedronNormalColor(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateD3DXTeapot(IDirect3DDevice9* device);
 	};
 
