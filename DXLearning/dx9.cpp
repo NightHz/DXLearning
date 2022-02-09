@@ -407,7 +407,19 @@ namespace Dx9
 			VertexSetNormal(vertices[i + 2], normal);
 		}
 		// tex1
-		// ...
+		const float u = 3;
+		VertexSetTex1(vertices[0], u, u); VertexSetTex1(vertices[1], 0, u); VertexSetTex1(vertices[2], 0, 0);
+		VertexSetTex1(vertices[3], u, u); VertexSetTex1(vertices[4], 0, 0); VertexSetTex1(vertices[5], u, 0);
+		VertexSetTex1(vertices[6], 0, u); VertexSetTex1(vertices[7], 0, 0); VertexSetTex1(vertices[8], u, 0);
+		VertexSetTex1(vertices[9], 0, u); VertexSetTex1(vertices[10], u, 0); VertexSetTex1(vertices[11], u, u);
+		VertexSetTex1(vertices[12], 0, 0); VertexSetTex1(vertices[13], 0, u); VertexSetTex1(vertices[14], u, u);
+		VertexSetTex1(vertices[15], 0, 0); VertexSetTex1(vertices[16], u, u); VertexSetTex1(vertices[17], u, 0);
+		VertexSetTex1(vertices[18], 0, 0); VertexSetTex1(vertices[19], u, 0); VertexSetTex1(vertices[20], u, u);
+		VertexSetTex1(vertices[21], 0, 0); VertexSetTex1(vertices[22], u, u); VertexSetTex1(vertices[23], 0, u);
+		VertexSetTex1(vertices[24], u, u); VertexSetTex1(vertices[25], 0, u); VertexSetTex1(vertices[26], 0, 0);
+		VertexSetTex1(vertices[27], u, u); VertexSetTex1(vertices[28], 0, 0); VertexSetTex1(vertices[29], u, 0);
+		VertexSetTex1(vertices[30], 0, u); VertexSetTex1(vertices[31], 0, 0); VertexSetTex1(vertices[32], u, 0);
+		VertexSetTex1(vertices[33], 0, u); VertexSetTex1(vertices[34], u, 0); VertexSetTex1(vertices[35], u, u);
 		hr = mesh->vb->Unlock();
 		if (FAILED(hr))
 			return nullptr;
@@ -485,9 +497,20 @@ namespace Dx9
 		if (FAILED(hr))
 			return false;
 
-		// draw
-		if (!mesh->Draw(device))
+		// set texture
+		if (texture)
+			hr = device->SetTexture(0, texture->tex);
+		else
+			hr = device->SetTexture(0, nullptr);
+		if (FAILED(hr))
 			return false;
+
+		// draw
+		if (mesh)
+		{
+			if (!mesh->Draw(device))
+				return false;
+		}
 
 		return true;
 	}
@@ -524,6 +547,30 @@ namespace Dx9
 			return false;
 
 		return true;
+	}
+
+	Texture::Texture()
+	{
+		tex = nullptr;
+	}
+
+	Texture::~Texture()
+	{
+		if (tex)
+			tex->Release();
+	}
+
+	std::shared_ptr<Texture> Texture::CreateTexture(IDirect3DDevice9* device, const char* filename)
+	{
+		auto texture = std::shared_ptr<Texture>(new Texture());
+		HRESULT hr;
+
+		// create texture
+		hr = D3DXCreateTextureFromFile(device, filename, &texture->tex);
+		if (FAILED(hr))
+			return nullptr;
+
+		return texture;
 	}
 
 }

@@ -81,6 +81,13 @@ namespace Dx9
 		return v4;
 	}
 
+	template <class Vertex>
+	void VertexSetTex1(Vertex& v, float _u, float _v)
+	{
+		v.u1 = _u;
+		v.v1 = _v;
+	}
+
 	class Mesh
 	{
 	private:
@@ -109,6 +116,22 @@ namespace Dx9
 		static std::shared_ptr<Mesh> CreateD3DXTeapot(IDirect3DDevice9* device);
 	};
 
+	class Texture
+	{
+		friend class Object;
+	private:
+		IDirect3DTexture9* tex;
+
+		Texture();
+
+	public:
+		Texture(const Texture&) = delete;
+		Texture& operator=(const Texture&) = delete;
+		~Texture();
+
+		static std::shared_ptr<Texture> CreateTexture(IDirect3DDevice9* device, const char* filename);
+	};
+
 	class Object
 	{
 	private:
@@ -116,6 +139,8 @@ namespace Dx9
 
 	public:
 		std::shared_ptr<Mesh> mesh;
+
+		std::shared_ptr<Texture> texture;
 
 		D3DMATERIAL9 mat;
 

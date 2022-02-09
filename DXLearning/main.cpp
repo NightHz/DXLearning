@@ -32,8 +32,14 @@ int dx9_example()
 	if (!mesh_tetrahedron)
 		return 1;
 
+	// create texture
+	auto texture1 = Dx9::Texture::CreateTexture(device, "tex1.png");
+	if (!texture1)
+		return 1;
+
 	// create cube
 	Dx9::Object cube(mesh_cube);
+	cube.texture = texture1;
 	cube.phi = D3DX_PI * 0.25f;
 	cube.theta = D3DX_PI * 0.25f;
 
@@ -77,8 +83,22 @@ int dx9_example()
 	if (FAILED(hr))
 		return 1;
 
-	// normalize normal
+	// set normalized normal
 	hr = device->SetRenderState(D3DRS_NORMALIZENORMALS, true);
+	if (FAILED(hr))
+		return 1;
+
+	// set texture filter
+	hr = device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_ANISOTROPIC);
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, 4);
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
 	if (FAILED(hr))
 		return 1;
 
@@ -121,6 +141,47 @@ int dx9_example()
 			hr = device->SetRenderState(D3DRS_SPECULARENABLE, false); // default
 		if (FAILED(hr))
 			return 1;
+
+		// set texture filter
+		if (KeyIsDown('C'))
+		{
+			hr = device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP); // default
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP); // default
+			if (FAILED(hr))
+				return 1;
+		}
+		else if (KeyIsDown('V'))
+		{
+			hr = device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_BORDER);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_BORDER);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0xffffffff);
+			if (FAILED(hr))
+				return 1;
+		}
+		else if (KeyIsDown('B'))
+		{
+			hr = device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+			if (FAILED(hr))
+				return 1;
+		}
+		else if (KeyIsDown('N'))
+		{
+			hr = device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_MIRROR);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_MIRROR);
+			if (FAILED(hr))
+				return 1;
+		}
 
 		// set camera and projection
 		if (KeyIsDown('W')) camera.pos.y += 0.1f;
