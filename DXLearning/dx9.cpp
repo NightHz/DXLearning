@@ -57,10 +57,227 @@ namespace Dx9
 		return device;
 	}
 
-	Object::Object()
+	Mesh::Mesh()
 	{
+		mesh = nullptr;
 		vb = nullptr;
 		ib = nullptr;
+		vertex_count = 0;
+		vertex_size = 0;
+		fvf = 0;
+		index_count = 0;
+	}
+
+	Mesh::~Mesh()
+	{
+		if (mesh)
+			mesh->Release();
+		if (vb)
+			vb->Release();
+		if (ib)
+			ib->Release();
+	}
+
+	bool Mesh::Draw(IDirect3DDevice9* device)
+	{
+		HRESULT hr;
+
+		if (mesh)
+		{
+			//draw
+			hr = mesh->DrawSubset(0);
+			if (FAILED(hr))
+				return false;
+		}
+		if (vb)
+		{
+			// set vb
+			hr = device->SetStreamSource(0, vb, 0, vertex_size);
+			if (FAILED(hr))
+				return false;
+			hr = device->SetFVF(fvf);
+			if (FAILED(hr))
+				return false;
+
+			// set ib
+			if (ib)
+			{
+				hr = device->SetIndices(ib);
+				if (FAILED(hr))
+					return false;
+			}
+
+			// draw
+			if (ib)
+				hr = device->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, vertex_count, 0, index_count / 3);
+			else
+				hr = device->DrawPrimitive(D3DPT_TRIANGLELIST, 0, vertex_count / 3);
+			if (FAILED(hr))
+				return false;
+		}
+
+		return true;
+	}
+
+	std::shared_ptr<Mesh> Mesh::CreateCubeXYZ(IDirect3DDevice9* device)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		// create buffer
+		mesh->vertex_size = sizeof(VertexXYZ);
+		mesh->fvf = VertexXYZ::FVF;
+		mesh->vertex_count = 8;
+		mesh->index_count = 36;
+		hr = device->CreateVertexBuffer(8 * sizeof(VertexXYZ),
+			D3DUSAGE_WRITEONLY, VertexXYZ::FVF, D3DPOOL_MANAGED, &mesh->vb, 0);
+		if (FAILED(hr))
+			return nullptr;
+		hr = device->CreateIndexBuffer(12 * 3 * sizeof(WORD),
+			D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &mesh->ib, 0);
+		if (FAILED(hr))
+			return nullptr;
+
+		// fill buffer
+		VertexXYZ* vertices;
+		WORD* indexes;
+		hr = mesh->vb->Lock(0, 0, reinterpret_cast<void**>(&vertices), 0);
+		if (FAILED(hr))
+			return nullptr;
+		// xyz
+		vertices[0] = VertexXYZ(-1, -1, 1);
+		vertices[1] = VertexXYZ(1, -1, 1);
+		vertices[2] = VertexXYZ(-1, 1, 1);
+		vertices[3] = VertexXYZ(1, 1, 1);
+		vertices[4] = VertexXYZ(-1, -1, -1);
+		vertices[5] = VertexXYZ(1, -1, -1);
+		vertices[6] = VertexXYZ(-1, 1, -1);
+		vertices[7] = VertexXYZ(1, 1, -1);
+		hr = mesh->vb->Unlock();
+		if (FAILED(hr))
+			return nullptr;
+		hr = mesh->ib->Lock(0, 0, reinterpret_cast<void**>(&indexes), 0);
+		if (FAILED(hr))
+			return nullptr;
+		indexes[0] = 0; indexes[1] = 1; indexes[2] = 3;
+		indexes[3] = 0; indexes[4] = 3; indexes[5] = 2;
+		indexes[6] = 4; indexes[7] = 6; indexes[8] = 7;
+		indexes[9] = 4; indexes[10] = 7; indexes[11] = 5;
+		indexes[12] = 0; indexes[13] = 4; indexes[14] = 5;
+		indexes[15] = 0; indexes[16] = 5; indexes[17] = 1;
+		indexes[18] = 2; indexes[19] = 3; indexes[20] = 7;
+		indexes[21] = 2; indexes[22] = 7; indexes[23] = 6;
+		indexes[24] = 1; indexes[25] = 5; indexes[26] = 7;
+		indexes[27] = 1; indexes[28] = 7; indexes[29] = 3;
+		indexes[30] = 0; indexes[31] = 2; indexes[32] = 6;
+		indexes[33] = 0; indexes[34] = 6; indexes[35] = 4;
+		hr = mesh->ib->Unlock();
+		if (FAILED(hr))
+			return nullptr;
+
+		return mesh;
+	}
+
+	std::shared_ptr<Mesh> Mesh::CreateCubeColor(IDirect3DDevice9* device)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		// create buffer
+		mesh->vertex_size = sizeof(VertexColor);
+		mesh->fvf = VertexColor::FVF;
+		mesh->vertex_count = 8;
+		mesh->index_count = 36;
+		hr = device->CreateVertexBuffer(8 * sizeof(VertexColor),
+			D3DUSAGE_WRITEONLY, VertexColor::FVF, D3DPOOL_MANAGED, &mesh->vb, 0);
+		if (FAILED(hr))
+			return nullptr;
+		hr = device->CreateIndexBuffer(12 * 3 * sizeof(WORD),
+			D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &mesh->ib, 0);
+		if (FAILED(hr))
+			return nullptr;
+
+		// fill buffer
+		VertexColor* vertices;
+		WORD* indexes;
+		hr = mesh->vb->Lock(0, 0, reinterpret_cast<void**>(&vertices), 0);
+		if (FAILED(hr))
+			return nullptr;
+		// xyz
+		vertices[0] = VertexColor(-1, -1, 1);
+		vertices[1] = VertexColor(1, -1, 1);
+		vertices[2] = VertexColor(-1, 1, 1);
+		vertices[3] = VertexColor(1, 1, 1);
+		vertices[4] = VertexColor(-1, -1, -1);
+		vertices[5] = VertexColor(1, -1, -1);
+		vertices[6] = VertexColor(-1, 1, -1);
+		vertices[7] = VertexColor(1, 1, -1);
+		// color
+		vertices[0].color = D3DCOLOR_XRGB(0, 0, 0);
+		vertices[1].color = D3DCOLOR_XRGB(0xff, 0, 0);
+		vertices[2].color = D3DCOLOR_XRGB(0, 0xff, 0);
+		vertices[3].color = D3DCOLOR_XRGB(0xff, 0xff, 0);
+		vertices[4].color = D3DCOLOR_XRGB(0, 0, 0xff);
+		vertices[5].color = D3DCOLOR_XRGB(0xff, 0, 0xff);
+		vertices[6].color = D3DCOLOR_XRGB(0, 0xff, 0xff);
+		vertices[7].color = D3DCOLOR_XRGB(0xff, 0xff, 0xff);
+		hr = mesh->vb->Unlock();
+		if (FAILED(hr))
+			return nullptr;
+		hr = mesh->ib->Lock(0, 0, reinterpret_cast<void**>(&indexes), 0);
+		if (FAILED(hr))
+			return nullptr;
+		indexes[0] = 0; indexes[1] = 1; indexes[2] = 3;
+		indexes[3] = 0; indexes[4] = 3; indexes[5] = 2;
+		indexes[6] = 4; indexes[7] = 6; indexes[8] = 7;
+		indexes[9] = 4; indexes[10] = 7; indexes[11] = 5;
+		indexes[12] = 0; indexes[13] = 4; indexes[14] = 5;
+		indexes[15] = 0; indexes[16] = 5; indexes[17] = 1;
+		indexes[18] = 2; indexes[19] = 3; indexes[20] = 7;
+		indexes[21] = 2; indexes[22] = 7; indexes[23] = 6;
+		indexes[24] = 1; indexes[25] = 5; indexes[26] = 7;
+		indexes[27] = 1; indexes[28] = 7; indexes[29] = 3;
+		indexes[30] = 0; indexes[31] = 2; indexes[32] = 6;
+		indexes[33] = 0; indexes[34] = 6; indexes[35] = 4;
+		hr = mesh->ib->Unlock();
+		if (FAILED(hr))
+			return nullptr;
+
+		return mesh;
+	}
+
+	std::shared_ptr<Mesh> Mesh::CreateCubeNormal(IDirect3DDevice9* device)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		device;
+		hr;
+
+		return mesh;
+	}
+
+	std::shared_ptr<Mesh> Mesh::CreateD3DXTeapot(IDirect3DDevice9* device)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		hr = D3DXCreateTeapot(device, &mesh->mesh, nullptr);
+		//D3DXCreateBox(device, 2, 2, 2, &mesh_cube, nullptr);
+		if (FAILED(hr))
+			return nullptr;
+
+		return mesh;
+	}
+
+	Object::Object(std::shared_ptr<Mesh> _mesh)
+	{
+		mesh = _mesh;
+		mat.Ambient = D3DXCOLOR(1, 1, 1, 1);
+		mat.Diffuse = D3DXCOLOR(1, 1, 1, 1);
+		mat.Specular = D3DXCOLOR(1, 1, 1, 1);
+		mat.Emissive = D3DXCOLOR(0, 0, 0, 1);
+		mat.Power = 8;
 		x = y = z = 0;
 		phi = theta = psi = 0;
 		sx = sy = sz = 1;
@@ -68,16 +285,6 @@ namespace Dx9
 
 	Object::~Object()
 	{
-		if (vb)
-		{
-			vb->Release();
-			vb = nullptr;
-		}
-		if (ib)
-		{
-			ib->Release();
-			ib = nullptr;
-		}
 	}
 
 	bool Object::Transform(IDirect3DDevice9* device)
@@ -111,87 +318,20 @@ namespace Dx9
 	{
 		HRESULT hr;
 
-		// set buffer
-		hr = device->SetStreamSource(0, vb, 0, sizeof(Vertex));
-		if (FAILED(hr))
+		// tranform
+		if (!Transform(device))
 			return false;
-		hr = device->SetFVF(Vertex::FVF);
-		if (FAILED(hr))
-			return false;
-		hr = device->SetIndices(ib);
+
+		// set material
+		hr = device->SetMaterial(&mat);
 		if (FAILED(hr))
 			return false;
 
 		// draw
-		hr = device->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 8, 0, 12);
-		//hr = device->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 1);
-		if (FAILED(hr))
+		if (!mesh->Draw(device))
 			return false;
 
 		return true;
-	}
-
-	std::shared_ptr<Object> Object::CreateCube(IDirect3DDevice9* device)
-	{
-		auto obj = std::shared_ptr<Object>(new Object);
-		HRESULT hr;
-
-		// create buffer
-		hr = device->CreateVertexBuffer(8 * sizeof(Vertex),
-			D3DUSAGE_WRITEONLY, Vertex::FVF, D3DPOOL_MANAGED, &obj->vb, 0);
-		if (FAILED(hr))
-			return nullptr;
-		hr = device->CreateIndexBuffer(12 * 3 * sizeof(WORD),
-			D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &obj->ib, 0);
-		if (FAILED(hr))
-			return nullptr;
-
-		// fill buffer
-		Vertex* vertices;
-		WORD* indexes;
-		hr = obj->vb->Lock(0, 0, reinterpret_cast<void**>(&vertices), 0);
-		if (FAILED(hr))
-			return nullptr;
-		// xyz
-		vertices[0] = Vertex(-1, -1, 1);
-		vertices[1] = Vertex(1, -1, 1);
-		vertices[2] = Vertex(-1, 1, 1);
-		vertices[3] = Vertex(1, 1, 1);
-		vertices[4] = Vertex(-1, -1, -1);
-		vertices[5] = Vertex(1, -1, -1);
-		vertices[6] = Vertex(-1, 1, -1);
-		vertices[7] = Vertex(1, 1, -1);
-		// color
-		vertices[0].color = D3DCOLOR_XRGB(0, 0, 0);
-		vertices[1].color = D3DCOLOR_XRGB(0xff, 0, 0);
-		vertices[2].color = D3DCOLOR_XRGB(0, 0xff, 0);
-		vertices[3].color = D3DCOLOR_XRGB(0xff, 0xff, 0);
-		vertices[4].color = D3DCOLOR_XRGB(0, 0, 0xff);
-		vertices[5].color = D3DCOLOR_XRGB(0xff, 0, 0xff);
-		vertices[6].color = D3DCOLOR_XRGB(0, 0xff, 0xff);
-		vertices[7].color = D3DCOLOR_XRGB(0xff, 0xff, 0xff);
-		hr = obj->vb->Unlock();
-		if (FAILED(hr))
-			return nullptr;
-		hr = obj->ib->Lock(0, 0, reinterpret_cast<void**>(&indexes), 0);
-		if (FAILED(hr))
-			return nullptr;
-		indexes[0] = 0; indexes[1] = 1; indexes[2] = 3;
-		indexes[3] = 0; indexes[4] = 3; indexes[5] = 2;
-		indexes[6] = 4; indexes[7] = 6; indexes[8] = 7;
-		indexes[9] = 4; indexes[10] = 7; indexes[11] = 5;
-		indexes[12] = 0; indexes[13] = 4; indexes[14] = 5;
-		indexes[15] = 0; indexes[16] = 5; indexes[17] = 1;
-		indexes[18] = 2; indexes[19] = 3; indexes[20] = 7;
-		indexes[21] = 2; indexes[22] = 7; indexes[23] = 6;
-		indexes[24] = 1; indexes[25] = 5; indexes[26] = 7;
-		indexes[27] = 1; indexes[28] = 7; indexes[29] = 3;
-		indexes[30] = 0; indexes[31] = 2; indexes[32] = 6;
-		indexes[33] = 0; indexes[34] = 6; indexes[35] = 4;
-		hr = obj->ib->Unlock();
-		if (FAILED(hr))
-			return nullptr;
-		return obj;
 	}
 
 	Camera::Camera()
@@ -226,13 +366,6 @@ namespace Dx9
 			return false;
 
 		return true;
-	}
-
-	std::shared_ptr<Camera> Camera::CreateCamera(SimpleWindow* window)
-	{
-		auto cam = std::shared_ptr<Camera>(new Camera);
-		cam->aspect = static_cast<float>(window->GetWidth()) / window->GetHeight();
-		return cam;
 	}
 
 }

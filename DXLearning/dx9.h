@@ -24,7 +24,18 @@ namespace Dx9
 		DWORD color;
 		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_DIFFUSE;
 		VertexColor() { x = y = z = 0; color = 0; }
-		VertexColor(float _x, float _y, float _z, DWORD _color = 0xff000000) { x = _x; y = _y; z = _z; color = _color; }
+		VertexColor(float _x, float _y, float _z) { x = _x; y = _y; z = _z; color = 0xff000000; }
+	};
+
+	struct VertexNormal
+	{
+		float x, y, z;
+		float nx, ny, nz;
+		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL;
+		VertexNormal() { x = y = z = 0;  nx = ny = nz = 0; }
+		VertexNormal(float _x, float _y, float _z) { x = _x; y = _y; z = _z; nx = ny = nz = 0; }
+		void SetNormal(float _nx, float _ny, float _nz) { nx = _nx; ny = _ny; nz = _nz; }
+
 	};
 
 	struct VertexNormalTex
@@ -34,37 +45,60 @@ namespace Dx9
 		float u, v;
 		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1;
 		VertexNormalTex() { x = y = z = 0;  nx = ny = nz = 0; u = v = 0; }
-		VertexNormalTex(float _x, float _y, float _z, float _nx, float _ny, float _nz, float _u, float _v)
+		VertexNormalTex(float _x, float _y, float _z)
 		{
 			x = _x; y = _y; z = _z;
-			nx = _nx; ny = _ny; nz = _nz;
-			u = _u; v = _v;
+			nx = ny = nz = 0;
+			u = v = 0;
 		}
+	};
+
+	class Mesh
+	{
+	private:
+		ID3DXMesh* mesh;
+		IDirect3DVertexBuffer9* vb;
+		IDirect3DIndexBuffer9* ib;
+		UINT vertex_count;
+		UINT vertex_size;
+		DWORD fvf;
+		UINT index_count;
+
+		Mesh();
+
+	public:
+		Mesh(const Mesh&) = delete;
+		Mesh& operator=(const Mesh&) = delete;
+		~Mesh();
+
+		bool Draw(IDirect3DDevice9* device);
+
+		static std::shared_ptr<Mesh> CreateCubeXYZ(IDirect3DDevice9* device);
+		static std::shared_ptr<Mesh> CreateCubeColor(IDirect3DDevice9* device);
+		static std::shared_ptr<Mesh> CreateCubeNormal(IDirect3DDevice9* device);
+		static std::shared_ptr<Mesh> CreateD3DXTeapot(IDirect3DDevice9* device);
 	};
 
 	class Object
 	{
 	private:
-		Object();
+		bool Transform(IDirect3DDevice9* device);
 
 	public:
-		using Vertex = VertexColor;
+		std::shared_ptr<Mesh> mesh;
 
-		IDirect3DVertexBuffer9* vb;
-		IDirect3DIndexBuffer9* ib;
+		D3DMATERIAL9 mat;
 
 		float x, y, z;
 		float phi, theta, psi;
 		float sx, sy, sz;
 
+		Object(std::shared_ptr<Mesh> _mesh = nullptr);
 		Object(const Object&) = delete;
 		Object& operator=(const Object&) = delete;
 		~Object();
 
-		bool Transform(IDirect3DDevice9* device);
 		bool Draw(IDirect3DDevice9* device);
-
-		static std::shared_ptr<Object> CreateCube(IDirect3DDevice9* device);
 	};
 
 	class Camera
@@ -83,7 +117,5 @@ namespace Dx9
 		~Camera();
 
 		bool Transform(IDirect3DDevice9* device);
-
-		static std::shared_ptr<Camera> CreateCamera(SimpleWindow* window);
 	};
 }

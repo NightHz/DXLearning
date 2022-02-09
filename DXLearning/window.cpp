@@ -1,4 +1,5 @@
 #include "window.h"
+#include <timeapi.h>
 
 #define WINDOW_CLASS_NAME TEXT("REHENZ")
 
@@ -106,4 +107,24 @@ void SimpleMessageProcess()
 		else
 			break;
 	}
+}
+
+SimpleWindowWithFC::SimpleWindowWithFC(HINSTANCE _hinstance, int _width, int _height, const char* _title_base)
+	: SimpleWindow(_hinstance, _width, _height, _title_base), title_base(_title_base), fps_counter(timeGetTime)
+{
+	fps_counter.LockFps(100);
+	auto updateFps = [this](Rehenz::uint fps)
+	{
+		this->SetTitle((title_base + std::string(" fps:") + std::to_string(fps)).c_str());
+	};
+	fps_counter.UpdateFpsCallback = updateFps;
+}
+
+SimpleWindowWithFC::~SimpleWindowWithFC()
+{
+}
+
+void SimpleWindowWithFC::Present()
+{
+	fps_counter.Present();
 }

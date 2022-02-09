@@ -1,6 +1,8 @@
 #pragma once
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <string>
+#include "fps_counter.h"
 
 class SimpleWindow
 {
@@ -29,3 +31,19 @@ public:
 };
 
 void SimpleMessageProcess();
+
+
+class SimpleWindowWithFC : public SimpleWindow
+{
+private:
+public:
+	std::string title_base;
+	Rehenz::FpsCounter fps_counter;
+
+	SimpleWindowWithFC(HINSTANCE _hinstance, int _width, int _height, const char* _title_base);
+	SimpleWindowWithFC(const SimpleWindowWithFC&) = delete;
+	SimpleWindowWithFC& operator=(const SimpleWindowWithFC&) = delete;
+	~SimpleWindowWithFC();
+
+	void Present();
+};
