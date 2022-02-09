@@ -46,14 +46,15 @@ namespace Dx9
 		VertexNormalColor(float _x, float _y, float _z) { x = _x; y = _y; z = _z; nx = ny = nz = 0; color = 0xff000000; }
 	};
 
-	struct VertexNormalTex
+	struct VertexNormalColorTex1
 	{
 		float x, y, z;
 		float nx, ny, nz;
-		float u, v;
-		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1;
-		VertexNormalTex() { x = y = z = 0;  nx = ny = nz = 0; u = v = 0; }
-		VertexNormalTex(float _x, float _y, float _z) { x = _x; y = _y; z = _z; nx = ny = nz = 0; u = v = 0; }
+		DWORD color;
+		float u1, v1;
+		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE | D3DFVF_TEX1;
+		VertexNormalColorTex1() { x = y = z = 0;  nx = ny = nz = 0; color = 0xff000000; u1 = v1 = 0; }
+		VertexNormalColorTex1(float _x, float _y, float _z) { x = _x; y = _y; z = _z; nx = ny = nz = 0; color = 0xff000000; u1 = v1 = 0; }
 	};
 
 	template <class Vertex>
@@ -104,6 +105,7 @@ namespace Dx9
 		static std::shared_ptr<Mesh> CreateCubeColor(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateTetrahedronNormal(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateTetrahedronNormalColor(IDirect3DDevice9* device);
+		static std::shared_ptr<Mesh> CreateCubeNormalColorTex1(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateD3DXTeapot(IDirect3DDevice9* device);
 	};
 

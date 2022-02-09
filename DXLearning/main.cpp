@@ -22,7 +22,7 @@ int dx9_example()
 	cout << "finish create dx9 device" << endl;
 	
 	// create mesh
-	auto mesh_cube = Dx9::Mesh::CreateCubeColor(device);
+	auto mesh_cube = Dx9::Mesh::CreateCubeNormalColorTex1(device);
 	if (!mesh_cube)
 		return 1;
 	auto mesh_teapot = Dx9::Mesh::CreateD3DXTeapot(device);
@@ -34,7 +34,7 @@ int dx9_example()
 
 	// create cube
 	Dx9::Object cube(mesh_cube);
-	cube.psi = D3DX_PI * 0.25f;
+	cube.phi = D3DX_PI * 0.25f;
 	cube.theta = D3DX_PI * 0.25f;
 
 	// create d3dx teapot
@@ -137,7 +137,7 @@ int dx9_example()
 			return 1;
 
 		// control
-		auto control_obj = &tetrahedron;
+		auto control_obj = &cube;
 		if (KeyIsDown('I')) control_obj->theta -= 0.05f;
 		else if (KeyIsDown('K')) control_obj->theta += 0.05f;
 		if (KeyIsDown('J')) control_obj->psi += 0.05f;

@@ -345,6 +345,76 @@ namespace Dx9
 		return mesh;
 	}
 
+	std::shared_ptr<Mesh> Mesh::CreateCubeNormalColorTex1(IDirect3DDevice9* device)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		// create buffer
+		mesh->vertex_size = sizeof(VertexNormalColorTex1);
+		mesh->fvf = VertexNormalColorTex1::FVF;
+		mesh->vertex_count = 36;
+		hr = device->CreateVertexBuffer(12 * 3 * sizeof(VertexNormalColorTex1),
+			D3DUSAGE_WRITEONLY, VertexNormalColorTex1::FVF, D3DPOOL_MANAGED, &mesh->vb, 0);
+		if (FAILED(hr))
+			return nullptr;
+
+		// base cube
+		VertexNormalColorTex1 v[8];
+		// xyz
+		v[0] = VertexNormalColorTex1(-1, -1, 1);
+		v[1] = VertexNormalColorTex1(1, -1, 1);
+		v[2] = VertexNormalColorTex1(-1, 1, 1);
+		v[3] = VertexNormalColorTex1(1, 1, 1);
+		v[4] = VertexNormalColorTex1(-1, -1, -1);
+		v[5] = VertexNormalColorTex1(1, -1, -1);
+		v[6] = VertexNormalColorTex1(-1, 1, -1);
+		v[7] = VertexNormalColorTex1(1, 1, -1);
+		// color
+		v[0].color = D3DCOLOR_XRGB(0, 0, 0);
+		v[1].color = D3DCOLOR_XRGB(0xff, 0, 0);
+		v[2].color = D3DCOLOR_XRGB(0, 0xff, 0);
+		v[3].color = D3DCOLOR_XRGB(0xff, 0xff, 0);
+		v[4].color = D3DCOLOR_XRGB(0, 0, 0xff);
+		v[5].color = D3DCOLOR_XRGB(0xff, 0, 0xff);
+		v[6].color = D3DCOLOR_XRGB(0, 0xff, 0xff);
+		v[7].color = D3DCOLOR_XRGB(0xff, 0xff, 0xff);
+
+		// fill buffer
+		VertexNormalColorTex1* vertices;
+		hr = mesh->vb->Lock(0, 0, reinterpret_cast<void**>(&vertices), 0);
+		if (FAILED(hr))
+			return nullptr;
+		// xyz and color
+		vertices[0] = v[0]; vertices[1] = v[1]; vertices[2] = v[3];
+		vertices[3] = v[0]; vertices[4] = v[3]; vertices[5] = v[2];
+		vertices[6] = v[4]; vertices[7] = v[6]; vertices[8] = v[7];
+		vertices[9] = v[4]; vertices[10] = v[7]; vertices[11] = v[5];
+		vertices[12] = v[0]; vertices[13] = v[4]; vertices[14] = v[5];
+		vertices[15] = v[0]; vertices[16] = v[5]; vertices[17] = v[1];
+		vertices[18] = v[2]; vertices[19] = v[3]; vertices[20] = v[7];
+		vertices[21] = v[2]; vertices[22] = v[7]; vertices[23] = v[6];
+		vertices[24] = v[1]; vertices[25] = v[5]; vertices[26] = v[7];
+		vertices[27] = v[1]; vertices[28] = v[7]; vertices[29] = v[3];
+		vertices[30] = v[0]; vertices[31] = v[2]; vertices[32] = v[6];
+		vertices[33] = v[0]; vertices[34] = v[6]; vertices[35] = v[4];
+		// normal
+		for (int i = 0; i < 36; i += 3)
+		{
+			D3DXVECTOR3 normal = TriangleNormal(vertices[i], vertices[i + 1], vertices[i + 2]);
+			VertexSetNormal(vertices[i], normal);
+			VertexSetNormal(vertices[i + 1], normal);
+			VertexSetNormal(vertices[i + 2], normal);
+		}
+		// tex1
+		// ...
+		hr = mesh->vb->Unlock();
+		if (FAILED(hr))
+			return nullptr;
+
+		return mesh;
+	}
+
 	std::shared_ptr<Mesh> Mesh::CreateD3DXTeapot(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
