@@ -45,7 +45,11 @@ int dx9_example()
 
 	// create d3dx teapot
 	Dx9::Object teapot(mesh_teapot);
-	teapot.x = 5;
+	teapot.mat.Diffuse.a = 0.5f;
+	teapot.z = 4;
+	teapot.sx = 0.6f;
+	teapot.sy = 0.6f;
+	teapot.sz = 0.6f;
 
 	// create small cubes
 	Dx9::Object cubes_s[100];
@@ -63,6 +67,8 @@ int dx9_example()
 	// create tetrahedron
 	Dx9::Object tetrahedron(mesh_tetrahedron);
 	tetrahedron.y = -4;
+	tetrahedron.sx = 3.0f;
+	tetrahedron.sz = 3.0f;
 
 	// create camera
 	Dx9::Camera camera;
@@ -84,7 +90,18 @@ int dx9_example()
 		return 1;
 
 	// set normalized normal
-	hr = device->SetRenderState(D3DRS_NORMALIZENORMALS, true);
+	hr = device->SetRenderState(D3DRS_NORMALIZENORMALS, true); // default is false
+	if (FAILED(hr))
+		return 1;
+
+	// set blend
+	hr = device->SetRenderState(D3DRS_ALPHABLENDENABLE, true); // default is false
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA); // default is D3DBLEND_ONE
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA); // default is D3DBLEND_ZERO
 	if (FAILED(hr))
 		return 1;
 
@@ -214,16 +231,16 @@ int dx9_example()
 		if (!cube.Draw(device))
 			return 1;
 
-		// draw teapot
-		if (!teapot.Draw(device))
-			return 1;
-
 		// draw small cubes
 		for (int i = 0; i < 100; i++)
 		{
 			if (!cubes_s[i].Draw(device))
 				return 1;
 		}
+
+		// draw teapot
+		if (!teapot.Draw(device))
+			return 1;
 
 		// draw tetrahedron
 		if (!tetrahedron.Draw(device))
