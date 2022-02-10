@@ -31,6 +31,9 @@ int dx9_example()
 	auto mesh_tetrahedron = Dx9::Mesh::CreateTetrahedronNormalColor(device);
 	if (!mesh_tetrahedron)
 		return 1;
+	auto mesh_plane = Dx9::Mesh::CreatePlaneNormal(device);
+	if (!mesh_plane)
+		return 1;
 
 	// create texture
 	auto texture1 = Dx9::Texture::CreateTexture(device, "tex1.png");
@@ -42,10 +45,12 @@ int dx9_example()
 	cube.texture = texture1;
 	cube.phi = D3DX_PI * 0.25f;
 	cube.theta = D3DX_PI * 0.25f;
+	cube.x = 4;
 
 	// create d3dx teapot
 	Dx9::Object teapot(mesh_teapot);
 	teapot.mat.Diffuse.a = 0.5f;
+	teapot.x = 2;
 	teapot.z = 4;
 	teapot.sx = 0.6f;
 	teapot.sy = 0.6f;
@@ -66,9 +71,25 @@ int dx9_example()
 
 	// create tetrahedron
 	Dx9::Object tetrahedron(mesh_tetrahedron);
+	tetrahedron.x = 3;
 	tetrahedron.y = -4;
 	tetrahedron.sx = 3.0f;
 	tetrahedron.sz = 3.0f;
+
+	// create cube2
+	Dx9::Object cube2(mesh_cube);
+	cube2.phi = D3DX_PI * 0.25f;
+	cube2.theta = D3DX_PI * 0.25f;
+	cube2.x = -4;
+	cube2.z = 2;
+
+	// create mirror
+	Dx9::Object mirror(mesh_plane);
+	mirror.mat.Ambient = D3DXCOLOR(100, 100, 100, 1);
+	mirror.x = -4;
+	mirror.z = -1;
+	mirror.sx = 3;
+	mirror.sy = 3;
 
 	// create camera
 	Dx9::Camera camera;
@@ -102,6 +123,14 @@ int dx9_example()
 	if (FAILED(hr))
 		return 1;
 	hr = device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA); // default is D3DBLEND_ZERO
+	if (FAILED(hr))
+		return 1;
+
+	// set stencil
+	//DWORD v;
+	//device->GetRenderState(D3DRS_STENCILENABLE, &v);
+	//cout << "D3DRS_STENCILENABLE : " << v << endl;
+	hr = device->SetRenderState(D3DRS_STENCILENABLE, true); // default is false
 	if (FAILED(hr))
 		return 1;
 
@@ -215,7 +244,7 @@ int dx9_example()
 			return 1;
 
 		// control
-		auto control_obj = &cube;
+		auto control_obj = &mirror;
 		if (KeyIsDown('I')) control_obj->theta -= 0.05f;
 		else if (KeyIsDown('K')) control_obj->theta += 0.05f;
 		if (KeyIsDown('J')) control_obj->psi += 0.05f;
@@ -244,6 +273,75 @@ int dx9_example()
 
 		// draw tetrahedron
 		if (!tetrahedron.Draw(device))
+			return 1;
+
+		// draw cube2
+		if (!cube2.Draw(device))
+			return 1;
+
+		// draw mirror and update stencil
+		hr = device->Clear(0, nullptr, D3DCLEAR_STENCIL, 0, 0, 0);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_STENCILREF, 0x1);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_REPLACE);
+		if (FAILED(hr))
+			return 1;
+		if (!mirror.Draw(device))
+			return 1;
+		hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_KEEP);
+		if (FAILED(hr))
+			return 1;
+
+		// begin mirror
+		// set stencil test
+		hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_EQUAL);
+		if (FAILED(hr))
+			return 1;
+		// set blend
+		hr = device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_DESTCOLOR);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ZERO);
+		if (FAILED(hr))
+			return 1;
+		// set winding order
+		hr = device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CW);
+		if (FAILED(hr))
+			return 1;
+		// clear zbuffer
+		hr = device->Clear(0, nullptr, D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
+		if (FAILED(hr))
+			return 1;
+		// compute mirror plane
+		D3DXVECTOR4 n0(0, 0, 1, 0), n1;
+		D3DXMATRIX transform = mirror.ComputeTransform();
+		D3DXVec4Transform(&n1, &n0, &transform);
+		D3DXVECTOR3 n2(n1), n3;
+		D3DXVec3Normalize(&n3, &n2);
+		D3DXPLANE plane_mirror(n3.x, n3.y, n3.z, -(mirror.x * n3.x + mirror.y * n3.y + mirror.z * n3.z));
+		// set reflect
+		if (!camera.TransformReflect(device, plane_mirror))
+			return 1;
+
+		// draw cube2 mirror
+		if (!cube2.Draw(device))
+			return 1;
+
+		// end mirror
+		hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_ALWAYS);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+		if (FAILED(hr))
 			return 1;
 
 		// end

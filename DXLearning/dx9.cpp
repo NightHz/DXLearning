@@ -427,6 +427,47 @@ namespace Dx9
 		return mesh;
 	}
 
+	std::shared_ptr<Mesh> Mesh::CreatePlaneNormal(IDirect3DDevice9* device)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		// create buffer
+		mesh->vertex_size = sizeof(VertexNormal);
+		mesh->fvf = VertexNormal::FVF;
+		mesh->vertex_count = 6;
+		hr = device->CreateVertexBuffer(2 * 3 * sizeof(VertexNormal),
+			D3DUSAGE_WRITEONLY, VertexNormal::FVF, D3DPOOL_MANAGED, &mesh->vb, 0);
+		if (FAILED(hr))
+			return nullptr;
+
+		// fill buffer
+		VertexNormal* vertices;
+		hr = mesh->vb->Lock(0, 0, reinterpret_cast<void**>(&vertices), 0);
+		if (FAILED(hr))
+			return nullptr;
+		// xyz
+		vertices[0] = VertexNormal(-1, -1, 0);
+		vertices[1] = VertexNormal(1, -1, 0);
+		vertices[2] = VertexNormal(1, 1, 0);
+		vertices[3] = VertexNormal(-1, -1, 0);
+		vertices[4] = VertexNormal(1, 1, 0);
+		vertices[5] = VertexNormal(-1, 1, 0);
+		// normal
+		D3DXVECTOR3 normal(0, 0, 1);
+		VertexSetNormal(vertices[0], normal);
+		VertexSetNormal(vertices[1], normal);
+		VertexSetNormal(vertices[2], normal);
+		VertexSetNormal(vertices[3], normal);
+		VertexSetNormal(vertices[4], normal);
+		VertexSetNormal(vertices[5], normal);
+		hr = mesh->vb->Unlock();
+		if (FAILED(hr))
+			return nullptr;
+
+		return mesh;
+	}
+
 	std::shared_ptr<Mesh> Mesh::CreateD3DXTeapot(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
@@ -457,39 +498,34 @@ namespace Dx9
 	{
 	}
 
-	bool Object::Transform(IDirect3DDevice9* device)
+	D3DXMATRIX Object::ComputeTransform()
 	{
-		HRESULT hr;
-
-		// compute matrix
-		D3DXMATRIX mat_world;
 		D3DXMATRIX mat_scale, mat_rotation, mat_position;
+
 		// scale
 		D3DXMatrixScaling(&mat_scale, sx, sy, sz);
+
 		// rotation
 		D3DXMATRIX mat_phi, mat_theta, mat_psi;
 		D3DXMatrixRotationY(&mat_phi, phi);
 		D3DXMatrixRotationZ(&mat_theta, theta);
 		D3DXMatrixRotationY(&mat_psi, psi);
 		mat_rotation = mat_phi * mat_theta * mat_psi;
+
 		// translation
 		D3DXMatrixTranslation(&mat_position, x, y, z);
-		mat_world = mat_scale * mat_rotation * mat_position;
 
-		// set transform
-		hr = device->SetTransform(D3DTS_WORLD, &mat_world);
-		if (FAILED(hr))
-			return false;
-
-		return true;
+		return mat_scale * mat_rotation * mat_position;
 	}
 
 	bool Object::Draw(IDirect3DDevice9* device)
 	{
 		HRESULT hr;
 
-		// tranform
-		if (!Transform(device))
+		// set transform
+		D3DXMATRIX mat_world = ComputeTransform();
+		hr = device->SetTransform(D3DTS_WORLD, &mat_world);
+		if (FAILED(hr))
 			return false;
 
 		// set material
@@ -515,6 +551,47 @@ namespace Dx9
 		return true;
 	}
 
+	bool Object::DrawMirror(IDirect3DDevice9* device, const D3DXPLANE& plane)
+	{
+		HRESULT hr;
+
+		// set transform
+		D3DXMATRIX mat_reflect;
+		D3DXMatrixReflect(&mat_reflect, &plane);
+		D3DXMATRIX mat_world = ComputeTransform() * mat_reflect;
+		hr = device->SetTransform(D3DTS_WORLD, &mat_world);
+		if (FAILED(hr))
+			return false;
+
+		// set material
+		hr = device->SetMaterial(&mat);
+		if (FAILED(hr))
+			return false;
+
+		// set texture
+		if (texture)
+			hr = device->SetTexture(0, texture->tex);
+		else
+			hr = device->SetTexture(0, nullptr);
+		if (FAILED(hr))
+			return false;
+
+		// draw
+		if (mesh)
+		{
+			if (!mesh->Draw(device))
+				return false;
+		}
+
+		return true;
+	}
+
+	bool Object::DrawShadow(IDirect3DDevice9* device, const D3DXPLANE& plane)
+	{
+		// ...
+		return false;
+	}
+
 	Camera::Camera()
 		: pos(0, 0, 5), at(0, 0, 0), up(0, 1, 0)
 	{
@@ -536,6 +613,30 @@ namespace Dx9
 		D3DXMATRIX mat_view;
 		D3DXMatrixLookAtLH(&mat_view, &pos, &at, &up);
 		hr = device->SetTransform(D3DTS_VIEW, &mat_view);
+		if (FAILED(hr))
+			return false;
+
+		// set projection
+		D3DXMATRIX mat_project;
+		D3DXMatrixPerspectiveFovLH(&mat_project, fovy, aspect, znear, zfar);
+		hr = device->SetTransform(D3DTS_PROJECTION, &mat_project);
+		if (FAILED(hr))
+			return false;
+
+		return true;
+	}
+
+	bool Camera::TransformReflect(IDirect3DDevice9* device, const D3DXPLANE& plane)
+	{
+		HRESULT hr;
+
+		// set camera and mirror
+		D3DXMATRIX mat_reflect;
+		D3DXMatrixReflect(&mat_reflect, &plane);
+		D3DXMATRIX mat_view;
+		D3DXMatrixLookAtLH(&mat_view, &pos, &at, &up);
+		D3DXMATRIX mat_view2 = mat_reflect * mat_view;
+		hr = device->SetTransform(D3DTS_VIEW, &mat_view2);
 		if (FAILED(hr))
 			return false;
 

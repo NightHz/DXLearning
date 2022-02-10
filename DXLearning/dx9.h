@@ -113,6 +113,7 @@ namespace Dx9
 		static std::shared_ptr<Mesh> CreateTetrahedronNormal(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateTetrahedronNormalColor(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateCubeNormalColorTex1(IDirect3DDevice9* device);
+		static std::shared_ptr<Mesh> CreatePlaneNormal(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateD3DXTeapot(IDirect3DDevice9* device);
 	};
 
@@ -135,8 +136,6 @@ namespace Dx9
 	class Object
 	{
 	private:
-		bool Transform(IDirect3DDevice9* device);
-
 	public:
 		std::shared_ptr<Mesh> mesh;
 
@@ -153,7 +152,11 @@ namespace Dx9
 		Object& operator=(const Object&) = delete;
 		~Object();
 
+		D3DXMATRIX ComputeTransform();
+
 		bool Draw(IDirect3DDevice9* device);
+		bool DrawMirror(IDirect3DDevice9* device, const D3DXPLANE& plane);
+		bool DrawShadow(IDirect3DDevice9* device, const D3DXPLANE& plane);
 	};
 
 	class Camera
@@ -172,5 +175,6 @@ namespace Dx9
 		~Camera();
 
 		bool Transform(IDirect3DDevice9* device);
+		bool TransformReflect(IDirect3DDevice9* device, const D3DXPLANE& plane);
 	};
 }
