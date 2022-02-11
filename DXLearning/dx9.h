@@ -156,7 +156,7 @@ namespace Dx9
 
 		bool Draw(IDirect3DDevice9* device);
 		bool DrawMirror(IDirect3DDevice9* device, const D3DXPLANE& plane);
-		bool DrawShadow(IDirect3DDevice9* device, const D3DXPLANE& plane);
+		bool DrawShadow(IDirect3DDevice9* device, const D3DXVECTOR4& light_dir, const D3DXPLANE& plane);
 	};
 
 	class Camera

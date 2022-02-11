@@ -586,10 +586,49 @@ namespace Dx9
 		return true;
 	}
 
-	bool Object::DrawShadow(IDirect3DDevice9* device, const D3DXPLANE& plane)
+	bool Object::DrawShadow(IDirect3DDevice9* device, const D3DXVECTOR4& light_dir, const D3DXPLANE& plane)
 	{
-		// ...
-		return false;
+		HRESULT hr;
+
+		// set transform
+		D3DXMATRIX mat_shadow;
+		D3DXMatrixShadow(&mat_shadow, &light_dir, &plane); // the function have some errors
+		mat_shadow *= -1;                                  // temporary fix
+		D3DXMATRIX mat_world = ComputeTransform() * mat_shadow;
+		hr = device->SetTransform(D3DTS_WORLD, &mat_world);
+		if (FAILED(hr))
+			return false;
+
+		// set material
+		D3DMATERIAL9 material;
+		material.Ambient = D3DXCOLOR(0, 0, 0, 1);
+		material.Diffuse = D3DXCOLOR(0, 0, 0, 0.5f);
+		material.Specular = D3DXCOLOR(0, 0, 0, 1);
+		material.Emissive = D3DXCOLOR(0, 0, 0, 1);
+		material.Power = 8;
+		hr = device->SetMaterial(&material);
+		if (FAILED(hr))
+			return false;
+
+		// set texture
+		hr = device->SetTexture(0, nullptr);
+		if (FAILED(hr))
+			return false;
+
+		// draw
+		if (mesh)
+		{
+			hr = device->SetRenderState(D3DRS_COLORVERTEX, false);
+			if (FAILED(hr))
+				return 1;
+			if (!mesh->Draw(device))
+				return false;
+			hr = device->SetRenderState(D3DRS_COLORVERTEX, true);
+			if (FAILED(hr))
+				return 1;
+		}
+
+		return true;
 	}
 
 	Camera::Camera()

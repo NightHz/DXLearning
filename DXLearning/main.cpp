@@ -83,6 +83,17 @@ int dx9_example()
 	cube2.x = -4;
 	cube2.z = 2;
 
+	// create cube3
+	Dx9::Object cube3(mesh_cube);
+	cube3.phi = D3DX_PI * 0.25f;
+	cube3.theta = D3DX_PI * 0.25f;
+	cube3.x = -2.5f;
+	cube3.z = 2;
+	cube3.y = 3;
+	cube3.sx = 0.4f;
+	cube3.sy = 0.4f;
+	cube3.sz = 0.4f;
+
 	// create mirror
 	Dx9::Object mirror(mesh_plane);
 	mirror.mat.Ambient = D3DXCOLOR(100, 100, 100, 1);
@@ -90,6 +101,17 @@ int dx9_example()
 	mirror.z = -1;
 	mirror.sx = 3;
 	mirror.sy = 3;
+
+	// create ground
+	Dx9::Object ground(mesh_plane);
+	ground.mat.Diffuse = D3DXCOLOR(0.2f, 1, 1, 1);
+	ground.phi = D3DX_PI * 0.5f;
+	ground.theta = D3DX_PI * 0.5f;
+	ground.x = -4;
+	ground.z = 2;
+	ground.y = -4;
+	ground.sx = 2.5f;
+	ground.sy = 2.5f;
 
 	// create camera
 	Dx9::Camera camera;
@@ -244,7 +266,9 @@ int dx9_example()
 			return 1;
 
 		// control
-		auto control_obj = &mirror;
+		static auto control_obj = &mirror;
+		if (KeyIsDown(VK_NUMPAD1)) control_obj = &mirror;
+		else if (KeyIsDown(VK_NUMPAD2)) control_obj = &ground;
 		if (KeyIsDown('I')) control_obj->theta -= 0.05f;
 		else if (KeyIsDown('K')) control_obj->theta += 0.05f;
 		if (KeyIsDown('J')) control_obj->psi += 0.05f;
@@ -277,6 +301,62 @@ int dx9_example()
 
 		// draw cube2
 		if (!cube2.Draw(device))
+			return 1;
+
+		// draw cube3
+		if (!cube3.Draw(device))
+			return 1;
+
+		// draw ground and update stencil
+		hr = device->Clear(0, nullptr, D3DCLEAR_STENCIL, 0, 0, 0);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_STENCILREF, 0x1);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_REPLACE);
+		if (FAILED(hr))
+			return 1;
+		if (!ground.Draw(device))
+			return 1;
+		hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_KEEP);
+		if (FAILED(hr))
+			return 1;
+
+		// begin shadow
+		// set stencil test
+		hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_INCRSAT);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_EQUAL);
+		if (FAILED(hr))
+			return 1;
+		// disable z test
+		hr = device->SetRenderState(D3DRS_ZENABLE, false);
+		if (FAILED(hr))
+			return 1;
+		// compute ground plane
+		D3DXVECTOR4 g_n0(0, 0, 1, 0), g_n1;
+		D3DXMATRIX g_transform = ground.ComputeTransform();
+		D3DXVec4Transform(&g_n1, &g_n0, &g_transform);
+		D3DXVECTOR3 g_n2(g_n1), g_n3;
+		D3DXVec3Normalize(&g_n3, &g_n2);
+		D3DXPLANE plane_ground(g_n3.x, g_n3.y, g_n3.z, -(ground.x * g_n3.x + ground.y * g_n3.y + ground.z * g_n3.z));
+
+		// draw cube2 shadow
+		if (!cube2.DrawShadow(device, D3DXVECTOR4(light.Direction, 0), plane_ground))
+			return 1;
+
+		// draw cube3 shadow
+		if (!cube3.DrawShadow(device, D3DXVECTOR4(light.Direction, 0), plane_ground))
+			return 1;
+
+		// end shadow
+		hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_ALWAYS);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_ZENABLE, true);
+		if (FAILED(hr))
 			return 1;
 
 		// draw mirror and update stencil
@@ -328,6 +408,10 @@ int dx9_example()
 
 		// draw cube2 mirror
 		if (!cube2.Draw(device))
+			return 1;
+
+		// draw cube3 mirror
+		if (!cube3.Draw(device))
 			return 1;
 
 		// end mirror
