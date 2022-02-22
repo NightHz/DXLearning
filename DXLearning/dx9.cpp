@@ -670,8 +670,10 @@ namespace Dx9
 	}
 
 	Camera::Camera()
-		: pos(0, 0, 5), at(0, 0, 0), up(0, 1, 0)
+		: pos(0, 0, 5)
 	{
+		pitch = 0;
+		yaw = D3DX_PI;
 		fovy = D3DX_PI * 0.5f;
 		aspect = 1;
 		znear = 1;
@@ -682,13 +684,80 @@ namespace Dx9
 	{
 	}
 
+	void Camera::MoveFront(float d)
+	{
+		D3DXMATRIX mat_yaw;
+		D3DXMatrixRotationY(&mat_yaw, -yaw);
+		D3DXVECTOR4 z(0, 0, 1, 0), front;
+		D3DXVec4Transform(&front, &z, &mat_yaw);
+		pos.x += front.x * d;
+		pos.z += front.z * d;
+	}
+
+	void Camera::MoveBack(float d)
+	{
+		MoveFront(-d);
+	}
+
+	void Camera::MoveLeft(float d)
+	{
+		MoveRight(-d);
+	}
+
+	void Camera::MoveRight(float d)
+	{
+		D3DXMATRIX mat_yaw;
+		D3DXMatrixRotationY(&mat_yaw, -yaw);
+		D3DXVECTOR4 x(1, 0, 0, 0), right;
+		D3DXVec4Transform(&right, &x, &mat_yaw);
+		pos.x += right.x * d;
+		pos.z += right.z * d;
+	}
+
+	void Camera::MoveUp(float d)
+	{
+		pos.y += d;
+	}
+
+	void Camera::MoveDown(float d)
+	{
+		MoveUp(-d);
+	}
+
+	void Camera::YawLeft(float angle)
+	{
+		yaw += angle;
+	}
+
+	void Camera::YawRight(float angle)
+	{
+		YawLeft(-angle);
+	}
+
+	void Camera::PitchUp(float angle)
+	{
+		pitch += angle;
+	}
+
+	void Camera::PitchDown(float angle)
+	{
+		PitchUp(-angle);
+	}
+
 	bool Camera::Transform(IDirect3DDevice9* device)
 	{
 		HRESULT hr;
 
 		// set camera
+		D3DXMATRIX mat_position, mat_rotation;
+		D3DXMatrixTranslation(&mat_position, -pos.x, -pos.y, -pos.z);
+		D3DXMATRIX mat_pitch, mat_yaw;
+		D3DXMatrixRotationY(&mat_yaw, yaw);
+		D3DXMatrixRotationX(&mat_pitch, pitch);
+		mat_rotation = mat_yaw * mat_pitch;
 		D3DXMATRIX mat_view;
-		D3DXMatrixLookAtLH(&mat_view, &pos, &at, &up);
+		mat_view = mat_position * mat_rotation;
+		//D3DXMatrixLookAtLH(&mat_view, &pos, &at, &up);
 		hr = device->SetTransform(D3DTS_VIEW, &mat_view);
 		if (FAILED(hr))
 			return false;
@@ -710,8 +779,15 @@ namespace Dx9
 		// set camera and mirror
 		D3DXMATRIX mat_reflect;
 		D3DXMatrixReflect(&mat_reflect, &plane);
+		D3DXMATRIX mat_position, mat_rotation;
+		D3DXMatrixTranslation(&mat_position, -pos.x, -pos.y, -pos.z);
+		D3DXMATRIX mat_pitch, mat_yaw;
+		D3DXMatrixRotationY(&mat_yaw, yaw);
+		D3DXMatrixRotationX(&mat_pitch, pitch);
+		mat_rotation = mat_yaw * mat_pitch;
 		D3DXMATRIX mat_view;
-		D3DXMatrixLookAtLH(&mat_view, &pos, &at, &up);
+		mat_view = mat_position * mat_rotation;
+		//D3DXMatrixLookAtLH(&mat_view, &pos, &at, &up);
 		D3DXMATRIX mat_view2 = mat_reflect * mat_view;
 		hr = device->SetTransform(D3DTS_VIEW, &mat_view2);
 		if (FAILED(hr))

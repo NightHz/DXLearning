@@ -166,14 +166,25 @@ namespace Dx9
 
 	public:
 		D3DXVECTOR3 pos;
-		D3DXVECTOR3 at;
-		D3DXVECTOR3 up;
+		float pitch, yaw;
 		float fovy, aspect, znear, zfar;
 
 		Camera();
 		Camera(const Camera&) = delete;
 		Camera& operator=(const Camera&) = delete;
 		~Camera();
+
+		void MoveFront(float d);
+		void MoveBack(float d);
+		void MoveLeft(float d);
+		void MoveRight(float d);
+		void MoveUp(float d);
+		void MoveDown(float d);
+
+		void YawLeft(float angle);
+		void YawRight(float angle);
+		void PitchUp(float angle);
+		void PitchDown(float angle);
 
 		bool Transform(IDirect3DDevice9* device);
 		bool TransformReflect(IDirect3DDevice9* device, const D3DXPLANE& plane);

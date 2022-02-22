@@ -130,6 +130,8 @@ int dx9_example()
 	Dx9::Camera camera;
 	camera.aspect = static_cast<float>(window.GetWidth()) / window.GetHeight();
 	camera.pos.z = 8;
+	POINT mouse_pos;
+	GetPhysicalCursorPos(&mouse_pos);
 
 	// create light
 	D3DLIGHT9 light;
@@ -265,11 +267,18 @@ int dx9_example()
 		}
 
 		// set camera and projection
-		if (KeyIsDown('W')) camera.pos.y += 0.1f;
-		else if (KeyIsDown('S')) camera.pos.y -= 0.1f;
-		if (KeyIsDown('A')) camera.pos.x += 0.1f;
-		else if (KeyIsDown('D')) camera.pos.x -= 0.1f;
+		if (KeyIsDown('W')) camera.MoveFront(0.1f);
+		else if (KeyIsDown('S')) camera.MoveBack(0.1f);
+		if (KeyIsDown('A')) camera.MoveLeft(0.1f);
+		else if (KeyIsDown('D')) camera.MoveRight(0.1f);
+		if (KeyIsDown(VK_SPACE)) camera.MoveUp(0.1f);
+		else if (KeyIsDown(VK_LSHIFT)) camera.MoveDown(0.1f);
 		if (KeyIsDown('E')) camera.pos.x = camera.pos.y = 0;
+		POINT mouse_pos2;
+		GetPhysicalCursorPos(&mouse_pos2);
+		camera.YawRight(0.01f * (mouse_pos2.x - mouse_pos.x));
+		camera.PitchDown(0.01f * (mouse_pos2.y - mouse_pos.y));
+		mouse_pos = mouse_pos2;
 		if (!camera.Transform(device))
 			return 1;
 
