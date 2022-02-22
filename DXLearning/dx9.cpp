@@ -481,6 +481,44 @@ namespace Dx9
 		return mesh;
 	}
 
+	std::shared_ptr<Mesh> Mesh::CreateD3DXText(IDirect3DDevice9* device, const std::string& text)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		HDC hdc = CreateCompatibleDC(0);
+
+		LOGFONT lf;
+		lf.lfHeight = 25;
+		lf.lfWidth = 12;
+		lf.lfEscapement = 0;
+		lf.lfOrientation = 0;
+		lf.lfWeight = 500;
+		lf.lfItalic = false;
+		lf.lfUnderline = true;
+		lf.lfStrikeOut = false;
+		lf.lfCharSet = DEFAULT_CHARSET;
+		lf.lfOutPrecision = 0;
+		lf.lfClipPrecision = 0;
+		lf.lfQuality = 0;
+		lf.lfPitchAndFamily = 0;
+		strcpy_s(lf.lfFaceName, LF_FACESIZE, "Times New Roman");
+		HFONT hfont = CreateFontIndirect(&lf);
+		SelectObject(hdc, hfont);
+
+		hr = D3DXCreateTextA(device, hdc, text.c_str(), 0.001f, 0.4f, &mesh->mesh, nullptr, nullptr);
+
+		DeleteDC(hdc);
+
+		if (FAILED(hr))
+		{
+			MessageBox(0, "??", "..", 0);
+			return nullptr;
+		}
+
+		return mesh;
+	}
+
 	Object::Object(std::shared_ptr<Mesh> _mesh)
 	{
 		mesh = _mesh;

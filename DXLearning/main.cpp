@@ -34,6 +34,9 @@ int dx9_example()
 	auto mesh_plane = Dx9::Mesh::CreatePlaneNormal(device);
 	if (!mesh_plane)
 		return 1;
+	auto mesh_text = Dx9::Mesh::CreateD3DXText(device, "Dx9 Sample by NightHz");
+	if (!mesh_text)
+		return 1;
 
 	// create texture
 	auto texture1 = Dx9::Texture::CreateTexture(device, "tex1.png");
@@ -112,6 +115,16 @@ int dx9_example()
 	ground.y = -4;
 	ground.sx = 2.5f;
 	ground.sy = 2.5f;
+
+	// create text
+	Dx9::Object text(mesh_text);
+	text.phi = D3DX_PI;
+	text.x = 3;
+	text.y = -2;
+	text.z = 3;
+	text.sx = 0.6f;
+	text.sy = 0.6f;
+	text.sz = 0.6f;
 
 	// create camera
 	Dx9::Camera camera;
@@ -266,7 +279,7 @@ int dx9_example()
 			return 1;
 
 		// control
-		static auto control_obj = &mirror;
+		static auto control_obj = &text;
 		if (KeyIsDown(VK_NUMPAD1)) control_obj = &mirror;
 		else if (KeyIsDown(VK_NUMPAD2)) control_obj = &ground;
 		if (KeyIsDown('I')) control_obj->theta -= 0.05f;
@@ -305,6 +318,10 @@ int dx9_example()
 
 		// draw cube3
 		if (!cube3.Draw(device))
+			return 1;
+
+		// draw text
+		if (!text.Draw(device))
 			return 1;
 
 		// draw ground and update stencil
