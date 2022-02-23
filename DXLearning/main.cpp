@@ -37,6 +37,9 @@ int dx9_example()
 	auto mesh_text = Dx9::Mesh::CreateD3DXText(device, "Dx9 Sample by NightHz");
 	if (!mesh_text)
 		return 1;
+	auto mesh_machete = Dx9::Mesh::CreateFromFile(device, "model/machete.obj");
+	if (!mesh_machete)
+		return 1;
 
 	// create texture
 	auto texture1 = Dx9::Texture::CreateTexture(device, "tex1.png");
@@ -126,15 +129,18 @@ int dx9_example()
 	text.sy = 0.6f;
 	text.sz = 0.6f;
 
+	// create machete
+	Dx9::Object machete(mesh_machete);
+	machete.sx = 0.005f;
+	machete.sy = 0.005f;
+	machete.sz = 0.005f;
+	machete.x = 8;
+	machete.y = 4;
+
 	// create camera
 	Dx9::Camera camera;
 	camera.aspect = static_cast<float>(window.GetWidth()) / window.GetHeight();
 	camera.pos.z = 8;
-	POINT mouse_pos;
-	mouse_pos.x = window.GetWidth() / 2;
-	mouse_pos.y = window.GetHeight() / 2;
-	SetCursorPos(mouse_pos.x, mouse_pos.y);
-	ShowCursor(false);
 
 	// create light
 	D3DLIGHT9 light;
@@ -190,6 +196,11 @@ int dx9_example()
 
 	cout << "finish setup" << endl;
 
+	POINT mouse_pos;
+	mouse_pos.x = window.GetWidth() / 2;
+	mouse_pos.y = window.GetHeight() / 2;
+	SetCursorPos(mouse_pos.x, mouse_pos.y);
+	ShowCursor(false);
 	while (true)
 	{
 		// clear
@@ -336,6 +347,10 @@ int dx9_example()
 		if (!text.Draw(device))
 			return 1;
 
+		// draw machete
+		if (!machete.Draw(device))
+			return 1;
+
 		// draw ground and update stencil
 		hr = device->Clear(0, nullptr, D3DCLEAR_STENCIL, 0, 0, 0);
 		if (FAILED(hr))
@@ -473,6 +488,7 @@ int dx9_example()
 		if (!window.CheckWindowState() || KeyIsDown('Q'))
 			break;
 	}
+	ShowCursor(true);
 
 	// release
 	device->Release();

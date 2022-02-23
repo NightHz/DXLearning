@@ -92,6 +92,7 @@ namespace Dx9
 	{
 	private:
 		ID3DXMesh* mesh;
+		UINT subset_count;
 		IDirect3DVertexBuffer9* vb;
 		IDirect3DIndexBuffer9* ib;
 		UINT vertex_count;
@@ -116,6 +117,7 @@ namespace Dx9
 		static std::shared_ptr<Mesh> CreatePlaneNormal(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateD3DXTeapot(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateD3DXText(IDirect3DDevice9* device, const std::string& text);
+		static std::shared_ptr<Mesh> CreateFromFile(IDirect3DDevice9* device, const std::string& file_path);
 	};
 
 	class Texture

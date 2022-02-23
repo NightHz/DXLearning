@@ -1,4 +1,6 @@
 #include "dx9.h"
+#include <fstream>
+#include <sstream>
 
 namespace Dx9
 {
@@ -85,9 +87,12 @@ namespace Dx9
 		if (mesh)
 		{
 			//draw
-			hr = mesh->DrawSubset(0);
-			if (FAILED(hr))
-				return false;
+			for (unsigned int i = 0; i < subset_count; i++)
+			{
+				hr = mesh->DrawSubset(i);
+				if (FAILED(hr))
+					return false;
+			}
 		}
 		if (vb)
 		{
@@ -477,6 +482,7 @@ namespace Dx9
 		//D3DXCreateBox(device, 2, 2, 2, &mesh_cube, nullptr);
 		if (FAILED(hr))
 			return nullptr;
+		mesh->subset_count = 1;
 
 		return mesh;
 	}
@@ -507,14 +513,149 @@ namespace Dx9
 		SelectObject(hdc, hfont);
 
 		hr = D3DXCreateTextA(device, hdc, text.c_str(), 0.001f, 0.4f, &mesh->mesh, nullptr, nullptr);
+		if (FAILED(hr))
+		{
+			DeleteDC(hdc);
+			return nullptr;
+		}
+		mesh->subset_count = 1;
 
 		DeleteDC(hdc);
 
+		return mesh;
+	}
+
+	std::shared_ptr<Mesh> Mesh::CreateFromFile(IDirect3DDevice9* device, const std::string& file_path)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		// open file
+		std::ifstream file;
+		file.open(file_path);
+		if (!file.is_open())
+			return nullptr;
+		std::string line;
+
+		// count
+		int v_count = 0, f_count = 0;
+		while (std::getline(file, line))
+		{
+			std::istringstream ss(line);
+			std::string word;
+			if (!(ss >> word)) continue;
+			if (word == "v") v_count++;
+			else if (word == "f") f_count++;
+		}
+
+		// create mesh
+		v_count += 1; // .obj file first index is 1
+		hr = D3DXCreateMeshFVF(f_count, v_count, D3DXMESH_MANAGED, VertexXYZ::FVF, device, &mesh->mesh);
 		if (FAILED(hr))
 		{
-			MessageBox(0, "??", "..", 0);
+			file.close();
 			return nullptr;
 		}
+
+		// lock buffer
+		VertexXYZ* vertices;
+		WORD* indexes;
+		DWORD* attributes;
+		hr = mesh->mesh->LockVertexBuffer(0, reinterpret_cast<void**>(&vertices));
+		if (FAILED(hr))
+		{
+			file.close();
+			return nullptr;
+		}
+		hr = mesh->mesh->LockIndexBuffer(0, reinterpret_cast<void**>(&indexes));
+		if (FAILED(hr))
+		{
+			file.close();
+			return nullptr;
+		}
+		hr = mesh->mesh->LockAttributeBuffer(0, &attributes);
+		if (FAILED(hr))
+		{
+			file.close();
+			return nullptr;
+		}
+
+		// write data
+		file.clear();
+		file.seekg(0);
+		int v_i = 1, f_i = 0;
+		bool f_continue = false;
+		int subset_id = -1;
+		while (std::getline(file, line))
+		{
+			std::istringstream ss(line);
+			std::string word;
+			if (!(ss >> word))
+				continue;
+			if (word == "v")
+			{
+				ss >> vertices[v_i].x >> vertices[v_i].y >> vertices[v_i].z;
+				v_i++;
+				f_continue = false;
+			}
+			else if (word == "f")
+			{
+				char c;
+				WORD i;
+				if (ss >> i) indexes[3 * f_i] = i; else ss.clear();
+				ss >> c;
+				if (ss >> i) i; else ss.clear();
+				ss >> c;
+				if (ss >> i) i; else ss.clear();
+				if (ss >> i) indexes[3 * f_i + 1] = i; else ss.clear();
+				ss >> c;
+				if (ss >> i) i; else ss.clear();
+				ss >> c;
+				if (ss >> i) i; else ss.clear();
+				if (ss >> i) indexes[3 * f_i + 2] = i; else ss.clear();
+				ss >> c;
+				if (ss >> i) i; else ss.clear();
+				ss >> c;
+				if (ss >> i) i; else ss.clear();
+				if (!f_continue)
+					subset_id++, f_continue = true;
+				attributes[f_i] = subset_id;
+				f_i++;
+			}
+		}
+		mesh->subset_count = subset_id + 1;
+		file.close();
+
+		// unlcok buffer
+		hr = mesh->mesh->UnlockAttributeBuffer();
+		if (FAILED(hr))
+			return nullptr;
+		hr = mesh->mesh->UnlockIndexBuffer();
+		if (FAILED(hr))
+			return nullptr;
+		hr = mesh->mesh->UnlockVertexBuffer();
+		if (FAILED(hr))
+			return nullptr;
+
+		// optimize
+		ID3DXBuffer* adjacency_info;
+		hr = D3DXCreateBuffer(f_count * 3 * sizeof(DWORD), &adjacency_info);
+		if (FAILED(hr))
+			return nullptr;
+		hr = mesh->mesh->GenerateAdjacency(0.001f, static_cast<DWORD*>(adjacency_info->GetBufferPointer()));
+		if (FAILED(hr))
+		{
+			adjacency_info->Release();
+			return nullptr;
+		}
+		hr = mesh->mesh->OptimizeInplace(D3DXMESHOPT_ATTRSORT | D3DXMESHOPT_COMPACT | D3DXMESHOPT_VERTEXCACHE,
+			static_cast<DWORD*>(adjacency_info->GetBufferPointer()), nullptr, nullptr, nullptr);
+		if (FAILED(hr))
+		{
+			adjacency_info->Release();
+			return nullptr;
+		}
+		adjacency_info->Release();
 
 		return mesh;
 	}
