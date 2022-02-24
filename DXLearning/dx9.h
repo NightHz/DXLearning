@@ -94,6 +94,7 @@ namespace Dx9
 		ID3DXMesh* mesh;
 		UINT subset_count;
 		ID3DXPMesh* pmesh;
+
 		IDirect3DVertexBuffer9* vb;
 		IDirect3DIndexBuffer9* ib;
 		UINT vertex_count;
@@ -108,6 +109,8 @@ namespace Dx9
 		Mesh& operator=(const Mesh&) = delete;
 		~Mesh();
 
+		bool ComputeBoundingSphere(D3DXVECTOR3& center, float& radius);
+		bool ComputeBoundingBox(D3DXVECTOR3& min, D3DXVECTOR3& max);
 		bool AdjustProgress(float f);
 
 		bool Draw(IDirect3DDevice9* device);

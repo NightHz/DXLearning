@@ -84,6 +84,90 @@ namespace Dx9
 			ib->Release();
 	}
 
+	bool Mesh::ComputeBoundingSphere(D3DXVECTOR3& center, float& radius)
+	{
+		HRESULT hr;
+		if (mesh)
+		{
+			void* vertices;
+			hr = mesh->LockVertexBuffer(0, &vertices);
+			if (FAILED(hr))
+				return false;
+			hr = D3DXComputeBoundingSphere(static_cast<D3DXVECTOR3*>(vertices),
+				mesh->GetNumVertices(), mesh->GetNumBytesPerVertex(), &center, &radius);
+			if (FAILED(hr))
+			{
+				mesh->UnlockVertexBuffer();
+				return false;
+			}
+			hr = mesh->UnlockVertexBuffer();
+			if (FAILED(hr))
+				return false;
+		}
+		else if (vb)
+		{
+			void* vertices;
+			hr = vb->Lock(0, 0, &vertices, 0);
+			if (FAILED(hr))
+				return false;
+			hr = D3DXComputeBoundingSphere(static_cast<D3DXVECTOR3*>(vertices),
+				vertex_count, vertex_size, &center, &radius);
+			if (FAILED(hr))
+			{
+				vb->Unlock();
+				return false;
+			}
+			hr = vb->Unlock();
+			if (FAILED(hr))
+				return false;
+		}
+		else
+			return false;
+		return true;
+	}
+
+	bool Mesh::ComputeBoundingBox(D3DXVECTOR3& min, D3DXVECTOR3& max)
+	{
+		HRESULT hr;
+		if (mesh)
+		{
+			void* vertices;
+			hr = mesh->LockVertexBuffer(0, &vertices);
+			if (FAILED(hr))
+				return false;
+			hr = D3DXComputeBoundingBox(static_cast<D3DXVECTOR3*>(vertices),
+				mesh->GetNumVertices(), mesh->GetNumBytesPerVertex(), &min, &max);
+			if (FAILED(hr))
+			{
+				mesh->UnlockVertexBuffer();
+				return false;
+			}
+			hr = mesh->UnlockVertexBuffer();
+			if (FAILED(hr))
+				return false;
+		}
+		else if (vb)
+		{
+			void* vertices;
+			hr = vb->Lock(0, 0, &vertices, 0);
+			if (FAILED(hr))
+				return false;
+			hr = D3DXComputeBoundingBox(static_cast<D3DXVECTOR3*>(vertices),
+				vertex_count, vertex_size, &min, &max);
+			if (FAILED(hr))
+			{
+				vb->Unlock();
+				return false;
+			}
+			hr = vb->Unlock();
+			if (FAILED(hr))
+				return false;
+		}
+		else
+			return false;
+		return true;
+	}
+
 	bool Mesh::AdjustProgress(float f)
 	{
 		if (!pmesh)
@@ -881,6 +965,8 @@ namespace Dx9
 			return nullptr;
 		if (!mesh->mesh)
 			return nullptr;
+		if (mesh->pmesh)
+			return mesh;
 		HRESULT hr;
 
 		// generate progressive mesh

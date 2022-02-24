@@ -41,6 +41,16 @@ int dx9_example()
 	auto mesh_machete = Dx9::Mesh::CreateMeshNormalFromFile(device, "model/machete.obj");
 	if (!mesh_machete)
 		return 1;
+	D3DXVECTOR3 min, max, center;
+	float radius;
+	if (!mesh_machete->ComputeBoundingBox(min, max))
+		return 1;
+	if (!mesh_machete->ComputeBoundingSphere(center, radius))
+		return 1;
+	cout << "machete bounding box : [(" << min.x << ", " << min.y << ", " << min.z << ")";
+	cout << ", (" << max.x << ", " << max.y << ", " << max.z << ")]" << endl;
+	cout << "machete bounding sphere : [(" << center.x << ", " << center.y << ", " << center.z << ")";
+	cout << ", " << radius << "]" << endl;
 
 	// create texture
 	auto texture1 = Dx9::Texture::CreateTexture(device, "tex1.png");
@@ -289,7 +299,7 @@ int dx9_example()
 		if (KeyIsDown(VK_SPACE)) camera.MoveUp(0.1f);
 		else if (KeyIsDown(VK_LSHIFT)) camera.MoveDown(0.1f);
 		if (KeyIsDown('E')) camera.pos.x = camera.pos.y = 0;
-		if (KeyIsDown(VK_RETURN))
+		if (KeyIsDown(VK_MBUTTON))
 		{
 			POINT mouse_pos3;
 			GetCursorPos(&mouse_pos3);
