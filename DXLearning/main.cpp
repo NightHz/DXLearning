@@ -37,7 +37,7 @@ int dx9_example()
 	auto mesh_text = Dx9::Mesh::CreateD3DXText(device, "Dx9 Sample by NightHz");
 	if (!mesh_text)
 		return 1;
-	auto mesh_machete = Dx9::Mesh::CreateFromFile(device, "model/machete.obj");
+	auto mesh_machete = Dx9::Mesh::CreateFromFileNormal(device, "model/machete.obj");
 	if (!mesh_machete)
 		return 1;
 

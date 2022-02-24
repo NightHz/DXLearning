@@ -118,6 +118,7 @@ namespace Dx9
 		static std::shared_ptr<Mesh> CreateD3DXTeapot(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateD3DXText(IDirect3DDevice9* device, const std::string& text);
 		static std::shared_ptr<Mesh> CreateFromFile(IDirect3DDevice9* device, const std::string& file_path);
+		static std::shared_ptr<Mesh> CreateFromFileNormal(IDirect3DDevice9* device, const std::string& file_path);
 	};
 
 	class Texture

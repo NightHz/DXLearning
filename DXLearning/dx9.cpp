@@ -62,6 +62,7 @@ namespace Dx9
 	Mesh::Mesh()
 	{
 		mesh = nullptr;
+		subset_count = 0;
 		vb = nullptr;
 		ib = nullptr;
 		vertex_count = 0;
@@ -625,6 +626,191 @@ namespace Dx9
 		}
 		mesh->subset_count = subset_id + 1;
 		file.close();
+
+		// unlcok buffer
+		hr = mesh->mesh->UnlockAttributeBuffer();
+		if (FAILED(hr))
+			return nullptr;
+		hr = mesh->mesh->UnlockIndexBuffer();
+		if (FAILED(hr))
+			return nullptr;
+		hr = mesh->mesh->UnlockVertexBuffer();
+		if (FAILED(hr))
+			return nullptr;
+
+		// optimize
+		ID3DXBuffer* adjacency_info;
+		hr = D3DXCreateBuffer(f_count * 3 * sizeof(DWORD), &adjacency_info);
+		if (FAILED(hr))
+			return nullptr;
+		hr = mesh->mesh->GenerateAdjacency(0.001f, static_cast<DWORD*>(adjacency_info->GetBufferPointer()));
+		if (FAILED(hr))
+		{
+			adjacency_info->Release();
+			return nullptr;
+		}
+		hr = mesh->mesh->OptimizeInplace(D3DXMESHOPT_ATTRSORT | D3DXMESHOPT_COMPACT | D3DXMESHOPT_VERTEXCACHE,
+			static_cast<DWORD*>(adjacency_info->GetBufferPointer()), nullptr, nullptr, nullptr);
+		if (FAILED(hr))
+		{
+			adjacency_info->Release();
+			return nullptr;
+		}
+		adjacency_info->Release();
+
+		return mesh;
+	}
+
+	std::shared_ptr<Mesh> Mesh::CreateFromFileNormal(IDirect3DDevice9* device, const std::string& file_path)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		// open file
+		std::ifstream file;
+		file.open(file_path);
+		if (!file.is_open())
+			return nullptr;
+		std::string line;
+
+		// count
+		int v_count = 0, vn_count = 0, f_count = 0;
+		while (std::getline(file, line))
+		{
+			std::istringstream ss(line);
+			std::string word;
+			if (!(ss >> word)) continue;
+			if (word == "v") v_count++;
+			else if (word == "vn") vn_count++;
+			else if (word == "f") f_count++;
+		}
+
+		// create mesh
+		v_count += 1; // .obj file first index is 1
+		vn_count += 1;
+		hr = D3DXCreateMeshFVF(f_count, 3 * f_count, D3DXMESH_MANAGED, VertexNormal::FVF, device, &mesh->mesh);
+		if (FAILED(hr))
+		{
+			file.close();
+			return nullptr;
+		}
+
+		// lock buffer
+		VertexNormal* vertices;
+		WORD* indexes;
+		DWORD* attributes;
+		hr = mesh->mesh->LockVertexBuffer(0, reinterpret_cast<void**>(&vertices));
+		if (FAILED(hr))
+		{
+			file.close();
+			return nullptr;
+		}
+		hr = mesh->mesh->LockIndexBuffer(0, reinterpret_cast<void**>(&indexes));
+		if (FAILED(hr))
+		{
+			file.close();
+			return nullptr;
+		}
+		hr = mesh->mesh->LockAttributeBuffer(0, &attributes);
+		if (FAILED(hr))
+		{
+			file.close();
+			return nullptr;
+		}
+
+		// write data
+		file.clear();
+		file.seekg(0);
+		float* v_info = new float[static_cast<size_t>(3) * v_count]{ 0 };
+		float* vn_info = new float[static_cast<size_t>(3) * vn_count]{ 0 };
+		int v_i = 1, vn_i = 1, f_i = 0;
+		bool f_continue = false;
+		int subset_id = -1;
+		while (std::getline(file, line))
+		{
+			std::istringstream ss(line);
+			std::string word;
+			if (!(ss >> word))
+				continue;
+			if (word == "v")
+			{
+				ss >> v_info[3 * v_i] >> v_info[3 * v_i + 1] >> v_info[3 * v_i + 2];
+				v_i++;
+				f_continue = false;
+			}
+			else if (word == "vn")
+			{
+				ss >> vn_info[3 * vn_i] >> vn_info[3 * vn_i + 1] >> vn_info[3 * vn_i + 2];
+				vn_i++;
+			}
+			else if (word == "f")
+			{
+				char c;
+				WORD i;
+				if (ss >> i)
+				{
+					indexes[3 * f_i] = static_cast<WORD>(3 * f_i);
+					vertices[3 * f_i].x = v_info[3 * i];
+					vertices[3 * f_i].y = v_info[3 * i + 1];
+					vertices[3 * f_i].z = v_info[3 * i + 2];
+				}
+				else ss.clear();
+				ss >> c;
+				if (ss >> i) i; else ss.clear();
+				ss >> c;
+				if (ss >> i)
+				{
+					vertices[3 * f_i].nx = vn_info[3 * i];
+					vertices[3 * f_i].ny = vn_info[3 * i + 1];
+					vertices[3 * f_i].nz = vn_info[3 * i + 2];
+				}
+				else ss.clear();
+				if (ss >> i)
+				{
+					indexes[3 * f_i + 1] = static_cast<WORD>(3 * f_i + 1);
+					vertices[3 * f_i + 1].x = v_info[3 * i];
+					vertices[3 * f_i + 1].y = v_info[3 * i + 1];
+					vertices[3 * f_i + 1].z = v_info[3 * i + 2];
+				}
+				else ss.clear();
+				ss >> c;
+				if (ss >> i) i; else ss.clear();
+				ss >> c;
+				if (ss >> i)
+				{
+					vertices[3 * f_i + 1].nx = vn_info[3 * i];
+					vertices[3 * f_i + 1].ny = vn_info[3 * i + 1];
+					vertices[3 * f_i + 1].nz = vn_info[3 * i + 2];
+				}
+				else ss.clear();
+				if (ss >> i)
+				{
+					indexes[3 * f_i + 2] = static_cast<WORD>(3 * f_i + 2);
+					vertices[3 * f_i + 2].x = v_info[3 * i];
+					vertices[3 * f_i + 2].y = v_info[3 * i + 1];
+					vertices[3 * f_i + 2].z = v_info[3 * i + 2];
+				}
+				else ss.clear();
+				ss >> c;
+				if (ss >> i) i; else ss.clear();
+				ss >> c;
+				if (ss >> i)
+				{
+					vertices[3 * f_i + 2].nx = vn_info[3 * i];
+					vertices[3 * f_i + 2].ny = vn_info[3 * i + 1];
+					vertices[3 * f_i + 2].nz = vn_info[3 * i + 2];
+				}
+				else ss.clear();
+				if (!f_continue)
+					subset_id++, f_continue = true;
+				attributes[f_i] = subset_id;
+				f_i++;
+			}
+		}
+		mesh->subset_count = subset_id + 1;
+		file.close();
+		delete[] v_info;
+		delete[] vn_info;
 
 		// unlcok buffer
 		hr = mesh->mesh->UnlockAttributeBuffer();
