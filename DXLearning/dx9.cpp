@@ -63,6 +63,7 @@ namespace Dx9
 	{
 		mesh = nullptr;
 		subset_count = 0;
+		pmesh = nullptr;
 		vb = nullptr;
 		ib = nullptr;
 		vertex_count = 0;
@@ -75,10 +76,26 @@ namespace Dx9
 	{
 		if (mesh)
 			mesh->Release();
+		if (pmesh)
+			pmesh->Release();
 		if (vb)
 			vb->Release();
 		if (ib)
 			ib->Release();
+	}
+
+	bool Mesh::AdjustProgress(float f)
+	{
+		if (!pmesh)
+			return false;
+		HRESULT hr;
+		DWORD max = pmesh->GetMaxFaces();
+		DWORD min = pmesh->GetMinFaces();
+		f = (f > 1 ? 1 : (f < 0 ? 0 : f));
+		hr = pmesh->SetNumFaces(min + static_cast<DWORD>(f * (max - min)));
+		if (FAILED(hr))
+			return false;
+		return true;
 	}
 
 	bool Mesh::Draw(IDirect3DDevice9* device)
@@ -88,11 +105,23 @@ namespace Dx9
 		if (mesh)
 		{
 			//draw
-			for (unsigned int i = 0; i < subset_count; i++)
+			if (!pmesh)
 			{
-				hr = mesh->DrawSubset(i);
-				if (FAILED(hr))
-					return false;
+				for (unsigned int i = 0; i < subset_count; i++)
+				{
+					hr = mesh->DrawSubset(i);
+					if (FAILED(hr))
+						return false;
+				}
+			}
+			else
+			{
+				for (unsigned int i = 0; i < subset_count; i++)
+				{
+					hr = pmesh->DrawSubset(i);
+					if (FAILED(hr))
+						return false;
+				}
 			}
 		}
 		if (vb)
@@ -526,7 +555,7 @@ namespace Dx9
 		return mesh;
 	}
 
-	std::shared_ptr<Mesh> Mesh::CreateFromFile(IDirect3DDevice9* device, const std::string& file_path)
+	std::shared_ptr<Mesh> Mesh::CreateMeshFromFile(IDirect3DDevice9* device, const std::string& file_path)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
 		HRESULT hr;
@@ -661,7 +690,7 @@ namespace Dx9
 		return mesh;
 	}
 
-	std::shared_ptr<Mesh> Mesh::CreateFromFileNormal(IDirect3DDevice9* device, const std::string& file_path)
+	std::shared_ptr<Mesh> Mesh::CreateMeshNormalFromFile(IDirect3DDevice9* device, const std::string& file_path)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
 		HRESULT hr;
@@ -842,6 +871,42 @@ namespace Dx9
 			return nullptr;
 		}
 		adjacency_info->Release();
+
+		return mesh;
+	}
+
+	std::shared_ptr<Mesh> Mesh::UpdatePMesh(std::shared_ptr<Mesh> mesh)
+	{
+		if (!mesh)
+			return nullptr;
+		if (!mesh->mesh)
+			return nullptr;
+		HRESULT hr;
+
+		// generate progressive mesh
+		ID3DXBuffer* adjacency_info;
+		hr = D3DXCreateBuffer(mesh->mesh->GetNumFaces() * 3 * sizeof(DWORD), &adjacency_info);
+		if (FAILED(hr))
+			return nullptr;
+		hr = mesh->mesh->GenerateAdjacency(0.001f, static_cast<DWORD*>(adjacency_info->GetBufferPointer()));
+		if (FAILED(hr))
+		{
+			adjacency_info->Release();
+			return nullptr;
+		}
+		hr = D3DXGeneratePMesh(mesh->mesh, static_cast<DWORD*>(adjacency_info->GetBufferPointer()),
+			nullptr, nullptr, 1, D3DXMESHSIMP_FACE, &mesh->pmesh);
+		if (FAILED(hr))
+		{
+			adjacency_info->Release();
+			return nullptr;
+		}
+		adjacency_info->Release();
+
+		// set faces number
+		hr = mesh->pmesh->SetNumFaces(mesh->pmesh->GetMaxFaces());
+		if (FAILED(hr))
+			return nullptr;
 
 		return mesh;
 	}

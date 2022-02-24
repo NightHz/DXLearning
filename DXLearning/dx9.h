@@ -93,6 +93,7 @@ namespace Dx9
 	private:
 		ID3DXMesh* mesh;
 		UINT subset_count;
+		ID3DXPMesh* pmesh;
 		IDirect3DVertexBuffer9* vb;
 		IDirect3DIndexBuffer9* ib;
 		UINT vertex_count;
@@ -107,6 +108,8 @@ namespace Dx9
 		Mesh& operator=(const Mesh&) = delete;
 		~Mesh();
 
+		bool AdjustProgress(float f);
+
 		bool Draw(IDirect3DDevice9* device);
 
 		static std::shared_ptr<Mesh> CreateCubeXYZ(IDirect3DDevice9* device);
@@ -117,8 +120,9 @@ namespace Dx9
 		static std::shared_ptr<Mesh> CreatePlaneNormal(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateD3DXTeapot(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateD3DXText(IDirect3DDevice9* device, const std::string& text);
-		static std::shared_ptr<Mesh> CreateFromFile(IDirect3DDevice9* device, const std::string& file_path);
-		static std::shared_ptr<Mesh> CreateFromFileNormal(IDirect3DDevice9* device, const std::string& file_path);
+		static std::shared_ptr<Mesh> CreateMeshFromFile(IDirect3DDevice9* device, const std::string& file_path);
+		static std::shared_ptr<Mesh> CreateMeshNormalFromFile(IDirect3DDevice9* device, const std::string& file_path);
+		static std::shared_ptr<Mesh> UpdatePMesh(std::shared_ptr<Mesh> mesh);
 	};
 
 	class Texture

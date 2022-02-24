@@ -20,12 +20,13 @@ int dx9_example()
 	if (!device)
 		return 1;
 	cout << "finish create dx9 device" << endl;
-	
+
 	// create mesh
 	auto mesh_cube = Dx9::Mesh::CreateCubeNormalColorTex1(device);
 	if (!mesh_cube)
 		return 1;
 	auto mesh_teapot = Dx9::Mesh::CreateD3DXTeapot(device);
+	mesh_teapot = Dx9::Mesh::UpdatePMesh(mesh_teapot);
 	if (!mesh_teapot)
 		return 1;
 	auto mesh_tetrahedron = Dx9::Mesh::CreateTetrahedronNormalColor(device);
@@ -37,7 +38,7 @@ int dx9_example()
 	auto mesh_text = Dx9::Mesh::CreateD3DXText(device, "Dx9 Sample by NightHz");
 	if (!mesh_text)
 		return 1;
-	auto mesh_machete = Dx9::Mesh::CreateFromFileNormal(device, "model/machete.obj");
+	auto mesh_machete = Dx9::Mesh::CreateMeshNormalFromFile(device, "model/machete.obj");
 	if (!mesh_machete)
 		return 1;
 
@@ -61,6 +62,7 @@ int dx9_example()
 	teapot.sx = 0.6f;
 	teapot.sy = 0.6f;
 	teapot.sz = 0.6f;
+	float teapot_progress = 1;
 
 	// create small cubes
 	Dx9::Object cubes_s[100];
@@ -196,11 +198,10 @@ int dx9_example()
 
 	cout << "finish setup" << endl;
 
-	POINT mouse_pos;
+	POINT mouse_pos, mouse_pos2;
 	mouse_pos.x = window.GetWidth() / 2;
 	mouse_pos.y = window.GetHeight() / 2;
-	SetCursorPos(mouse_pos.x, mouse_pos.y);
-	ShowCursor(false);
+	GetCursorPos(&mouse_pos2);
 	while (true)
 	{
 		// clear
@@ -288,11 +289,16 @@ int dx9_example()
 		if (KeyIsDown(VK_SPACE)) camera.MoveUp(0.1f);
 		else if (KeyIsDown(VK_LSHIFT)) camera.MoveDown(0.1f);
 		if (KeyIsDown('E')) camera.pos.x = camera.pos.y = 0;
-		POINT mouse_pos2;
-		GetCursorPos(&mouse_pos2);
-		camera.YawRight(0.003f * (mouse_pos2.x - mouse_pos.x));
-		camera.PitchDown(0.003f * (mouse_pos2.y - mouse_pos.y));
-		SetCursorPos(mouse_pos.x, mouse_pos.y);
+		if (KeyIsDown(VK_RETURN))
+		{
+			POINT mouse_pos3;
+			GetCursorPos(&mouse_pos3);
+			camera.YawRight(0.003f * (mouse_pos3.x - mouse_pos2.x));
+			camera.PitchDown(0.003f * (mouse_pos3.y - mouse_pos2.y));
+			SetCursorPos(mouse_pos2.x, mouse_pos2.y);
+		}
+		else
+			GetCursorPos(&mouse_pos2);
 		if (!camera.Transform(device))
 			return 1;
 
@@ -326,6 +332,12 @@ int dx9_example()
 			if (!cubes_s[i].Draw(device))
 				return 1;
 		}
+
+		// adjust teapot
+		if (KeyIsDown(VK_PRIOR)) teapot_progress = min(teapot_progress + 0.003f, 1);
+		else if (KeyIsDown(VK_NEXT)) teapot_progress = max(teapot_progress - 0.003f, 0);
+		if (!teapot.mesh->AdjustProgress(teapot_progress))
+			cout << "failed : adjust teapot progress" << endl;
 
 		// draw teapot
 		if (!teapot.Draw(device))
@@ -488,7 +500,6 @@ int dx9_example()
 		if (!window.CheckWindowState() || KeyIsDown('Q'))
 			break;
 	}
-	ShowCursor(true);
 
 	// release
 	device->Release();
