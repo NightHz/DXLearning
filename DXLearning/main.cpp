@@ -26,8 +26,9 @@ int dx9_example()
 	if (!mesh_cube)
 		return 1;
 	auto mesh_teapot = Dx9::Mesh::CreateD3DXTeapot(device);
-	mesh_teapot = Dx9::Mesh::UpdatePMesh(mesh_teapot);
 	if (!mesh_teapot)
+		return 1;
+	if (!mesh_teapot->UpdatePMesh())
 		return 1;
 	auto mesh_tetrahedron = Dx9::Mesh::CreateTetrahedronNormalColor(device);
 	if (!mesh_tetrahedron)
