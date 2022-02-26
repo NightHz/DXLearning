@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Rehenz">
+      <UniqueIdentifier>{71a46252-6122-4dc7-8deb-82494e156289}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -24,8 +27,14 @@
     <ClCompile Include="dx9.cpp">
       <Filter>source</Filter>
     </ClCompile>
-    <ClCompile Include="fps_counter.cpp">
-      <Filter>source</Filter>
+    <ClCompile Include="Rehenz\fps_counter.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
+    <ClCompile Include="Rehenz\math.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
+    <ClCompile Include="Rehenz\noise_gen.cpp">
+      <Filter>Rehenz</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -38,11 +47,17 @@
     <ClInclude Include="dx9.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="fps_counter.h">
-      <Filter>header</Filter>
+    <ClInclude Include="Rehenz\fps_counter.h">
+      <Filter>Rehenz</Filter>
     </ClInclude>
-    <ClInclude Include="type.h">
-      <Filter>header</Filter>
+    <ClInclude Include="Rehenz\math.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\noise_gen.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\type.h">
+      <Filter>Rehenz</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
