@@ -997,6 +997,32 @@ namespace Dx9
 		return mesh;
 	}
 
+	std::shared_ptr<Mesh> Mesh::CreateD3DXCube(IDirect3DDevice9* device)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		hr = D3DXCreateBox(device, 1, 1, 1, &mesh->mesh, nullptr);
+		if (FAILED(hr))
+			return nullptr;
+		mesh->subset_count = 1;
+
+		return mesh;
+	}
+
+	std::shared_ptr<Mesh> Mesh::CreateD3DXSphere(IDirect3DDevice9* device)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		hr = D3DXCreateSphere(device, 1, 20, 20, &mesh->mesh, nullptr);
+		if (FAILED(hr))
+			return nullptr;
+		mesh->subset_count = 1;
+
+		return mesh;
+	}
+
 	Object::Object(std::shared_ptr<Mesh> _mesh)
 	{
 		mesh = _mesh;

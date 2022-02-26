@@ -72,3 +72,10 @@
 ![](img/dx9_7font_and_model.png)
 
 
+**外接体**，使用 `D3DXComputeBounding*` 计算获得
+
+|AABB包围盒|包围球|
+|:-:|:-:|
+|![](img/dx9_8bounding_box.png)|![](img/dx9_8bounding_sphere.png)|
+
+

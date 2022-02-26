@@ -41,16 +41,12 @@ int dx9_example()
 	auto mesh_machete = Dx9::Mesh::CreateMeshNormalFromFile(device, "model/machete.obj");
 	if (!mesh_machete)
 		return 1;
-	D3DXVECTOR3 min, max, center;
-	float radius;
-	if (!mesh_machete->ComputeBoundingBox(min, max))
+	auto mesh_machete_box = Dx9::Mesh::CreateD3DXCube(device);
+	if (!mesh_machete_box)
 		return 1;
-	if (!mesh_machete->ComputeBoundingSphere(center, radius))
+	auto mesh_machete_sphere = Dx9::Mesh::CreateD3DXSphere(device);
+	if (!mesh_machete_sphere)
 		return 1;
-	cout << "machete bounding box : [(" << min.x << ", " << min.y << ", " << min.z << ")";
-	cout << ", (" << max.x << ", " << max.y << ", " << max.z << ")]" << endl;
-	cout << "machete bounding sphere : [(" << center.x << ", " << center.y << ", " << center.z << ")";
-	cout << ", " << radius << "]" << endl;
 
 	// create texture
 	auto texture1 = Dx9::Texture::CreateTexture(device, "tex1.png");
@@ -149,6 +145,35 @@ int dx9_example()
 	machete.x = 8;
 	machete.y = 4;
 
+	// create machete bounding box and bounding sphere
+	D3DXVECTOR3 min, max, center;
+	float radius;
+	if (!mesh_machete->ComputeBoundingBox(min, max))
+		return 1;
+	if (!mesh_machete->ComputeBoundingSphere(center, radius))
+		return 1;
+	cout << "machete bounding box : [(" << min.x << ", " << min.y << ", " << min.z << ")";
+	cout << ", (" << max.x << ", " << max.y << ", " << max.z << ")]" << endl;
+	cout << "machete bounding sphere : [(" << center.x << ", " << center.y << ", " << center.z << ")";
+	cout << ", " << radius << "]" << endl;
+	Dx9::Object machete_box(mesh_machete_box);
+	machete_box.mat.Diffuse.a = 0.5f;
+	machete_box.sx = machete.sx * (max.x - min.x);
+	machete_box.sy = machete.sy * (max.y - min.y);
+	machete_box.sz = machete.sz * (max.z - min.z);
+	machete_box.x = machete.x + (max.x + min.x) * 0.5f * machete.sx;
+	machete_box.y = machete.y + (max.y + min.y) * 0.5f * machete.sy;
+	machete_box.z = machete.z + (max.z + min.z) * 0.5f * machete.sz;
+	Dx9::Object machete_sphere(mesh_machete_sphere);
+	machete_sphere.mat.Diffuse.a = 0.5f;
+	machete_sphere.sx = machete.sx * radius;
+	machete_sphere.sy = machete.sy * radius;
+	machete_sphere.sz = machete.sz * radius;
+	machete_sphere.x = machete.x + center.x * machete.sx;
+	machete_sphere.y = machete.y + center.y * machete.sy;
+	machete_sphere.z = machete.z + center.z * machete.sz;
+	int show_machete_bounding = 1;
+
 	// create camera
 	Dx9::Camera camera;
 	camera.aspect = static_cast<float>(window.GetWidth()) / window.GetHeight();
@@ -160,7 +185,7 @@ int dx9_example()
 	light.Ambient = D3DXCOLOR(1, 1, 1, 1) * 0.3f;
 	light.Diffuse = D3DXCOLOR(1, 1, 1, 1);
 	light.Specular = D3DXCOLOR(1, 1, 1, 1) * 0.6f;
-	light.Direction = D3DXVECTOR3(-0.0f, -1.0f, -0.0f);
+	light.Direction = D3DXVECTOR3(-0.0f, -0.99f, -0.14f);
 	hr = device->SetLight(0, &light);
 	if (FAILED(hr))
 		return 1;
@@ -344,8 +369,8 @@ int dx9_example()
 		}
 
 		// adjust teapot
-		if (KeyIsDown(VK_PRIOR)) teapot_progress = min(teapot_progress + 0.003f, 1);
-		else if (KeyIsDown(VK_NEXT)) teapot_progress = max(teapot_progress - 0.003f, 0);
+		if (KeyIsDown(VK_F1)) teapot_progress = min(teapot_progress + 0.003f, 1);
+		else if (KeyIsDown(VK_F2)) teapot_progress = max(teapot_progress - 0.003f, 0);
 		if (!teapot.mesh->AdjustProgress(teapot_progress))
 			cout << "failed : adjust teapot progress" << endl;
 
@@ -372,6 +397,21 @@ int dx9_example()
 		// draw machete
 		if (!machete.Draw(device))
 			return 1;
+
+		// draw machete bounding
+		if (KeyIsDown(VK_F3)) show_machete_bounding = 0;
+		else if (KeyIsDown(VK_F4)) show_machete_bounding = 1;
+		else if (KeyIsDown(VK_F5)) show_machete_bounding = 2;
+		if (show_machete_bounding == 1)
+		{
+			if (!machete_box.Draw(device))
+				return 1;
+		}
+		else if (show_machete_bounding == 2)
+		{
+			if (!machete_sphere.Draw(device))
+				return 1;
+		}
 
 		// draw ground and update stencil
 		hr = device->Clear(0, nullptr, D3DCLEAR_STENCIL, 0, 0, 0);
