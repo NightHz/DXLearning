@@ -128,6 +128,10 @@ namespace Dx9
 		static std::shared_ptr<Mesh> CreateMeshNormalFromFile(IDirect3DDevice9* device, const std::string& file_path);
 		static std::shared_ptr<Mesh> CreateD3DXCube(IDirect3DDevice9* device);
 		static std::shared_ptr<Mesh> CreateD3DXSphere(IDirect3DDevice9* device);
+		static std::shared_ptr<Mesh> CreateTerrainRandom(IDirect3DDevice9* device,
+			float terrain_size = 20.0f, int terrain_subdivision = 100,
+			float noise_size = 8.0f, float noise_intensity = 6.0f, unsigned int noise_seed = 7364852u,
+			const D3DXCOLOR& low_color = D3DXCOLOR(1, 1, 1, 1), const D3DXCOLOR& high_color = D3DXCOLOR(0, 0, 0, 1));
 	};
 
 	class Texture

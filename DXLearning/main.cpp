@@ -48,6 +48,9 @@ int dx9_example()
 	auto mesh_machete_sphere = Dx9::Mesh::CreateD3DXSphere(device);
 	if (!mesh_machete_sphere)
 		return 1;
+	auto mesh_terrain = Dx9::Mesh::CreateTerrainRandom(device);
+	if (!mesh_terrain)
+		return 1;
 
 	// create texture
 	auto texture1 = Dx9::Texture::CreateTexture(device, "tex1.png");
@@ -174,6 +177,10 @@ int dx9_example()
 	machete_sphere.y = machete.y + center.y * machete.sy;
 	machete_sphere.z = machete.z + center.z * machete.sz;
 	int show_machete_bounding = 1;
+
+	// create terrain
+	Dx9::Object terrain(mesh_terrain);
+	terrain.y = -18;
 
 	// create camera
 	Dx9::Camera camera;
@@ -413,6 +420,10 @@ int dx9_example()
 			if (!machete_sphere.Draw(device))
 				return 1;
 		}
+
+		// draw terrain
+		if (!terrain.Draw(device))
+			return 1;
 
 		// draw ground and update stencil
 		hr = device->Clear(0, nullptr, D3DCLEAR_STENCIL, 0, 0, 0);

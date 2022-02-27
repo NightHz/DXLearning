@@ -80,4 +80,10 @@
 |:-:|:-:|
 |![](img/dx9_8bounding_box.png)|![](img/dx9_8bounding_sphere.png)|
 
+**随机起伏地形**，使用柏林噪点生成
+
+|线框|实体|
+|:-:|:-:|
+|![](img/dx9_9terrain_wireframe.png)|![](img/dx9_9terrain_solid.png)|
+
 

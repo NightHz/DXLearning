@@ -1,6 +1,7 @@
 #include "dx9.h"
 #include <fstream>
 #include <sstream>
+#include "Rehenz/noise_gen.h"
 
 namespace Dx9
 {
@@ -1017,6 +1018,84 @@ namespace Dx9
 		if (FAILED(hr))
 			return nullptr;
 		mesh->subset_count = 1;
+
+		return mesh;
+	}
+
+	std::shared_ptr<Mesh> Mesh::CreateTerrainRandom(IDirect3DDevice9* device,
+		float terrain_size, int terrain_subdivision, float noise_size, float noise_intensity, unsigned int noise_seed,
+		const D3DXCOLOR& low_color, const D3DXCOLOR& high_color)
+	{
+		auto mesh = std::shared_ptr<Mesh>(new Mesh);
+		HRESULT hr;
+
+		// parameters
+		const float l = terrain_size;
+		const float d = l / 2;
+		const int n = terrain_subdivision;
+		const int n2 = n * n;
+		const float a = l / n;
+		Rehenz::PerlinNoise2D noise(noise_seed);
+		const float b = noise_size;
+		const float f = noise_intensity;
+
+		// create buffer
+		mesh->vertex_size = sizeof(VertexColor);
+		mesh->fvf = VertexColor::FVF;
+		mesh->vertex_count = (n + 1) * (n + 1);
+		mesh->index_count = n2 * 2 * 3;
+		hr = device->CreateVertexBuffer(mesh->vertex_count * mesh->vertex_size,
+			0, mesh->fvf, D3DPOOL_MANAGED, &mesh->vb, 0);
+		if (FAILED(hr))
+			return nullptr;
+		hr = device->CreateIndexBuffer(mesh->index_count * sizeof(WORD),
+			D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &mesh->ib, 0);
+		if (FAILED(hr))
+			return nullptr;
+
+		// fill buffer
+		VertexColor* vertices;
+		WORD* indexes;
+		hr = mesh->vb->Lock(0, 0, reinterpret_cast<void**>(&vertices), 0);
+		if (FAILED(hr))
+			return nullptr;
+		// xyz and color
+		for (int iz = 0; iz <= n; iz++)
+		{
+			for (int ix = 0; ix <= n; ix++)
+			{
+				int i = iz * (n + 1) + ix;
+				float x = ix * a - d;
+				float z = iz * a - d;
+				float noise_v = noise.GetNoiseSum(x / b, z / b);
+				float y = noise_v * f;
+				vertices[i] = VertexColor(x, y, z);
+				vertices[i].color = low_color + (high_color - low_color) * (noise_v + 1) * 0.5f;
+			}
+		}
+		hr = mesh->vb->Unlock();
+		if (FAILED(hr))
+			return nullptr;
+		hr = mesh->ib->Lock(0, 0, reinterpret_cast<void**>(&indexes), 0);
+		if (FAILED(hr))
+			return nullptr;
+		// indexes
+		for (int iz = 0; iz < n; iz++)
+		{
+			for (int ix = 0; ix < n; ix++)
+			{
+				int i = (iz * n + ix) * 6;
+				WORD v1 = static_cast<WORD>(iz * (n + 1) + ix);
+				WORD v2 = v1 + 1;
+				WORD v3 = v2 + static_cast<WORD>(n);
+				WORD v4 = v3 + 1;
+				indexes[i + 0] = v2; indexes[i + 1] = v1; indexes[i + 2] = v3;
+				indexes[i + 3] = v2; indexes[i + 4] = v3; indexes[i + 5] = v4;
+			}
+		}
+		hr = mesh->ib->Unlock();
+		if (FAILED(hr))
+			return nullptr;
 
 		return mesh;
 	}
