@@ -217,14 +217,6 @@ int dx9_example()
 	if (FAILED(hr))
 		return 1;
 
-	// set stencil
-	//DWORD v;
-	//device->GetRenderState(D3DRS_STENCILENABLE, &v);
-	//cout << "D3DRS_STENCILENABLE : " << v << endl;
-	hr = device->SetRenderState(D3DRS_STENCILENABLE, true); // default is false
-	if (FAILED(hr))
-		return 1;
-
 	// set texture filter
 	hr = device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_ANISOTROPIC);
 	if (FAILED(hr))
@@ -324,7 +316,7 @@ int dx9_example()
 				return 1;
 		}
 
-		// set camera and projection
+		// control camera
 		if (KeyIsDown('W')) camera.MoveFront(0.1f);
 		else if (KeyIsDown('S')) camera.MoveBack(0.1f);
 		if (KeyIsDown('A')) camera.MoveLeft(0.1f);
@@ -342,15 +334,8 @@ int dx9_example()
 		}
 		else
 			GetCursorPos(&mouse_pos2);
-		if (!camera.Transform(device))
-			return 1;
 
-		// begin
-		hr = device->BeginScene();
-		if (FAILED(hr))
-			return 1;
-
-		// control
+		// control obj
 		static auto control_obj = &text;
 		if (KeyIsDown(VK_NUMPAD1)) control_obj = &mirror;
 		else if (KeyIsDown(VK_NUMPAD2)) control_obj = &ground;
@@ -365,51 +350,53 @@ int dx9_example()
 		if (KeyIsDown('R')) control_obj->z += 0.1f;
 		else if (KeyIsDown('Y')) control_obj->z -= 0.1f;
 
-		// draw cube
-		if (!cube.Draw(device))
-			return 1;
-
-		// draw small cubes
-		for (int i = 0; i < 100; i++)
-		{
-			if (!cubes_s[i].Draw(device))
-				return 1;
-		}
-
 		// adjust teapot
 		if (KeyIsDown(VK_F1)) teapot_progress = min(teapot_progress + 0.003f, 1);
 		else if (KeyIsDown(VK_F2)) teapot_progress = max(teapot_progress - 0.003f, 0);
 		if (!teapot.mesh->AdjustProgress(teapot_progress))
 			cout << "failed : adjust teapot progress" << endl;
 
-		// draw teapot
-		if (!teapot.Draw(device))
-			return 1;
-
-		// draw tetrahedron
-		if (!tetrahedron.Draw(device))
-			return 1;
-
-		// draw cube2
-		if (!cube2.Draw(device))
-			return 1;
-
-		// draw cube3
-		if (!cube3.Draw(device))
-			return 1;
-
-		// draw text
-		if (!text.Draw(device))
-			return 1;
-
-		// draw machete
-		if (!machete.Draw(device))
-			return 1;
-
-		// draw machete bounding
+		// adjust show machete bounding
 		if (KeyIsDown(VK_F3)) show_machete_bounding = 0;
 		else if (KeyIsDown(VK_F4)) show_machete_bounding = 1;
 		else if (KeyIsDown(VK_F5)) show_machete_bounding = 2;
+
+		// set camera and projection
+		if (!camera.Transform(device))
+			return 1;
+
+		// begin
+		hr = device->BeginScene();
+		if (FAILED(hr))
+			return 1;
+		// draw cube
+		if (!cube.Draw(device))
+			return 1;
+		// draw small cubes
+		for (int i = 0; i < 100; i++)
+		{
+			if (!cubes_s[i].Draw(device))
+				return 1;
+		}
+		// draw teapot
+		if (!teapot.Draw(device))
+			return 1;
+		// draw tetrahedron
+		if (!tetrahedron.Draw(device))
+			return 1;
+		// draw cube2
+		if (!cube2.Draw(device))
+			return 1;
+		// draw cube3
+		if (!cube3.Draw(device))
+			return 1;
+		// draw text
+		if (!text.Draw(device))
+			return 1;
+		// draw machete
+		if (!machete.Draw(device))
+			return 1;
+		// draw machete bounding
 		if (show_machete_bounding == 1)
 		{
 			if (!machete_box.Draw(device))
@@ -420,13 +407,16 @@ int dx9_example()
 			if (!machete_sphere.Draw(device))
 				return 1;
 		}
-
 		// draw terrain
 		if (!terrain.Draw(device))
 			return 1;
 
+		// begin shadow
 		// draw ground and update stencil
 		hr = device->Clear(0, nullptr, D3DCLEAR_STENCIL, 0, 0, 0);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_STENCILENABLE, true);
 		if (FAILED(hr))
 			return 1;
 		hr = device->SetRenderState(D3DRS_STENCILREF, 0x1);
@@ -435,13 +425,12 @@ int dx9_example()
 		hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_REPLACE);
 		if (FAILED(hr))
 			return 1;
-		if (!ground.Draw(device))
-			return 1;
-		hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_KEEP);
+		hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_ALWAYS);
 		if (FAILED(hr))
 			return 1;
+		if (!ground.Draw(device))
+			return 1;
 
-		// begin shadow
 		// set stencil test
 		hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_INCRSAT);
 		if (FAILED(hr))
@@ -464,21 +453,27 @@ int dx9_example()
 		// draw cube2 shadow
 		if (!cube2.DrawShadow(device, D3DXVECTOR4(light.Direction, 0), plane_ground))
 			return 1;
-
 		// draw cube3 shadow
 		if (!cube3.DrawShadow(device, D3DXVECTOR4(light.Direction, 0), plane_ground))
 			return 1;
 
 		// end shadow
-		hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_ALWAYS);
+		hr = device->SetRenderState(D3DRS_STENCILENABLE, false);
 		if (FAILED(hr))
 			return 1;
 		hr = device->SetRenderState(D3DRS_ZENABLE, true);
 		if (FAILED(hr))
 			return 1;
 
+		// begin mirror
 		// draw mirror and update stencil
 		hr = device->Clear(0, nullptr, D3DCLEAR_STENCIL, 0, 0, 0);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_STENCILENABLE, true);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_ALWAYS);
 		if (FAILED(hr))
 			return 1;
 		hr = device->SetRenderState(D3DRS_STENCILREF, 0x1);
@@ -489,13 +484,12 @@ int dx9_example()
 			return 1;
 		if (!mirror.Draw(device))
 			return 1;
-		hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_KEEP);
-		if (FAILED(hr))
-			return 1;
 
-		// begin mirror
 		// set stencil test
 		hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_EQUAL);
+		if (FAILED(hr))
+			return 1;
+		hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_KEEP);
 		if (FAILED(hr))
 			return 1;
 		// set blend
@@ -527,13 +521,12 @@ int dx9_example()
 		// draw cube2 mirror
 		if (!cube2.Draw(device))
 			return 1;
-
 		// draw cube3 mirror
 		if (!cube3.Draw(device))
 			return 1;
 
 		// end mirror
-		hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_ALWAYS);
+		hr = device->SetRenderState(D3DRS_STENCILENABLE, false);
 		if (FAILED(hr))
 			return 1;
 		hr = device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
@@ -544,6 +537,8 @@ int dx9_example()
 			return 1;
 		hr = device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
 		if (FAILED(hr))
+			return 1;
+		if (!camera.Transform(device))
 			return 1;
 
 		// end
