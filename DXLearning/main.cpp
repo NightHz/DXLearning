@@ -231,6 +231,32 @@ int dx9_example()
 	if (FAILED(hr))
 		return 1;
 
+	// set point sprite
+	hr = device->SetRenderState(D3DRS_POINTSPRITEENABLE, true); // default is false
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSCALEENABLE, true); // default is false
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSIZE, Dx9::float_to_DWORD(2.5f));
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSIZE_MIN, Dx9::float_to_DWORD(0.2f));
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSIZE_MAX, Dx9::float_to_DWORD(5.0f));
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSCALE_A, Dx9::float_to_DWORD(0.0f));
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSCALE_B, Dx9::float_to_DWORD(0.0f));
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSCALE_C, Dx9::float_to_DWORD(1.0f));
+	if (FAILED(hr))
+		return 1;
+
 	cout << "finish setup" << endl;
 
 	POINT mouse_pos, mouse_pos2;

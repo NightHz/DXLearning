@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include "Rehenz/noise_gen.h"
+#include <algorithm>
 
 namespace Dx9
 {
@@ -58,6 +59,11 @@ namespace Dx9
 		// release IDirect3D9
 		d3d9->Release();
 		return device;
+	}
+
+	DWORD float_to_DWORD(float f)
+	{
+		return *reinterpret_cast<DWORD*>(&f);
 	}
 
 	Mesh::Mesh()
@@ -1119,6 +1125,11 @@ namespace Dx9
 
 	D3DXMATRIX Object::ComputeTransform()
 	{
+		return ComputeTransform(x, y, z, phi, theta, psi, sx, sy, sz);
+	}
+
+	D3DXMATRIX Object::ComputeTransform(float x, float y, float z, float phi, float theta, float psi, float sx, float sy, float sz)
+	{
 		D3DXMATRIX mat_scale, mat_rotation, mat_position;
 
 		// scale
@@ -1406,6 +1417,153 @@ namespace Dx9
 			return nullptr;
 
 		return texture;
+	}
+
+	bool Particles::DrawParticles(IDirect3DDevice9* device)
+	{
+		HRESULT hr;
+
+		hr = device->SetStreamSource(0, vb, 0, vertex_size);
+		if (FAILED(hr))
+			return false;
+		hr = device->SetFVF(fvf);
+		if (FAILED(hr))
+			return false;
+
+		VertexColor* vertices = nullptr;
+		unsigned int particle_in_buffer_count = 0;
+		for (const ParticleUnit& p : particles)
+		{
+			if (!p.is_alive)
+				continue;
+			if (particle_in_buffer_count == 0)
+			{
+				// lock when first particle
+				hr = vb->Lock(0, 0, reinterpret_cast<void**>(&vertices), D3DLOCK_DISCARD);
+				if (FAILED(hr))
+					return false;
+			}
+			// fill buffer
+			*vertices = VertexColor(p.pos.x, p.pos.y, p.pos.z);
+			vertices->color = p.color + (p.color_fade - p.color) * (p.age / p.life);
+			vertices++;
+			particle_in_buffer_count++;
+			if (particle_in_buffer_count == vertex_count)
+			{
+				// unlock and draw when buffer is full
+				hr = vb->Unlock();
+				if (FAILED(hr))
+					return false;
+				hr = device->DrawPrimitive(D3DPT_POINTLIST, 0, particle_in_buffer_count);
+				if (FAILED(hr))
+					return false;
+				particle_in_buffer_count = 0;
+			}
+		}
+		if (particle_in_buffer_count != 0)
+		{
+			// unlock and draw when buffer is full
+			hr = vb->Unlock();
+			if (FAILED(hr))
+				return false;
+			hr = device->DrawPrimitive(D3DPT_POINTLIST, 0, particle_in_buffer_count);
+			if (FAILED(hr))
+				return false;
+		}
+
+		return true;
+	}
+
+	Particles::Particles(IDirect3DDevice9* device, UINT size)
+	{
+		HRESULT hr;
+
+		// create buffer
+		vertex_size = sizeof(VertexColor);
+		fvf = VertexColor::FVF;
+		vertex_count = size;
+		hr = device->CreateVertexBuffer(vertex_count * vertex_size,
+			D3DUSAGE_WRITEONLY | D3DUSAGE_DYNAMIC | D3DUSAGE_POINTS, VertexColor::FVF, D3DPOOL_DEFAULT, &vb, 0);
+		if (FAILED(hr))
+			vb = nullptr;
+
+		mat.Ambient = D3DXCOLOR(1, 1, 1, 1);
+		mat.Diffuse = D3DXCOLOR(1, 1, 1, 1);
+		mat.Specular = D3DXCOLOR(1, 1, 1, 1);
+		mat.Emissive = D3DXCOLOR(0, 0, 0, 1);
+		mat.Power = 8;
+		x = y = z = 0;
+		phi = theta = psi = 0;
+		sx = sy = sz = 1;
+	}
+
+	Particles::~Particles()
+	{
+		Die();
+	}
+
+	bool Particles::IsAlive()
+	{
+		if (vb == nullptr)
+			return false;
+		else
+			return true;
+	}
+
+	bool Particles::Present(unsigned int delta_time)
+	{
+		for (ParticleUnit& p : particles)
+		{
+			if (!p.is_alive)
+				continue;
+			float dt = delta_time / 1000.0f;
+			p.age += dt;
+			if (p.age > p.life)
+			{
+				p.is_alive = false;
+				continue;
+			}
+			p.pos += p.vel * dt;
+			p.vel += p.acc * dt;
+		}
+		particles.erase(std::partition(particles.begin(), particles.end(), [](const auto& p) { return p.is_alive; }), particles.end());
+
+		return true;
+	}
+
+	void Particles::Die()
+	{
+		if (vb != nullptr)
+		{
+			vb->Release();
+			vb = nullptr;
+		}
+		particles.clear();
+	}
+
+	bool Particles::Draw(IDirect3DDevice9* device)
+	{
+		if (!IsAlive())
+			return false;
+
+		HRESULT hr;
+
+		// set transform
+		D3DXMATRIX mat_world = Object::ComputeTransform(x, y, z, phi, theta, psi, sx, sy, sz);
+		hr = device->SetTransform(D3DTS_WORLD, &mat_world);
+		if (FAILED(hr))
+			return false;
+
+		// set material
+		hr = device->SetMaterial(&mat);
+		if (FAILED(hr))
+			return false;
+
+		// draw
+		if (!DrawParticles(device))
+			return false;
+
+		return true;
 	}
 
 }

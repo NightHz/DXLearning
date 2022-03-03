@@ -4,10 +4,13 @@
 #include <d3dx9.h>
 #include "window.h"
 #include <memory>
+#include <vector>
 
 namespace Dx9
 {
 	IDirect3DDevice9* CreateSimpleDx9Device(SimpleWindow* window);
+
+	DWORD float_to_DWORD(float f);
 
 	struct VertexXYZ
 	{
@@ -170,6 +173,7 @@ namespace Dx9
 		~Object();
 
 		D3DXMATRIX ComputeTransform();
+		static D3DXMATRIX ComputeTransform(float x, float y, float z, float phi, float theta, float psi, float sx, float sy, float sz);
 
 		bool Draw(IDirect3DDevice9* device);
 		bool DrawMirror(IDirect3DDevice9* device, const D3DXPLANE& plane);
@@ -204,5 +208,55 @@ namespace Dx9
 
 		bool Transform(IDirect3DDevice9* device);
 		bool TransformReflect(IDirect3DDevice9* device, const D3DXPLANE& plane);
+	};
+
+	class Particles
+	{
+	private:
+		IDirect3DVertexBuffer9* vb;
+		UINT vertex_count;
+		UINT vertex_size;
+		DWORD fvf;
+
+		bool DrawParticles(IDirect3DDevice9* device);
+
+	protected:
+		struct ParticleUnit
+		{
+			D3DXVECTOR3 pos;
+			D3DXVECTOR3 vel;
+			D3DXVECTOR3 acc;
+			float life;
+			float age;
+			D3DXCOLOR color;
+			D3DXCOLOR color_fade;
+			bool is_alive;
+			ParticleUnit() : pos(), vel(), acc(), color(), color_fade()
+			{
+				life = age = 0;
+				is_alive = false;
+			}
+		};
+		std::vector<ParticleUnit> particles;
+
+	public:
+		D3DMATERIAL9 mat;
+
+		float x, y, z;
+		float phi, theta, psi;
+		float sx, sy, sz;
+
+		Particles(IDirect3DDevice9* device, UINT size = 500);
+		Particles(const Particles&) = delete;
+		Particles& operator=(const Particles&) = delete;
+		~Particles();
+
+		bool IsAlive();
+
+		// only update existed particles
+		virtual bool Present(unsigned int delta_time);
+		void Die();
+
+		bool Draw(IDirect3DDevice9* device);
 	};
 }
