@@ -56,6 +56,9 @@ int dx9_example()
 	auto texture1 = Dx9::Texture::CreateTexture(device, "tex1.png");
 	if (!texture1)
 		return 1;
+	auto texture2 = Dx9::Texture::CreateTexture(device, "tex2.png");
+	if (!texture2)
+		return 1;
 
 	// create cube
 	Dx9::Object cube(mesh_cube);
@@ -182,6 +185,20 @@ int dx9_example()
 	Dx9::Object terrain(mesh_terrain);
 	terrain.y = -18;
 
+	// create particles
+	Dx9::SnowParticles snow(device);
+	if (!snow.IsAlive())
+		return false;
+	snow.texture = texture2;
+	snow.y = -18;
+	snow.range_min.x = -20;
+	snow.range_max.x = 20;
+	snow.range_min.z = -20;
+	snow.range_max.z = 20;
+	snow.range_min.y = -5;
+	snow.range_max.y = 8;
+	snow.emit_rate = 3000;
+
 	// create camera
 	Dx9::Camera camera;
 	camera.aspect = static_cast<float>(window.GetWidth()) / window.GetHeight();
@@ -238,10 +255,10 @@ int dx9_example()
 	hr = device->SetRenderState(D3DRS_POINTSCALEENABLE, true); // default is false
 	if (FAILED(hr))
 		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSIZE, Dx9::float_to_DWORD(2.5f));
+	hr = device->SetRenderState(D3DRS_POINTSIZE, Dx9::float_to_DWORD(0.05f));
 	if (FAILED(hr))
 		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSIZE_MIN, Dx9::float_to_DWORD(0.2f));
+	hr = device->SetRenderState(D3DRS_POINTSIZE_MIN, Dx9::float_to_DWORD(0.0f));
 	if (FAILED(hr))
 		return 1;
 	hr = device->SetRenderState(D3DRS_POINTSIZE_MAX, Dx9::float_to_DWORD(5.0f));
@@ -391,6 +408,12 @@ int dx9_example()
 		if (!camera.Transform(device))
 			return 1;
 
+		// upudate particles
+		unsigned int dt = min(window.fps_counter.GetLastDeltatime(), 1000);
+		if (!snow.Present(dt))
+			return 1;
+		if (KeyIsDown(VK_F6)) cout << "snow particles count : " << snow.GetParticlesCount() << endl;
+
 		// begin
 		hr = device->BeginScene();
 		if (FAILED(hr))
@@ -435,6 +458,9 @@ int dx9_example()
 		}
 		// draw terrain
 		if (!terrain.Draw(device))
+			return 1;
+		// draw snow
+		if (!snow.Draw(device))
 			return 1;
 
 		// begin shadow

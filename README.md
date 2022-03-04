@@ -88,4 +88,10 @@
 |:-:|:-:|
 |![](img/dx9_9terrain_wireframe.png)|![](img/dx9_9terrain_solid.png)|
 
+**粒子效果**，绘制点精灵
+
+|雪花 (55000+粒子)|
+|:-:|
+|![](img/dx9_10particle_snow.gif)|
+
 

@@ -5,6 +5,8 @@
 #include "window.h"
 #include <memory>
 #include <vector>
+#include <random>
+#include <functional>
 
 namespace Dx9
 {
@@ -150,6 +152,8 @@ namespace Dx9
 		Texture& operator=(const Texture&) = delete;
 		~Texture();
 
+		bool SetTexture(IDirect3DDevice9* device);
+
 		static std::shared_ptr<Texture> CreateTexture(IDirect3DDevice9* device, const char* filename);
 	};
 
@@ -238,8 +242,11 @@ namespace Dx9
 			}
 		};
 		std::vector<ParticleUnit> particles;
+		std::function<bool(const ParticleUnit&)> particle_test;
 
 	public:
+		std::shared_ptr<Texture> texture;
+
 		D3DMATERIAL9 mat;
 
 		float x, y, z;
@@ -252,11 +259,32 @@ namespace Dx9
 		~Particles();
 
 		bool IsAlive();
+		size_t GetParticlesCount();
 
 		// only update existed particles
 		virtual bool Present(unsigned int delta_time);
 		void Die();
 
 		bool Draw(IDirect3DDevice9* device);
+	};
+
+	class SnowParticles : public Particles
+	{
+	private:
+		std::default_random_engine e;
+		std::uniform_real_distribution<float> d;
+
+	public:
+		int emit_rate;
+		D3DXVECTOR3 range_min, range_max;
+		D3DXVECTOR3 vel_min, vel_max;
+
+		SnowParticles(IDirect3DDevice9* device, unsigned int seed = 8734652u);
+		SnowParticles(const SnowParticles&) = delete;
+		SnowParticles& operator=(const SnowParticles&) = delete;
+		~SnowParticles();
+
+		void EmitParticle();
+		virtual bool Present(unsigned int delta_time) override;
 	};
 }

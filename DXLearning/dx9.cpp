@@ -1406,6 +1406,15 @@ namespace Dx9
 			tex->Release();
 	}
 
+	bool Texture::SetTexture(IDirect3DDevice9* device)
+	{
+		HRESULT hr;
+		hr = device->SetTexture(0, tex);
+		if (FAILED(hr))
+			return false;
+		return true;
+	}
+
 	std::shared_ptr<Texture> Texture::CreateTexture(IDirect3DDevice9* device, const char* filename)
 	{
 		auto texture = std::shared_ptr<Texture>(new Texture());
@@ -1510,6 +1519,11 @@ namespace Dx9
 			return true;
 	}
 
+	size_t Particles::GetParticlesCount()
+	{
+		return particles.size();
+	}
+
 	bool Particles::Present(unsigned int delta_time)
 	{
 		for (ParticleUnit& p : particles)
@@ -1525,6 +1539,8 @@ namespace Dx9
 			}
 			p.pos += p.vel * dt;
 			p.vel += p.acc * dt;
+			if (particle_test)
+				p.is_alive = particle_test(p);
 		}
 		particles.erase(std::partition(particles.begin(), particles.end(), [](const auto& p) { return p.is_alive; }), particles.end());
 
@@ -1559,10 +1575,70 @@ namespace Dx9
 		if (FAILED(hr))
 			return false;
 
+		// set texture
+		if (texture)
+		{
+			if (!texture->SetTexture(device))
+				return false;
+		}
+		else
+		{
+			hr = device->SetTexture(0, nullptr);
+			if (FAILED(hr))
+				return false;
+		}
+
 		// draw
 		if (!DrawParticles(device))
 			return false;
 
+		return true;
+	}
+
+	SnowParticles::SnowParticles(IDirect3DDevice9* device, unsigned int seed) : Particles(device), e(seed), d(0, 1)
+	{
+		emit_rate = 500;
+		range_min = D3DXVECTOR3(-5, -5, -5);
+		range_max = D3DXVECTOR3(5, 5, 5);
+		vel_min = D3DXVECTOR3(0.1f, -0.4f, 0);
+		vel_max = D3DXVECTOR3(0.4f, -1.0f, 0);
+	}
+
+	SnowParticles::~SnowParticles()
+	{
+	}
+
+	void SnowParticles::EmitParticle()
+	{
+		ParticleUnit p;
+		D3DXVECTOR3 range = range_max - range_min;
+		p.pos.x = range_min.x + range.x * d(e);
+		p.pos.y = range_max.y;
+		p.pos.z = range_min.z + range.z * d(e);
+		D3DXVECTOR3 vel_range = vel_max - vel_min;
+		p.vel.x = vel_min.x + vel_range.x * d(e);
+		p.vel.y = vel_min.y + vel_range.y * d(e);
+		p.vel.z = vel_min.z + vel_range.z * d(e);
+		p.acc = D3DXVECTOR3(0, 0, 0);
+		p.life = 100;
+		p.age = 0;
+		p.color = D3DXCOLOR(1, 1, 1, 1);
+		p.color_fade = D3DXCOLOR(1, 1, 1, 1);
+		p.is_alive = true;
+		particles.push_back(p);
+	}
+
+	bool SnowParticles::Present(unsigned int delta_time)
+	{
+		particle_test = [this](const ParticleUnit& p)
+		{
+			return p.pos.x >= this->range_min.x && p.pos.y >= this->range_min.y && p.pos.z >= this->range_min.z &&
+				p.pos.x <= this->range_max.x && p.pos.y <= this->range_max.y && p.pos.z <= this->range_max.z;
+		};
+		Particles::Present(delta_time);
+		int emit_count = emit_rate * delta_time / 1000;
+		for (int i = 0; i < emit_count; i++)
+			EmitParticle();
 		return true;
 	}
 
