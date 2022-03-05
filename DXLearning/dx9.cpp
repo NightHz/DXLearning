@@ -8,7 +8,7 @@ namespace Dx9
 {
 	IDirect3DDevice9* CreateSimpleDx9Device(SimpleWindow* window)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// get IDirect3D9 interface
 		IDirect3D9* d3d9 = Direct3DCreate9(D3D_SDK_VERSION);
@@ -66,6 +66,239 @@ namespace Dx9
 		return *reinterpret_cast<DWORD*>(&f);
 	}
 
+	bool SetDrawMode(IDirect3DDevice9* device, DrawMode mode)
+	{
+		HRESULT hr = 0;
+		switch (mode)
+		{
+		case DrawMode::Init:
+
+			// set normalized normal
+			hr = device->SetRenderState(D3DRS_NORMALIZENORMALS, true); // default is false
+			if (FAILED(hr))
+				return 1;
+
+			// set texture filter
+			hr = device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_ANISOTROPIC);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, 4);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
+			if (FAILED(hr))
+				return 1;
+
+			// set point sprite
+			hr = device->SetRenderState(D3DRS_POINTSPRITEENABLE, true); // default is false
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_POINTSCALEENABLE, true); // default is false
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_POINTSIZE, Dx9::float_to_DWORD(0.05f));
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_POINTSIZE_MIN, Dx9::float_to_DWORD(0.0f));
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_POINTSIZE_MAX, Dx9::float_to_DWORD(5.0f));
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_POINTSCALE_A, Dx9::float_to_DWORD(0.0f));
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_POINTSCALE_B, Dx9::float_to_DWORD(0.0f));
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_POINTSCALE_C, Dx9::float_to_DWORD(1.0f));
+			if (FAILED(hr))
+				return 1;
+
+			return true;
+
+		case DrawMode::Normal:
+
+			// set winding order
+			hr = device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW); // default is D3DCULL_CCW
+			if (FAILED(hr))
+				return 1;
+
+			// set stencil
+			hr = device->SetRenderState(D3DRS_STENCILENABLE, false);
+			if (FAILED(hr))
+				return 1;
+
+			// set zbuffer
+			hr = device->SetRenderState(D3DRS_ZENABLE, true); // default is true
+			if (FAILED(hr))
+				return 1;
+
+			// set blend
+			hr = device->SetRenderState(D3DRS_ALPHABLENDENABLE, true); // default is false
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA); // default is D3DBLEND_ONE
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA); // default is D3DBLEND_ZERO
+			if (FAILED(hr))
+				return 1;
+
+			return true;
+
+		case DrawMode::Stencil:
+
+			// set winding order
+			hr = device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+			if (FAILED(hr))
+				return 1;
+
+			// set stencil
+			hr = device->Clear(0, nullptr, D3DCLEAR_STENCIL, 0, 0, 0);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_STENCILENABLE, true);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_STENCILREF, 0x1);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_ALWAYS);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_REPLACE);
+			if (FAILED(hr))
+				return 1;
+
+			// set zbuffer
+			hr = device->SetRenderState(D3DRS_ZENABLE, true);
+			if (FAILED(hr))
+				return 1;
+
+			// set blend
+			hr = device->SetRenderState(D3DRS_ALPHABLENDENABLE, true);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_ZERO);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ONE);
+			if (FAILED(hr))
+				return 1;
+
+			return true;
+
+		case DrawMode::Mirror:
+
+			// set winding order
+			hr = device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CW);
+			if (FAILED(hr))
+				return 1;
+
+			// set stencil
+			hr = device->SetRenderState(D3DRS_STENCILENABLE, true);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_EQUAL);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_KEEP);
+			if (FAILED(hr))
+				return 1;
+
+			// set zbuffer
+			hr = device->SetRenderState(D3DRS_ZENABLE, true);
+			if (FAILED(hr))
+				return 1;
+
+			// set blend
+			hr = device->SetRenderState(D3DRS_ALPHABLENDENABLE, true);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_DESTCOLOR);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ZERO);
+			if (FAILED(hr))
+				return 1;
+
+			return true;
+
+		case DrawMode::Shadow:
+
+			// set winding order
+			hr = device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+			if (FAILED(hr))
+				return 1;
+
+			// set stencil
+			hr = device->SetRenderState(D3DRS_STENCILENABLE, true);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_STENCILFUNC, D3DCMP_EQUAL);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_STENCILPASS, D3DSTENCILOP_INCRSAT);
+			if (FAILED(hr))
+				return 1;
+
+			// set zbuffer
+			hr = device->SetRenderState(D3DRS_ZENABLE, false);
+			if (FAILED(hr))
+				return 1;
+
+			// set blend
+			hr = device->SetRenderState(D3DRS_ALPHABLENDENABLE, true);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+			if (FAILED(hr))
+				return 1;
+
+			return true;
+
+		case DrawMode::Particles:
+
+			// set winding order
+			hr = device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+			if (FAILED(hr))
+				return 1;
+
+			// set stencil
+			hr = device->SetRenderState(D3DRS_STENCILENABLE, false);
+			if (FAILED(hr))
+				return 1;
+
+			// set zbuffer
+			hr = device->SetRenderState(D3DRS_ZENABLE, true);
+			if (FAILED(hr))
+				return 1;
+
+			// set blend
+			hr = device->SetRenderState(D3DRS_ALPHABLENDENABLE, true);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+			if (FAILED(hr))
+				return 1;
+			hr = device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+			if (FAILED(hr))
+				return 1;
+
+			return true;
+
+		default:
+			return false;
+		}
+	}
+
 	Mesh::Mesh()
 	{
 		mesh = nullptr;
@@ -93,7 +326,7 @@ namespace Dx9
 
 	bool Mesh::ComputeBoundingSphere(D3DXVECTOR3& center, float& radius)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 		if (mesh)
 		{
 			void* vertices;
@@ -135,7 +368,7 @@ namespace Dx9
 
 	bool Mesh::ComputeBoundingBox(D3DXVECTOR3& min, D3DXVECTOR3& max)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 		if (mesh)
 		{
 			void* vertices;
@@ -181,7 +414,7 @@ namespace Dx9
 			return false;
 		if (pmesh)
 			return true;
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// generate progressive mesh
 		ID3DXBuffer* adjacency_info;
@@ -215,7 +448,7 @@ namespace Dx9
 	{
 		if (!pmesh)
 			return false;
-		HRESULT hr;
+		HRESULT hr = 0;
 		DWORD max = pmesh->GetMaxFaces();
 		DWORD min = pmesh->GetMinFaces();
 		f = (f > 1 ? 1 : (f < 0 ? 0 : f));
@@ -227,7 +460,7 @@ namespace Dx9
 
 	bool Mesh::Draw(IDirect3DDevice9* device)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		if (mesh)
 		{
@@ -284,7 +517,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreateCubeXYZ(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// create buffer
 		mesh->vertex_size = sizeof(VertexXYZ);
@@ -343,7 +576,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreateCubeColor(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// create buffer
 		mesh->vertex_size = sizeof(VertexColor);
@@ -411,7 +644,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreateTetrahedronNormal(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// create buffer
 		mesh->vertex_size = sizeof(VertexNormal);
@@ -458,7 +691,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreateTetrahedronNormalColor(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// create buffer
 		mesh->vertex_size = sizeof(VertexNormalColor);
@@ -510,7 +743,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreateCubeNormalColorTex1(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// create buffer
 		mesh->vertex_size = sizeof(VertexNormalColorTex1);
@@ -592,7 +825,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreatePlaneNormal(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// create buffer
 		mesh->vertex_size = sizeof(VertexNormal);
@@ -633,7 +866,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreateD3DXTeapot(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		hr = D3DXCreateTeapot(device, &mesh->mesh, nullptr);
 		//D3DXCreateBox(device, 2, 2, 2, &mesh_cube, nullptr);
@@ -647,7 +880,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreateD3DXText(IDirect3DDevice9* device, const std::string& text)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		HDC hdc = CreateCompatibleDC(0);
 
@@ -685,7 +918,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreateMeshFromFile(IDirect3DDevice9* device, const std::string& file_path)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// open file
 		std::ifstream file;
@@ -820,7 +1053,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreateMeshNormalFromFile(IDirect3DDevice9* device, const std::string& file_path)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// open file
 		std::ifstream file;
@@ -1005,7 +1238,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreateD3DXCube(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		hr = D3DXCreateBox(device, 1, 1, 1, &mesh->mesh, nullptr);
 		if (FAILED(hr))
@@ -1018,7 +1251,7 @@ namespace Dx9
 	std::shared_ptr<Mesh> Mesh::CreateD3DXSphere(IDirect3DDevice9* device)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		hr = D3DXCreateSphere(device, 1, 20, 20, &mesh->mesh, nullptr);
 		if (FAILED(hr))
@@ -1033,7 +1266,7 @@ namespace Dx9
 		const D3DXCOLOR& low_color, const D3DXCOLOR& high_color)
 	{
 		auto mesh = std::shared_ptr<Mesh>(new Mesh);
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// parameters
 		const float l = terrain_size;
@@ -1150,7 +1383,7 @@ namespace Dx9
 
 	bool Object::Draw(IDirect3DDevice9* device)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// set transform
 		D3DXMATRIX mat_world = ComputeTransform();
@@ -1183,7 +1416,7 @@ namespace Dx9
 
 	bool Object::DrawMirror(IDirect3DDevice9* device, const D3DXPLANE& plane)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// set transform
 		D3DXMATRIX mat_reflect;
@@ -1218,7 +1451,7 @@ namespace Dx9
 
 	bool Object::DrawShadow(IDirect3DDevice9* device, const D3DXVECTOR4& light_dir, const D3DXPLANE& plane)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// set transform
 		D3DXMATRIX mat_shadow;
@@ -1338,7 +1571,7 @@ namespace Dx9
 
 	bool Camera::Transform(IDirect3DDevice9* device)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// set camera
 		D3DXMATRIX mat_position, mat_rotation;
@@ -1366,7 +1599,7 @@ namespace Dx9
 
 	bool Camera::TransformReflect(IDirect3DDevice9* device, const D3DXPLANE& plane)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// set camera and mirror
 		D3DXMATRIX mat_reflect;
@@ -1408,7 +1641,7 @@ namespace Dx9
 
 	bool Texture::SetTexture(IDirect3DDevice9* device)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 		hr = device->SetTexture(0, tex);
 		if (FAILED(hr))
 			return false;
@@ -1418,7 +1651,7 @@ namespace Dx9
 	std::shared_ptr<Texture> Texture::CreateTexture(IDirect3DDevice9* device, const char* filename)
 	{
 		auto texture = std::shared_ptr<Texture>(new Texture());
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// create texture
 		hr = D3DXCreateTextureFromFile(device, filename, &texture->tex);
@@ -1430,7 +1663,7 @@ namespace Dx9
 
 	bool Particles::DrawParticles(IDirect3DDevice9* device)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		hr = device->SetStreamSource(0, vb, 0, vertex_size);
 		if (FAILED(hr))
@@ -1485,7 +1718,7 @@ namespace Dx9
 
 	Particles::Particles(IDirect3DDevice9* device, UINT size)
 	{
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// create buffer
 		vertex_size = sizeof(VertexColor);
@@ -1562,7 +1795,7 @@ namespace Dx9
 		if (!IsAlive())
 			return false;
 
-		HRESULT hr;
+		HRESULT hr = 0;
 
 		// set transform
 		D3DXMATRIX mat_world = Object::ComputeTransform(x, y, z, phi, theta, psi, sx, sy, sz);
