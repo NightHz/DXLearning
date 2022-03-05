@@ -14,10 +14,6 @@ namespace Dx9
 
 	DWORD float_to_DWORD(float f);
 
-	enum class DrawMode { Init, Normal, Stencil, Mirror, Shadow, Particles };
-
-	bool SetDrawMode(IDirect3DDevice9* device, DrawMode mode);
-
 	struct VertexXYZ
 	{
 	public:
@@ -260,7 +256,7 @@ namespace Dx9
 		Particles(IDirect3DDevice9* device, UINT size = 500);
 		Particles(const Particles&) = delete;
 		Particles& operator=(const Particles&) = delete;
-		virtual ~Particles();
+		~Particles();
 
 		bool IsAlive();
 		size_t GetParticlesCount();
@@ -286,7 +282,7 @@ namespace Dx9
 		SnowParticles(IDirect3DDevice9* device, unsigned int seed = 8734652u);
 		SnowParticles(const SnowParticles&) = delete;
 		SnowParticles& operator=(const SnowParticles&) = delete;
-		~SnowParticles() override;
+		~SnowParticles();
 
 		void EmitParticle();
 		virtual bool Present(unsigned int delta_time) override;
