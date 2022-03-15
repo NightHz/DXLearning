@@ -195,7 +195,7 @@ int dx9_setup(SimpleWindowWithFC* window, IDirect3DDevice9* device)
 	auto& terrain = *dx9_objects["terrain"];
 	terrain.y = -20;
 
-	// create particles
+	// create snow
 	dx9_particles["snow"] = std::make_shared<Dx9::SnowParticles>(device);
 	Dx9::SnowParticles& snow = *dynamic_cast<Dx9::SnowParticles*>(dx9_particles["snow"].get());
 	if (!snow.IsAlive())
@@ -209,6 +209,26 @@ int dx9_setup(SimpleWindowWithFC* window, IDirect3DDevice9* device)
 	snow.range_min.y = -4;
 	snow.range_max.y = 12;
 	snow.emit_rate = 3000;
+
+	// create firework
+	dx9_particles["firework"] = std::make_shared<Dx9::FireworkParticles>(device);
+	Dx9::FireworkParticles& firework = *dynamic_cast<Dx9::FireworkParticles*>(dx9_particles["firework"].get());
+	if (!firework.IsAlive())
+		return 1;
+	firework.texture = dx9_textures["snow"];
+	firework.y = 5;
+	firework.vel_max = 0.6f;
+	firework.emit_rate = 100;
+	firework.life = 2.5f;
+
+	// create gun particles
+	dx9_particles["gun"] = std::make_shared<Dx9::GunParticles>(device);
+	Dx9::GunParticles& gun = *dynamic_cast<Dx9::GunParticles*>(dx9_particles["gun"].get());
+	if (!gun.IsAlive())
+		return 1;
+	gun.texture = dx9_textures["snow"];
+	gun.y = 5;
+	gun.x = 2;
 
 	// create camera
 	camera = std::make_shared<Dx9::Camera>();
@@ -387,6 +407,8 @@ int dx9_control(IDirect3DDevice9* device)
 
 	// show info
 	if (KeyIsDown(VK_F6)) cout << "snow particles count : " << dx9_particles["snow"]->GetParticlesCount() << endl;
+	if (KeyIsDown(VK_F7)) cout << "firework particles count : " << dx9_particles["firework"]->GetParticlesCount() << endl;
+	if (KeyIsDown(VK_F8)) cout << "gun particles count : " << dx9_particles["gun"]->GetParticlesCount() << endl;
 
 	first = false;
 	return 0;
@@ -582,6 +604,12 @@ int dx9_render_particles(IDirect3DDevice9* device)
 	// draw snow
 	if (!dx9_particles["snow"]->Draw(device))
 		return 1;
+	// draw firework
+	if (!dx9_particles["firework"]->Draw(device))
+		return 1;
+	// draw gun particles
+	if (!dx9_particles["gun"]->Draw(device))
+		return 1;
 
 	// end particles
 	hr = device->SetRenderState(D3DRS_POINTSPRITEENABLE, false);
@@ -705,6 +733,10 @@ int dx9_example()
 		// update particles
 		unsigned int dt = min(window->fps_counter.GetLastDeltatime(), 1000);
 		if (!dx9_particles["snow"]->Present(dt))
+			return 1;
+		if (!dx9_particles["firework"]->Present(dt))
+			return 1;
+		if (!dx9_particles["gun"]->Present(dt))
 			return 1;
 
 		// render

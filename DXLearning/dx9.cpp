@@ -1649,4 +1649,117 @@ namespace Dx9
 		return true;
 	}
 
+	FireworkParticles::FireworkParticles(IDirect3DDevice9* device, unsigned int seed) : Particles(device), e(seed), d(0, 1)
+	{
+		bigness = 0.03f;
+		emit_rate = 1000;
+		radius = 0.1f;
+		vel_min = 0.1f;
+		vel_max = 0.4f;
+		life = 2.0f;
+	}
+
+	FireworkParticles::~FireworkParticles()
+	{
+	}
+
+	void FireworkParticles::EmitParticle()
+	{
+		ParticleUnit p;
+		do
+		{
+			p.pos.x = d(e) * 2 - 1;
+			p.pos.y = d(e) * 2 - 1;
+			p.pos.z = d(e) * 2 - 1;
+		} while (D3DXVec3LengthSq(&p.pos) >= 1.0f);
+		p.pos *= radius;
+		do
+		{
+			p.vel.x = d(e) * 2 - 1;
+			p.vel.y = d(e) * 2 - 1;
+			p.vel.z = d(e) * 2 - 1;
+		} while (D3DXVec3LengthSq(&p.vel) >= 1.0f && D3DXVec3LengthSq(&p.vel) <= 0.01f);
+		D3DXVECTOR3 vel;
+		D3DXVec3Normalize(&vel, &p.vel);
+		p.vel = vel * (d(e) * (vel_max - vel_min) + vel_min);
+		p.acc = D3DXVECTOR3(0, 0, 0);
+		p.life = life;
+		p.age = 0;
+		p.color.a = 1;
+		p.color.r = d(e);
+		p.color.g = d(e);
+		p.color.b = d(e);
+		p.color_fade = p.color;
+		p.is_alive = true;
+		particles.push_back(p);
+	}
+
+	bool FireworkParticles::Present(unsigned int delta_time)
+	{
+		Particles::Present(delta_time);
+		int emit_count = emit_rate * delta_time / 1000;
+		for (int i = 0; i < emit_count; i++)
+			EmitParticle();
+		return true;
+	}
+
+	GunParticles::GunParticles(IDirect3DDevice9* device, unsigned int seed) : Particles(device), e(seed), d(0, 1)
+	{
+		bigness = 0.01f;
+		emit_rate = 1000;
+		dir = D3DXVECTOR3(1, 0, 0);
+		theta = D3DX_PI / 180.0f * 30.0f;
+		max_radius = 2.0f;
+		vel_min = 0.1f;
+		vel_max = 1.0f;
+		color = D3DXCOLOR(1, 0.5f, 0.5f, 1);
+	}
+
+	GunParticles::~GunParticles()
+	{
+	}
+
+	void GunParticles::EmitParticle()
+	{
+		float cos_angle = min(std::cosf(D3DX_PI / 180.0f * 5.0f), std::cosf(theta * 0.5f));
+		ParticleUnit p;
+		p.pos = D3DXVECTOR3(0, 0, 0);
+		while (true)
+		{
+			p.vel.x = d(e) * 2 - 1;
+			p.vel.y = d(e) * 2 - 1;
+			p.vel.z = d(e) * 2 - 1;
+			if (D3DXVec3LengthSq(&p.vel) >= 1.0f && D3DXVec3LengthSq(&p.vel) <= 0.01f)
+				continue;
+			D3DXVECTOR3 vel;
+			D3DXVec3Normalize(&vel, &p.vel);
+			if (D3DXVec3Dot(&vel, &dir) >= cos_angle)
+			{
+				p.vel = vel * (d(e) * (vel_max - vel_min) + vel_min);
+				break;
+			}
+		};
+		p.acc = D3DXVECTOR3(0, 0, 0);
+		p.life = 100;
+		p.age = 0;
+		p.color = color;
+		p.color_fade = color;
+		p.is_alive = true;
+		particles.push_back(p);
+	}
+
+	bool GunParticles::Present(unsigned int delta_time)
+	{
+		float r2 = max_radius * max_radius;
+		particle_test = [r2](const ParticleUnit& p)
+		{
+			return D3DXVec3LengthSq(&p.pos) <= r2;
+		};
+		Particles::Present(delta_time);
+		int emit_count = emit_rate * delta_time / 1000;
+		for (int i = 0; i < emit_count; i++)
+			EmitParticle();
+		return true;
+	}
+
 }

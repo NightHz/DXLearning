@@ -289,4 +289,48 @@ namespace Dx9
 		void EmitParticle();
 		virtual bool Present(unsigned int delta_time) override;
 	};
+
+	class FireworkParticles : public Particles
+	{
+	private:
+		std::default_random_engine e;
+		std::uniform_real_distribution<float> d;
+
+	public:
+		int emit_rate;
+		float radius;
+		float vel_min, vel_max;
+		float life;
+
+		FireworkParticles(IDirect3DDevice9* device, unsigned int seed = 8734652u);
+		FireworkParticles(const FireworkParticles&) = delete;
+		FireworkParticles& operator=(const FireworkParticles&) = delete;
+		~FireworkParticles();
+
+		void EmitParticle();
+		virtual bool Present(unsigned int delta_time) override;
+	};
+
+	class GunParticles : public Particles
+	{
+	private:
+		std::default_random_engine e;
+		std::uniform_real_distribution<float> d;
+
+	public:
+		int emit_rate;
+		D3DXVECTOR3 dir;
+		float theta;
+		float max_radius;
+		float vel_min, vel_max;
+		D3DXCOLOR color;
+
+		GunParticles(IDirect3DDevice9* device, unsigned int seed = 8734652u);
+		GunParticles(const GunParticles&) = delete;
+		GunParticles& operator=(const GunParticles&) = delete;
+		~GunParticles();
+
+		void EmitParticle();
+		virtual bool Present(unsigned int delta_time) override;
+	};
 }

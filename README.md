@@ -90,8 +90,8 @@
 
 **粒子效果**，绘制点精灵
 
-|雪花 (67000+粒子)|
-|:-:|
-|![](img/dx9_10particle_snow2.gif)|
+|雪花 (67000+粒子)|烟花 (200+) 与 粒子枪 (5000+)|
+|:-:|:-:|
+|![](img/dx9_10particle_snow2.gif)|![](img/dx9_10particle_other.gif)|
 
 
