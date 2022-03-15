@@ -193,7 +193,7 @@ int dx9_setup(SimpleWindowWithFC* window, IDirect3DDevice9* device)
 	// create terrain
 	dx9_objects["terrain"] = std::make_shared<Dx9::Object>(dx9_meshes["terrain"]);
 	auto& terrain = *dx9_objects["terrain"];
-	terrain.y = -18;
+	terrain.y = -20;
 
 	// create particles
 	dx9_particles["snow"] = std::make_shared<Dx9::SnowParticles>(device);
@@ -201,13 +201,13 @@ int dx9_setup(SimpleWindowWithFC* window, IDirect3DDevice9* device)
 	if (!snow.IsAlive())
 		return 1;
 	snow.texture = dx9_textures["snow"];
-	snow.y = -18;
+	snow.y = -20;
 	snow.range_min.x = -20;
 	snow.range_max.x = 20;
 	snow.range_min.z = -20;
 	snow.range_max.z = 20;
-	snow.range_min.y = -5;
-	snow.range_max.y = 8;
+	snow.range_min.y = -4;
+	snow.range_max.y = 12;
 	snow.emit_rate = 3000;
 
 	// create camera
@@ -257,32 +257,6 @@ int dx9_setup(SimpleWindowWithFC* window, IDirect3DDevice9* device)
 	if (FAILED(hr))
 		return 1;
 	hr = device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
-	if (FAILED(hr))
-		return 1;
-
-	// set point sprite
-	hr = device->SetRenderState(D3DRS_POINTSPRITEENABLE, true); // default is false
-	if (FAILED(hr))
-		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSCALEENABLE, true); // default is false
-	if (FAILED(hr))
-		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSIZE, Dx9::float_to_DWORD(0.05f));
-	if (FAILED(hr))
-		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSIZE_MIN, Dx9::float_to_DWORD(0.0f));
-	if (FAILED(hr))
-		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSIZE_MAX, Dx9::float_to_DWORD(16.0f));
-	if (FAILED(hr))
-		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSCALE_A, Dx9::float_to_DWORD(0.0f));
-	if (FAILED(hr))
-		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSCALE_B, Dx9::float_to_DWORD(0.0f));
-	if (FAILED(hr))
-		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSCALE_C, Dx9::float_to_DWORD(1.0f));
 	if (FAILED(hr))
 		return 1;
 
@@ -569,8 +543,55 @@ int dx9_render_shadow(IDirect3DDevice9* device)
 
 int dx9_render_particles(IDirect3DDevice9* device)
 {
+	HRESULT hr = 0;
+	// begin particles
+	// set point sprite
+	hr = device->SetRenderState(D3DRS_POINTSPRITEENABLE, true);
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSCALEENABLE, true);
+	if (FAILED(hr))
+		return 1;
+	//hr = device->SetRenderState(D3DRS_POINTSIZE, Dx9::float_to_DWORD(0.05f)); // let class Particles set value
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSIZE_MIN, Dx9::float_to_DWORD(0.0f));
+	if (FAILED(hr))
+		return 1;
+	//hr = device->SetRenderState(D3DRS_POINTSIZE_MAX, Dx9::float_to_DWORD(16.0f));
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSCALE_A, Dx9::float_to_DWORD(0.0f));
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSCALE_B, Dx9::float_to_DWORD(0.0f));
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSCALE_C, Dx9::float_to_DWORD(1.5f));
+	if (FAILED(hr))
+		return 1;
+	// disable light
+	DWORD lighting;
+	hr = device->GetRenderState(D3DRS_LIGHTING, &lighting);
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_LIGHTING, false);
+	if (FAILED(hr))
+		return 1;
+	
 	// draw snow
 	if (!dx9_particles["snow"]->Draw(device))
+		return 1;
+
+	// end particles
+	hr = device->SetRenderState(D3DRS_POINTSPRITEENABLE, false);
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_POINTSCALEENABLE, false);
+	if (FAILED(hr))
+		return 1;
+	hr = device->SetRenderState(D3DRS_LIGHTING, lighting);
+	if (FAILED(hr))
 		return 1;
 
 	return 0;

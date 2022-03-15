@@ -1504,6 +1504,7 @@ namespace Dx9
 		x = y = z = 0;
 		phi = theta = psi = 0;
 		sx = sy = sz = 1;
+		bigness = 0.05f;
 	}
 
 	Particles::~Particles()
@@ -1564,6 +1565,11 @@ namespace Dx9
 
 		HRESULT hr;
 
+		// set point size
+		hr = device->SetRenderState(D3DRS_POINTSIZE, Dx9::float_to_DWORD(bigness));
+		if (FAILED(hr))
+			return false;
+
 		// set transform
 		D3DXMATRIX mat_world = Object::ComputeTransform(x, y, z, phi, theta, psi, sx, sy, sz);
 		hr = device->SetTransform(D3DTS_WORLD, &mat_world);
@@ -1597,6 +1603,7 @@ namespace Dx9
 
 	SnowParticles::SnowParticles(IDirect3DDevice9* device, unsigned int seed) : Particles(device), e(seed), d(0, 1)
 	{
+		bigness = 0.04f;
 		emit_rate = 500;
 		range_min = D3DXVECTOR3(-5, -5, -5);
 		range_max = D3DXVECTOR3(5, 5, 5);
