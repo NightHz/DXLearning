@@ -94,4 +94,10 @@
 |:-:|:-:|
 |![](img/dx9_10particle_snow2.gif)|![](img/dx9_10particle_other.gif)|
 
+**拾取判断**
+
+左下角与右下角的拾取点使茶壶变色
+
+![](img/dx9_11pick.gif)
+
 

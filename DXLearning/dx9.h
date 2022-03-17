@@ -179,6 +179,8 @@ namespace Dx9
 
 		D3DXMATRIX ComputeTransform();
 		static D3DXMATRIX ComputeTransform(float x, float y, float z, float phi, float theta, float psi, float sx, float sy, float sz);
+		D3DXMATRIX ComputeInverseTransform();
+		static D3DXMATRIX ComputeInverseTransform(float x, float y, float z, float phi, float theta, float psi, float sx, float sy, float sz);
 
 		bool Draw(IDirect3DDevice9* device);
 		bool DrawMirror(IDirect3DDevice9* device, const D3DXPLANE& plane);
@@ -213,6 +215,12 @@ namespace Dx9
 
 		bool Transform(IDirect3DDevice9* device);
 		bool TransformReflect(IDirect3DDevice9* device, const D3DXPLANE& plane);
+
+		static std::pair<bool, float> IntersectionJudge(const D3DXVECTOR3& ray_o, const D3DXVECTOR3& ray_dir, const D3DXVECTOR3& sphere_c, const float sphere_r);
+		static std::pair<bool, float> IntersectionJudge(const D3DXVECTOR3& ray_o, const D3DXVECTOR3& ray_dir, Object* obj);
+		std::pair<D3DXVECTOR3, D3DXVECTOR3> ComputeRay(float x, float y);
+		std::pair<bool, float> PickObject(float x, float y, Object* obj);
+		std::pair<bool, float> PickObject(Object* obj);
 	};
 
 	class Particles

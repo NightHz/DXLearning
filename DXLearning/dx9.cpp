@@ -1153,6 +1153,31 @@ namespace Dx9
 		return mat_scale * mat_rotation * mat_position;
 	}
 
+	D3DXMATRIX Object::ComputeInverseTransform()
+	{
+		return ComputeInverseTransform(x, y, z, phi, theta, psi, sx, sy, sz);
+	}
+
+	D3DXMATRIX Object::ComputeInverseTransform(float x, float y, float z, float phi, float theta, float psi, float sx, float sy, float sz)
+	{
+		D3DXMATRIX mat_scale, mat_rotation, mat_position;
+
+		// scale
+		D3DXMatrixScaling(&mat_scale, 1 / sx, 1 / sy, 1 / sz);
+
+		// rotation
+		D3DXMATRIX mat_phi, mat_theta, mat_psi;
+		D3DXMatrixRotationY(&mat_phi, -phi);
+		D3DXMatrixRotationZ(&mat_theta, -theta);
+		D3DXMatrixRotationY(&mat_psi, -psi);
+		mat_rotation = mat_psi * mat_theta * mat_phi;
+
+		// translation
+		D3DXMatrixTranslation(&mat_position, -x, -y, -z);
+
+		return mat_position * mat_rotation * mat_scale;
+	}
+
 	bool Object::Draw(IDirect3DDevice9* device)
 	{
 		HRESULT hr;
@@ -1284,7 +1309,7 @@ namespace Dx9
 	void Camera::MoveFront(float d)
 	{
 		D3DXMATRIX mat_yaw;
-		D3DXMatrixRotationY(&mat_yaw, -yaw);
+		D3DXMatrixRotationY(&mat_yaw, yaw);
 		D3DXVECTOR4 z(0, 0, 1, 0), front;
 		D3DXVec4Transform(&front, &z, &mat_yaw);
 		pos.x += front.x * d;
@@ -1304,7 +1329,7 @@ namespace Dx9
 	void Camera::MoveRight(float d)
 	{
 		D3DXMATRIX mat_yaw;
-		D3DXMatrixRotationY(&mat_yaw, -yaw);
+		D3DXMatrixRotationY(&mat_yaw, yaw);
 		D3DXVECTOR4 x(1, 0, 0, 0), right;
 		D3DXVec4Transform(&right, &x, &mat_yaw);
 		pos.x += right.x * d;
@@ -1323,7 +1348,7 @@ namespace Dx9
 
 	void Camera::YawLeft(float angle)
 	{
-		yaw += angle;
+		yaw -= angle;
 	}
 
 	void Camera::YawRight(float angle)
@@ -1333,7 +1358,7 @@ namespace Dx9
 
 	void Camera::PitchUp(float angle)
 	{
-		pitch += angle;
+		pitch -= angle;
 	}
 
 	void Camera::PitchDown(float angle)
@@ -1349,8 +1374,8 @@ namespace Dx9
 		D3DXMATRIX mat_position, mat_rotation;
 		D3DXMatrixTranslation(&mat_position, -pos.x, -pos.y, -pos.z);
 		D3DXMATRIX mat_pitch, mat_yaw;
-		D3DXMatrixRotationY(&mat_yaw, yaw);
-		D3DXMatrixRotationX(&mat_pitch, pitch);
+		D3DXMatrixRotationY(&mat_yaw, -yaw);
+		D3DXMatrixRotationX(&mat_pitch, -pitch);
 		mat_rotation = mat_yaw * mat_pitch;
 		D3DXMATRIX mat_view;
 		mat_view = mat_position * mat_rotation;
@@ -1379,8 +1404,8 @@ namespace Dx9
 		D3DXMATRIX mat_position, mat_rotation;
 		D3DXMatrixTranslation(&mat_position, -pos.x, -pos.y, -pos.z);
 		D3DXMATRIX mat_pitch, mat_yaw;
-		D3DXMatrixRotationY(&mat_yaw, yaw);
-		D3DXMatrixRotationX(&mat_pitch, pitch);
+		D3DXMatrixRotationY(&mat_yaw, -yaw);
+		D3DXMatrixRotationX(&mat_pitch, -pitch);
 		mat_rotation = mat_yaw * mat_pitch;
 		D3DXMATRIX mat_view;
 		mat_view = mat_position * mat_rotation;
@@ -1398,6 +1423,77 @@ namespace Dx9
 			return false;
 
 		return true;
+	}
+
+	std::pair<bool, float> Camera::IntersectionJudge(const D3DXVECTOR3& ray_o, const D3DXVECTOR3& ray_dir, const D3DXVECTOR3& sphere_c, const float sphere_r)
+	{
+		// |o + d * t - c| - r = 0;
+		// u = o - c
+		// d^2 * t^2 + 2*u*d + u^2 - r^2 = 0
+		D3DXVECTOR3 u = ray_o - sphere_c;
+		float a = D3DXVec3Dot(&ray_dir, &ray_dir);
+		float b = 2 * D3DXVec3Dot(&u, &ray_dir);
+		float c = D3DXVec3Dot(&u, &u) - sphere_r * sphere_r;
+		float delta = b * b - 4 * a * c;
+		if (delta < 0)
+			return std::make_pair(false, 0.0f);
+		else
+		{
+			float t = (-b - std::sqrtf(delta)) / (2 * a);
+			if (t <= 0)
+				return std::make_pair(false, 0.0f);
+			else
+				return std::make_pair(true, t);
+		}
+	}
+
+	std::pair<bool, float> Camera::IntersectionJudge(const D3DXVECTOR3& ray_o, const D3DXVECTOR3& ray_dir, Object* obj)
+	{
+		D3DXMATRIX t = obj->ComputeInverseTransform();
+		D3DXVECTOR3 ray_o2, ray_dir2, ray_dir3;
+		D3DXVec3TransformCoord(&ray_o2, &ray_o, &t);
+		D3DXVec3TransformNormal(&ray_dir2, &ray_dir, &t);
+		D3DXVec3Normalize(&ray_dir3, &ray_dir2);
+		D3DXVECTOR3 sphere_c;
+		float sphere_r;
+		obj->mesh->ComputeBoundingSphere(sphere_c, sphere_r);
+		return IntersectionJudge(ray_o2, ray_dir3, sphere_c, sphere_r);
+	}
+
+	std::pair<D3DXVECTOR3, D3DXVECTOR3> Camera::ComputeRay(float x, float y)
+	{
+		D3DXVECTOR3 ray_o = D3DXVECTOR3(0, 0, 0);
+		D3DXVECTOR3 ray_dir = D3DXVECTOR3(0, 0, 1);
+		if (x != 0 || y != 0)
+		{
+			float ymax = std::tanh(fovy * 0.5f);
+			ray_dir.y = y * ymax;
+			ray_dir.x = x * ymax * aspect;
+		}
+		D3DXMATRIX mat_position, mat_rotation;
+		D3DXMatrixTranslation(&mat_position, pos.x, pos.y, pos.z);
+		D3DXMATRIX mat_pitch, mat_yaw;
+		D3DXMatrixRotationY(&mat_yaw, yaw);
+		D3DXMatrixRotationX(&mat_pitch, pitch);
+		mat_rotation = mat_pitch * mat_yaw;
+		D3DXMATRIX mat_view;
+		mat_view = mat_rotation * mat_position;
+		D3DXVECTOR3 ray_o2, ray_dir2;
+		D3DXVec3TransformCoord(&ray_o2, &ray_o, &mat_view);
+		D3DXVec3TransformNormal(&ray_dir2, &ray_dir, &mat_view);
+		D3DXVec3Normalize(&ray_dir, &ray_dir2);
+		return std::make_pair(ray_o2, ray_dir2);
+	}
+
+	std::pair<bool, float> Camera::PickObject(float x, float y, Object* obj)
+	{
+		auto p = ComputeRay(x, y);
+		return IntersectionJudge(p.first, p.second, obj);
+	}
+
+	std::pair<bool, float> Camera::PickObject(Object* obj)
+	{
+		return PickObject(0, 0, obj);
 	}
 
 	Texture::Texture()

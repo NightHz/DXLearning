@@ -445,6 +445,23 @@ int dx9_control(IDirect3DDevice9* device)
 	if (KeyIsDown(VK_F7)) cout << "firework particles count : " << dx9_particles["firework"]->GetParticlesCount() << endl;
 	if (KeyIsDown(VK_F8)) cout << "gun particles count : " << dx9_particles["gun"]->GetParticlesCount() << endl;
 
+	// pick teapot
+	auto& teapot = *dx9_objects["teapot"];
+	auto pick_left_top = camera->PickObject(-0.9f, 0.9f, &teapot);
+	auto pick_right_top = camera->PickObject(0.9f, 0.9f, &teapot);
+	auto pick_left_bottom = camera->PickObject(-0.9f, -0.9f, &teapot);
+	auto pick_right_bottom = camera->PickObject(0.9f, -0.9f, &teapot);
+	if (pick_left_top.first)
+		teapot.mat.Diffuse = D3DXCOLOR(1, 0, 0, 1);
+	else if (pick_right_top.first)
+		teapot.mat.Diffuse = D3DXCOLOR(0, 1, 0, 1);
+	else if (pick_left_bottom.first)
+		teapot.mat.Diffuse = D3DXCOLOR(0, 0, 1, 1);
+	else if (pick_right_bottom.first)
+		teapot.mat.Diffuse = D3DXCOLOR(1, 1, 1, 1);
+	else
+		teapot.mat.Diffuse = D3DXCOLOR(1, 1, 1, 0.5f);
+
 	first = false;
 	return 0;
 }

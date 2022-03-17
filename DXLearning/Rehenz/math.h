@@ -172,6 +172,7 @@ namespace Rehenz
 	struct Vector
 	{
 	public:
+#pragma warning(disable:4201)
 		union {
 			float v[4];
 			struct {
@@ -181,6 +182,7 @@ namespace Rehenz
 				float w;
 			};
 		};
+#pragma warning(default:4201)
 
 		// default w = 0
 		Vector();
