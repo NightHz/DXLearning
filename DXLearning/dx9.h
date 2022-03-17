@@ -13,6 +13,7 @@ namespace Dx9
 	IDirect3DDevice9* CreateSimpleDx9Device(SimpleWindow* window);
 
 	DWORD float_to_DWORD(float f);
+	float DWORD_to_float(DWORD d);
 
 	struct VertexXYZ
 	{
@@ -253,7 +254,9 @@ namespace Dx9
 		float phi, theta, psi;
 		float sx, sy, sz;
 
-		float bigness;
+		float pointsize;
+		float pointsize_min, pointsize_max;
+		float pointscale_a, pointscale_b, pointscale_c;
 
 		Particles(IDirect3DDevice9* device, UINT size = 500);
 		Particles(const Particles&) = delete;

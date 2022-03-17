@@ -250,6 +250,41 @@ int dx9_setup(SimpleWindowWithFC* window, IDirect3DDevice9* device)
 	if (FAILED(hr))
 		return 1;
 
+	// get info
+	DWORD info;
+	hr = device->GetRenderState(D3DRS_POINTSPRITEENABLE, &info);
+	if (FAILED(hr))
+		return 1;
+	cout << "D3DRS_POINTSPRITEENABLE : \t " << info << endl;
+	hr = device->GetRenderState(D3DRS_POINTSCALEENABLE, &info);
+	if (FAILED(hr))
+		return 1;
+	cout << "D3DRS_POINTSCALEENABLE : \t " << info << endl;
+	hr = device->GetRenderState(D3DRS_POINTSIZE, &info);
+	if (FAILED(hr))
+		return 1;
+	cout << "D3DRS_POINTSIZE : \t " << Dx9::DWORD_to_float(info) << endl;
+	hr = device->GetRenderState(D3DRS_POINTSIZE_MIN, &info);
+	if (FAILED(hr))
+		return 1;
+	cout << "D3DRS_POINTSIZE_MIN : \t " << Dx9::DWORD_to_float(info) << endl;
+	hr = device->GetRenderState(D3DRS_POINTSIZE_MAX, &info);
+	if (FAILED(hr))
+		return 1;
+	cout << "D3DRS_POINTSIZE_MAX : \t " << Dx9::DWORD_to_float(info) << endl;
+	hr = device->GetRenderState(D3DRS_POINTSCALE_A, &info);
+	if (FAILED(hr))
+		return 1;
+	cout << "D3DRS_POINTSCALE_A : \t " << Dx9::DWORD_to_float(info) << endl;
+	hr = device->GetRenderState(D3DRS_POINTSCALE_B, &info);
+	if (FAILED(hr))
+		return 1;
+	cout << "D3DRS_POINTSCALE_B : \t " << Dx9::DWORD_to_float(info) << endl;
+	hr = device->GetRenderState(D3DRS_POINTSCALE_C, &info);
+	if (FAILED(hr))
+		return 1;
+	cout << "D3DRS_POINTSCALE_C : \t " << Dx9::DWORD_to_float(info) << endl;
+
 	// set normalized normal
 	hr = device->SetRenderState(D3DRS_NORMALIZENORMALS, true); // default is false
 	if (FAILED(hr))
@@ -572,24 +607,6 @@ int dx9_render_particles(IDirect3DDevice9* device)
 	if (FAILED(hr))
 		return 1;
 	hr = device->SetRenderState(D3DRS_POINTSCALEENABLE, true);
-	if (FAILED(hr))
-		return 1;
-	//hr = device->SetRenderState(D3DRS_POINTSIZE, Dx9::float_to_DWORD(0.05f)); // let class Particles set value
-	if (FAILED(hr))
-		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSIZE_MIN, Dx9::float_to_DWORD(0.0f));
-	if (FAILED(hr))
-		return 1;
-	//hr = device->SetRenderState(D3DRS_POINTSIZE_MAX, Dx9::float_to_DWORD(16.0f));
-	if (FAILED(hr))
-		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSCALE_A, Dx9::float_to_DWORD(0.0f));
-	if (FAILED(hr))
-		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSCALE_B, Dx9::float_to_DWORD(0.0f));
-	if (FAILED(hr))
-		return 1;
-	hr = device->SetRenderState(D3DRS_POINTSCALE_C, Dx9::float_to_DWORD(1.5f));
 	if (FAILED(hr))
 		return 1;
 	// disable light

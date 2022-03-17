@@ -66,6 +66,11 @@ namespace Dx9
 		return *reinterpret_cast<DWORD*>(&f);
 	}
 
+	float DWORD_to_float(DWORD d)
+	{
+		return *reinterpret_cast<float*>(&d);
+	}
+
 	Mesh::Mesh()
 	{
 		mesh = nullptr;
@@ -1504,7 +1509,12 @@ namespace Dx9
 		x = y = z = 0;
 		phi = theta = psi = 0;
 		sx = sy = sz = 1;
-		bigness = 0.05f;
+		pointsize = 0.05f;
+		pointsize_min = 0;
+		pointsize_max = 8192;
+		pointscale_a = 0;
+		pointscale_b = 0;
+		pointscale_c = 1.5f;
 	}
 
 	Particles::~Particles()
@@ -1565,8 +1575,23 @@ namespace Dx9
 
 		HRESULT hr;
 
-		// set point size
-		hr = device->SetRenderState(D3DRS_POINTSIZE, Dx9::float_to_DWORD(bigness));
+		// set point attribute
+		hr = device->SetRenderState(D3DRS_POINTSIZE, Dx9::float_to_DWORD(pointsize));
+		if (FAILED(hr))
+			return false;
+		hr = device->SetRenderState(D3DRS_POINTSIZE_MIN, Dx9::float_to_DWORD(pointsize_min));
+		if (FAILED(hr))
+			return false;
+		hr = device->SetRenderState(D3DRS_POINTSIZE_MAX, Dx9::float_to_DWORD(pointsize_max));
+		if (FAILED(hr))
+			return false;
+		hr = device->SetRenderState(D3DRS_POINTSCALE_A, Dx9::float_to_DWORD(pointscale_a));
+		if (FAILED(hr))
+			return false;
+		hr = device->SetRenderState(D3DRS_POINTSCALE_B, Dx9::float_to_DWORD(pointscale_b));
+		if (FAILED(hr))
+			return false;
+		hr = device->SetRenderState(D3DRS_POINTSCALE_C, Dx9::float_to_DWORD(pointscale_c));
 		if (FAILED(hr))
 			return false;
 
@@ -1603,7 +1628,7 @@ namespace Dx9
 
 	SnowParticles::SnowParticles(IDirect3DDevice9* device, unsigned int seed) : Particles(device), e(seed), d(0, 1)
 	{
-		bigness = 0.04f;
+		pointsize = 0.04f;
 		emit_rate = 500;
 		range_min = D3DXVECTOR3(-5, -5, -5);
 		range_max = D3DXVECTOR3(5, 5, 5);
@@ -1651,7 +1676,7 @@ namespace Dx9
 
 	FireworkParticles::FireworkParticles(IDirect3DDevice9* device, unsigned int seed) : Particles(device), e(seed), d(0, 1)
 	{
-		bigness = 0.03f;
+		pointsize = 0.03f;
 		emit_rate = 1000;
 		radius = 0.1f;
 		vel_min = 0.1f;
@@ -1705,7 +1730,7 @@ namespace Dx9
 
 	GunParticles::GunParticles(IDirect3DDevice9* device, unsigned int seed) : Particles(device), e(seed), d(0, 1)
 	{
-		bigness = 0.01f;
+		pointsize = 0.01f;
 		emit_rate = 1000;
 		dir = D3DXVECTOR3(1, 0, 0);
 		theta = D3DX_PI / 180.0f * 30.0f;
