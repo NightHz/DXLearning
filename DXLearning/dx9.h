@@ -213,6 +213,10 @@ namespace Dx9
 		void PitchUp(float angle);
 		void PitchDown(float angle);
 
+		D3DXMATRIX ComputeViewTransform();
+		D3DXMATRIX ComputeViewInverseTransform();
+		D3DXMATRIX ComputeProjectionTransform();
+
 		bool Transform(IDirect3DDevice9* device);
 		bool TransformReflect(IDirect3DDevice9* device, const D3DXPLANE& plane);
 

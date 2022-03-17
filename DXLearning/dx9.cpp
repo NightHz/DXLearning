@@ -1366,27 +1366,49 @@ namespace Dx9
 		PitchUp(-angle);
 	}
 
-	bool Camera::Transform(IDirect3DDevice9* device)
+	D3DXMATRIX Camera::ComputeViewTransform()
 	{
-		HRESULT hr;
-
-		// set camera
+		//D3DXMatrixLookAtLH(&mat_view, &pos, &at, &up);
 		D3DXMATRIX mat_position, mat_rotation;
 		D3DXMatrixTranslation(&mat_position, -pos.x, -pos.y, -pos.z);
 		D3DXMATRIX mat_pitch, mat_yaw;
 		D3DXMatrixRotationY(&mat_yaw, -yaw);
 		D3DXMatrixRotationX(&mat_pitch, -pitch);
 		mat_rotation = mat_yaw * mat_pitch;
+		return mat_position * mat_rotation;
+	}
+
+	D3DXMATRIX Camera::ComputeViewInverseTransform()
+	{
+		D3DXMATRIX mat_position, mat_rotation;
+		D3DXMatrixTranslation(&mat_position, pos.x, pos.y, pos.z);
+		D3DXMATRIX mat_pitch, mat_yaw;
+		D3DXMatrixRotationY(&mat_yaw, yaw);
+		D3DXMatrixRotationX(&mat_pitch, pitch);
+		mat_rotation = mat_pitch * mat_yaw;
 		D3DXMATRIX mat_view;
-		mat_view = mat_position * mat_rotation;
-		//D3DXMatrixLookAtLH(&mat_view, &pos, &at, &up);
+		return mat_rotation * mat_position;
+	}
+
+	D3DXMATRIX Camera::ComputeProjectionTransform()
+	{
+		D3DXMATRIX mat_project;
+		D3DXMatrixPerspectiveFovLH(&mat_project, fovy, aspect, znear, zfar);
+		return mat_project;
+	}
+
+	bool Camera::Transform(IDirect3DDevice9* device)
+	{
+		HRESULT hr;
+
+		// set camera
+		D3DXMATRIX mat_view = ComputeViewTransform();
 		hr = device->SetTransform(D3DTS_VIEW, &mat_view);
 		if (FAILED(hr))
 			return false;
 
 		// set projection
-		D3DXMATRIX mat_project;
-		D3DXMatrixPerspectiveFovLH(&mat_project, fovy, aspect, znear, zfar);
+		D3DXMATRIX mat_project = ComputeProjectionTransform();
 		hr = device->SetTransform(D3DTS_PROJECTION, &mat_project);
 		if (FAILED(hr))
 			return false;
@@ -1401,23 +1423,13 @@ namespace Dx9
 		// set camera and mirror
 		D3DXMATRIX mat_reflect;
 		D3DXMatrixReflect(&mat_reflect, &plane);
-		D3DXMATRIX mat_position, mat_rotation;
-		D3DXMatrixTranslation(&mat_position, -pos.x, -pos.y, -pos.z);
-		D3DXMATRIX mat_pitch, mat_yaw;
-		D3DXMatrixRotationY(&mat_yaw, -yaw);
-		D3DXMatrixRotationX(&mat_pitch, -pitch);
-		mat_rotation = mat_yaw * mat_pitch;
-		D3DXMATRIX mat_view;
-		mat_view = mat_position * mat_rotation;
-		//D3DXMatrixLookAtLH(&mat_view, &pos, &at, &up);
-		D3DXMATRIX mat_view2 = mat_reflect * mat_view;
-		hr = device->SetTransform(D3DTS_VIEW, &mat_view2);
+		D3DXMATRIX mat_view = mat_reflect * ComputeViewTransform();
+		hr = device->SetTransform(D3DTS_VIEW, &mat_view);
 		if (FAILED(hr))
 			return false;
 
 		// set projection
-		D3DXMATRIX mat_project;
-		D3DXMatrixPerspectiveFovLH(&mat_project, fovy, aspect, znear, zfar);
+		D3DXMATRIX mat_project = ComputeProjectionTransform();
 		hr = device->SetTransform(D3DTS_PROJECTION, &mat_project);
 		if (FAILED(hr))
 			return false;
@@ -1470,17 +1482,10 @@ namespace Dx9
 			ray_dir.y = y * ymax;
 			ray_dir.x = x * ymax * aspect;
 		}
-		D3DXMATRIX mat_position, mat_rotation;
-		D3DXMatrixTranslation(&mat_position, pos.x, pos.y, pos.z);
-		D3DXMATRIX mat_pitch, mat_yaw;
-		D3DXMatrixRotationY(&mat_yaw, yaw);
-		D3DXMatrixRotationX(&mat_pitch, pitch);
-		mat_rotation = mat_pitch * mat_yaw;
-		D3DXMATRIX mat_view;
-		mat_view = mat_rotation * mat_position;
+		D3DXMATRIX t = ComputeViewInverseTransform();
 		D3DXVECTOR3 ray_o2, ray_dir2;
-		D3DXVec3TransformCoord(&ray_o2, &ray_o, &mat_view);
-		D3DXVec3TransformNormal(&ray_dir2, &ray_dir, &mat_view);
+		D3DXVec3TransformCoord(&ray_o2, &ray_o, &t);
+		D3DXVec3TransformNormal(&ray_dir2, &ray_dir, &t);
 		D3DXVec3Normalize(&ray_dir, &ray_dir2);
 		return std::make_pair(ray_o2, ray_dir2);
 	}
