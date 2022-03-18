@@ -32,6 +32,10 @@ namespace Dx9
 		VertexColor() { x = y = z = 0; color = 0; }
 		VertexColor(float _x, float _y, float _z) { x = _x; y = _y; z = _z; color = 0xff000000; }
 	};
+	//const D3DVERTEXELEMENT9 vertex_color_decl[2] = {
+	//	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},
+	//	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0}
+	//};
 
 	struct VertexNormal
 	{
@@ -347,5 +351,23 @@ namespace Dx9
 
 		void EmitParticle();
 		virtual bool Present(unsigned int delta_time) override;
+	};
+
+	class VertexShader
+	{
+	private:
+		IDirect3DVertexShader9* vs;
+		ID3DXConstantTable* ct;
+
+	public:
+		VertexShader(IDirect3DDevice9* device, const std::string& file);
+		VertexShader(const VertexShader&) = delete;
+		VertexShader& operator=(const VertexShader&) = delete;
+		~VertexShader();
+
+		operator bool();
+
+		ID3DXConstantTable* GetCT() { return ct; }
+		bool Enable(IDirect3DDevice9* device);
 	};
 }

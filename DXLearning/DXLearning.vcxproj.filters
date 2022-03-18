@@ -60,4 +60,9 @@
       <Filter>Rehenz</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="vs_transform.hlsl">
+      <Filter>resource</Filter>
+    </FxCompile>
+  </ItemGroup>
 </Project>

@@ -1888,4 +1888,63 @@ namespace Dx9
 		return true;
 	}
 
+	VertexShader::VertexShader(IDirect3DDevice9* device, const std::string& file)
+	{
+		vs = nullptr;
+		ct = nullptr;
+
+		HRESULT hr = 0;
+		// compile shader file
+		ID3DXBuffer* buffer, * error_buffer = nullptr;
+		hr = D3DXCompileShaderFromFile(file.c_str(), nullptr, nullptr, "main", "vs_2_0", D3DXSHADER_DEBUG, &buffer, &error_buffer, &ct);
+		if (error_buffer != nullptr)
+		{
+			error_buffer->Release();
+			return;
+		}
+		if (FAILED(hr))
+			return;
+
+		// create vertex shader
+		hr = device->CreateVertexShader(static_cast<DWORD*>(buffer->GetBufferPointer()), &vs);
+		if (FAILED(hr))
+		{
+			buffer->Release();
+			vs->Release();
+			vs = nullptr;
+			return;
+		}
+		buffer->Release();
+
+		// set defaults
+		hr = ct->SetDefaults(device);
+		if (FAILED(hr))
+		{
+			vs->Release();
+			vs = nullptr;
+			return;
+		}
+	}
+
+	VertexShader::~VertexShader()
+	{
+		if (vs)
+			vs->Release();
+		if (ct)
+			ct->Release();
+	}
+
+	VertexShader::operator bool()
+	{
+		return vs != nullptr;
+	}
+
+	bool VertexShader::Enable(IDirect3DDevice9* device)
+	{
+		HRESULT hr = device->SetVertexShader(vs);
+		if (FAILED(hr))
+			return false;
+		return true;
+	}
+
 }
