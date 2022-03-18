@@ -94,12 +94,12 @@ namespace Dx9
 			else if (KeyIsDown('7')) hr = device->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_GOURAUD); // default
 			if (FAILED(hr))
 				return 1;
-			if (KeyIsDown('8')) hr = device->SetRenderState(D3DRS_LIGHTING, true); // default
-			else if (KeyIsDown('9')) hr = device->SetRenderState(D3DRS_LIGHTING, false);
+			if (KeyIsDown('Z')) hr = device->SetRenderState(D3DRS_LIGHTING, true); // default
+			else if (KeyIsDown('X')) hr = device->SetRenderState(D3DRS_LIGHTING, false);
 			if (FAILED(hr))
 				return 1;
-			if (KeyIsDown('Z')) hr = device->SetRenderState(D3DRS_SPECULARENABLE, true);
-			else if (KeyIsDown('X')) hr = device->SetRenderState(D3DRS_SPECULARENABLE, false); // default
+			if (KeyIsDown('C')) hr = device->SetRenderState(D3DRS_SPECULARENABLE, true);
+			else if (KeyIsDown('V')) hr = device->SetRenderState(D3DRS_SPECULARENABLE, false); // default
 			if (FAILED(hr))
 				return 1;
 
@@ -123,9 +123,9 @@ namespace Dx9
 				GetCursorPos(&mouse_pos);
 
 			// set tex
-			if (KeyIsDown('C'))
+			if (KeyIsDown('B'))
 				cube.texture = nullptr;
-			else if (KeyIsDown('V'))
+			else if (KeyIsDown('N'))
 				cube.texture = tex;
 
 			// set shader
