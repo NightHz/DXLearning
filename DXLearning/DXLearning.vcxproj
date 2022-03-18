@@ -156,6 +156,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="dx9.cpp" />
+    <ClCompile Include="dx9_example.cpp" />
+    <ClCompile Include="dx9_example_shader.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Rehenz\fps_counter.cpp" />
     <ClCompile Include="Rehenz\math.cpp" />

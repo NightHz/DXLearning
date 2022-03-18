@@ -36,6 +36,12 @@
     <ClCompile Include="Rehenz\noise_gen.cpp">
       <Filter>Rehenz</Filter>
     </ClCompile>
+    <ClCompile Include="dx9_example.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="dx9_example_shader.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="window.h">
