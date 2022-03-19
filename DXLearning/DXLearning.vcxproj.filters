@@ -16,6 +16,10 @@
     <Filter Include="Rehenz">
       <UniqueIdentifier>{71a46252-6122-4dc7-8deb-82494e156289}</UniqueIdentifier>
     </Filter>
+    <Filter Include="shader">
+      <UniqueIdentifier>{211d8301-3594-4e07-bc49-a908e5f6bc26}</UniqueIdentifier>
+      <Extensions>hlsl;hlsli;fx;vs;ps;gs;hs;ds;cs;ts;glsl;vert;tesc;tese;geom;frag;comp</Extensions>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -67,7 +71,11 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="vs_light.hlsl" />
-    <FxCompile Include="vs_transform.hlsl" />
+    <FxCompile Include="vs_light.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+    <FxCompile Include="vs_transform.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
