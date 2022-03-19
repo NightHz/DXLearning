@@ -67,8 +67,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="vs_transform.hlsl">
-      <Filter>resource</Filter>
-    </FxCompile>
+    <FxCompile Include="vs_light.hlsl" />
+    <FxCompile Include="vs_transform.hlsl" />
   </ItemGroup>
 </Project>

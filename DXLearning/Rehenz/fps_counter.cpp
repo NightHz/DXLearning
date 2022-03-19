@@ -5,8 +5,8 @@ namespace Rehenz
 	FpsCounter::FpsCounter(std::function<TimeType(void)> GetTimeFunc) : fps{ 0,0,0 }, GetTime(GetTimeFunc)
 	{
 		fps_t0 = 0;
-		t0 = 0;
-		t1 = 0;
+		t0 = GetTime();
+		t1 = t0;
 		lock_time = 16; // lock 60 fps
 		UpdateFpsCallback = nullptr;
 	}

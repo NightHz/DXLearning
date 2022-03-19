@@ -25,7 +25,8 @@ namespace Dx9
 		cout << "finish create dx9 device" << endl;
 
 		// create mesh
-		auto mesh = Mesh::CreateCubeNormalColorTex1(device);
+		//auto mesh = Mesh::CreateCubeNormalColorTex1(device);
+		auto mesh = Mesh::CreateD3DXTeapot(device);
 		if (!mesh)
 			return 1;
 
@@ -45,19 +46,24 @@ namespace Dx9
 		camera.pos.z = 5;
 
 		// create shader
-		VertexShader vs(device, "vs_transform.hlsl");
-		if (!vs)
+		int current_vs = 2;
+		VertexShader vs2(device, "vs_transform.hlsl");
+		if (!vs2)
 			return 1;
-		if (!vs.Enable(device))
+		if (!vs2.Enable(device))
+			return 1;
+		VertexShader vs3(device, "vs_light.hlsl");
+		if (!vs3)
 			return 1;
 
 		// create light
 		D3DLIGHT9 light;
+		D3DXVECTOR4 light_dir = D3DXVECTOR4(-0.0f, -0.99f, -0.14f, 0);
 		light.Type = D3DLIGHT_DIRECTIONAL;
 		light.Ambient = D3DXCOLOR(1, 1, 1, 1) * 0.3f;
 		light.Diffuse = D3DXCOLOR(1, 1, 1, 1);
 		light.Specular = D3DXCOLOR(1, 1, 1, 1) * 0.6f;
-		light.Direction = D3DXVECTOR3(-0.0f, -0.99f, -0.14f);
+		light.Direction = D3DXVECTOR3(light_dir.x, light_dir.y, light_dir.z);
 		hr = device->SetLight(0, &light);
 		if (FAILED(hr))
 			return 1;
@@ -134,19 +140,73 @@ namespace Dx9
 				hr = device->SetVertexShader(nullptr);
 				if (FAILED(hr))
 					return 1;
+				current_vs = 1;
 			}
 			else if (KeyIsDown(VK_NUMPAD2))
 			{
-				if (!vs.Enable(device))
+				if (!vs2.Enable(device))
 					return 1;
+				current_vs = 2;
+			}
+			else if (KeyIsDown(VK_NUMPAD3))
+			{
+				if (!vs3.Enable(device))
+					return 1;
+				current_vs = 3;
 			}
 
 			// set shader const
-			D3DXMATRIX camera_transform = camera.ComputeViewTransform() * camera.ComputeProjectionTransform();
-			D3DXMATRIX transform = cube.ComputeTransform() * camera_transform;
-			hr = vs.GetCT()->SetMatrix(device, vs.GetCT()->GetConstantByName(nullptr, "transform"), &transform);
-			if (FAILED(hr))
-				return 1;
+			D3DXMATRIX obj_transform = cube.ComputeTransform();
+			D3DXMATRIX view_transform = camera.ComputeViewTransform();
+			D3DXMATRIX proj_transform = camera.ComputeProjectionTransform();
+			D3DXMATRIX to_view_transform = obj_transform * view_transform;
+			D3DXMATRIX to_proj_transform = to_view_transform * proj_transform;
+			static float t = 0;
+			float dt = window->fps_counter.GetLastDeltatime() / 1000.0f;
+			t += dt;
+			if (current_vs == 2)
+			{
+				hr = vs2.GetCT()->SetMatrix(device, vs2.GetCT()->GetConstantByName(nullptr, "transform"), &to_proj_transform);
+				if (FAILED(hr))
+					return 1;
+				hr = vs2.GetCT()->SetFloat(device, vs2.GetCT()->GetConstantByName(nullptr, "time"), t);
+				if (FAILED(hr))
+					return 1;
+			}
+			else if (current_vs == 3)
+			{
+				hr = vs3.GetCT()->SetMatrix(device, vs3.GetCT()->GetConstantByName(nullptr, "world_to_view_transform"), &view_transform);
+				if (FAILED(hr))
+					return 1;
+				hr = vs3.GetCT()->SetMatrix(device, vs3.GetCT()->GetConstantByName(nullptr, "obj_to_view_transform"), &to_view_transform);
+				if (FAILED(hr))
+					return 1;
+				hr = vs3.GetCT()->SetMatrix(device, vs3.GetCT()->GetConstantByName(nullptr, "obj_to_proj_transform"), &to_proj_transform);
+				if (FAILED(hr))
+					return 1;
+				hr = vs3.GetCT()->SetVector(device, vs3.GetCT()->GetConstantByName(nullptr, "light_dir"), &light_dir);
+				if (FAILED(hr))
+					return 1;
+				hr = vs3.GetCT()->SetFloat(device, vs3.GetCT()->GetConstantByName(nullptr, "time"), t);
+				if (FAILED(hr))
+					return 1;
+				hr = vs3.GetCT()->SetFloat(device, vs3.GetCT()->GetConstantByName(nullptr, "delta_time"), dt);
+				if (FAILED(hr))
+					return 1;
+				DWORD v;
+				hr = device->GetRenderState(D3DRS_LIGHTING, &v);
+				if (FAILED(hr))
+					return 1;
+				hr = vs3.GetCT()->SetBool(device, vs3.GetCT()->GetConstantByName(nullptr, "light_enable"), v);
+				if (FAILED(hr))
+					return 1;
+				hr = device->GetRenderState(D3DRS_SPECULARENABLE, &v);
+				if (FAILED(hr))
+					return 1;
+				hr = vs3.GetCT()->SetBool(device, vs3.GetCT()->GetConstantByName(nullptr, "specular_enable"), v);
+				if (FAILED(hr))
+					return 1;
+			}
 
 			// set camera and projection
 			if (!camera.Transform(device))

@@ -114,4 +114,12 @@
 - 未被替换
   - 裁剪，屏幕映射，片元采样，颜色混合
 
+**shader 控制颜色**
+
+![](img/dx9_12shader_color.gif)
+
+**Phong 光照模型**
+
+![](img/dx9_12shader_light.png)
+
 
