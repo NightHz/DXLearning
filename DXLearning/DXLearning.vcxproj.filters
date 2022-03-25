@@ -77,5 +77,11 @@
     <FxCompile Include="vs_transform.hlsl">
       <Filter>shader</Filter>
     </FxCompile>
+    <FxCompile Include="vs_cartoon.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+    <FxCompile Include="vs_outline.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

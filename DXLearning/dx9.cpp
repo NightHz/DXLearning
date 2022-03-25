@@ -4,6 +4,33 @@
 #include "Rehenz/noise_gen.h"
 #include <algorithm>
 
+namespace Dx9 // contents which not have declaration in header file
+{
+	struct VertexNormalFaceNormals
+	{
+		float x, y, z;
+		float nx, ny, nz;
+		float f1_nx, f1_ny, f1_nz;
+		float f2_nx, f2_ny, f2_nz;
+		static const D3DVERTEXELEMENT9 vertex_normal_face_normals_decl[4];
+	};
+	// Stream Offset Type Method Usage UsageIndex
+	const D3DVERTEXELEMENT9 VertexNormalFaceNormals::vertex_normal_face_normals_decl[4] = {
+		{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},
+		{0, 4, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0},
+		{0, 8, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},
+		{0, 12, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0}
+	};
+
+	void VertexSetVector(WORD offset, void* vertex, D3DXVECTOR3 _vec)
+	{
+		float* p = reinterpret_cast<float*>(static_cast<BYTE*>(vertex) + offset);
+		p[0] = _vec.x;
+		p[1] = _vec.y;
+		p[2] = _vec.z;
+	}
+}
+
 namespace Dx9
 {
 	IDirect3DDevice9* CreateSimpleDx9Device(SimpleWindow* window)
@@ -1915,15 +1942,6 @@ namespace Dx9
 			return;
 		}
 		buffer->Release();
-
-		// set defaults
-		hr = ct->SetDefaults(device);
-		if (FAILED(hr))
-		{
-			vs->Release();
-			vs = nullptr;
-			return;
-		}
 	}
 
 	VertexShader::~VertexShader()

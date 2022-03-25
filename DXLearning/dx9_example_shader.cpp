@@ -34,6 +34,9 @@ namespace Dx9
 		auto tex = Texture::CreateTexture(device, "tex1.png");
 		if (!tex)
 			return 1;
+		auto tex_cartoon = Texture::CreateTexture(device, "tex_cartoon.png");
+		if (!tex_cartoon)
+			return 1;
 
 		// create cube
 		Object cube(mesh);
@@ -54,6 +57,12 @@ namespace Dx9
 			return 1;
 		VertexShader vs3(device, "vs_light.hlsl");
 		if (!vs3)
+			return 1;
+		VertexShader vs4(device, "vs_cartoon.hlsl");
+		if (!vs4)
+			return 1;
+		VertexShader vs4_2(device, "vs_outline.hlsl");
+		if (!vs4_2)
 			return 1;
 
 		// create light
@@ -140,20 +149,34 @@ namespace Dx9
 				hr = device->SetVertexShader(nullptr);
 				if (FAILED(hr))
 					return 1;
+				cube.texture = nullptr;
 				current_vs = 1;
 			}
 			else if (KeyIsDown(VK_NUMPAD2))
 			{
 				if (!vs2.Enable(device))
 					return 1;
+				cube.texture = nullptr;
 				current_vs = 2;
 			}
 			else if (KeyIsDown(VK_NUMPAD3))
 			{
 				if (!vs3.Enable(device))
 					return 1;
+				cube.texture = nullptr;
 				current_vs = 3;
 			}
+			else if (KeyIsDown(VK_NUMPAD4))
+			{
+				if (!vs4.Enable(device))
+					return 1;
+				cube.texture = tex_cartoon;
+				current_vs = 4;
+			}
+
+			// set camera and projection
+			if (!camera.Transform(device))
+				return 1;
 
 			// set shader const
 			D3DXMATRIX obj_transform = cube.ComputeTransform();
@@ -166,6 +189,7 @@ namespace Dx9
 			t += dt;
 			if (current_vs == 2)
 			{
+				vs2.GetCT()->SetDefaults(device);
 				hr = vs2.GetCT()->SetMatrix(device, vs2.GetCT()->GetConstantByName(nullptr, "transform"), &to_proj_transform);
 				if (FAILED(hr))
 					return 1;
@@ -175,6 +199,7 @@ namespace Dx9
 			}
 			else if (current_vs == 3)
 			{
+				vs3.GetCT()->SetDefaults(device);
 				hr = vs3.GetCT()->SetMatrix(device, vs3.GetCT()->GetConstantByName(nullptr, "world_to_view_transform"), &view_transform);
 				if (FAILED(hr))
 					return 1;
@@ -207,10 +232,38 @@ namespace Dx9
 				if (FAILED(hr))
 					return 1;
 			}
+			else if (current_vs == 4)
+			{
+				// render outline using back face
+				if (!vs4_2.Enable(device))
+					return 1;
+				hr = device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CW);
+				if (FAILED(hr))
+					return 1;
+				cube.texture = nullptr;
+				vs4_2.GetCT()->SetDefaults(device);
+				vs4_2.GetCT()->SetMatrix(device, vs4_2.GetCT()->GetConstantByName(nullptr, "obj_to_proj_transform"), &to_proj_transform);
+				hr = device->BeginScene();
+				if (FAILED(hr))
+					return 1;
+				if (!cube.Draw(device))
+					return 1;
+				hr = device->EndScene();
+				if (FAILED(hr))
+					return 1;
+				hr = device->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+				if (FAILED(hr))
+					return 1;
 
-			// set camera and projection
-			if (!camera.Transform(device))
-				return 1;
+				if (!vs4.Enable(device))
+					return 1;
+				cube.texture = tex_cartoon;
+				vs4.GetCT()->SetDefaults(device);
+				vs4.GetCT()->SetMatrix(device, vs4.GetCT()->GetConstantByName(nullptr, "world_to_view_transform"), &view_transform);
+				vs4.GetCT()->SetMatrix(device, vs4.GetCT()->GetConstantByName(nullptr, "obj_to_view_transform"), &to_view_transform);
+				vs4.GetCT()->SetMatrix(device, vs4.GetCT()->GetConstantByName(nullptr, "obj_to_proj_transform"), &to_proj_transform);
+				vs4.GetCT()->SetVector(device, vs4.GetCT()->GetConstantByName(nullptr, "light_dir"), &light_dir);
+			}
 
 			// render
 			hr = device->BeginScene();

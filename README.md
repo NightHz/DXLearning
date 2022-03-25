@@ -118,8 +118,17 @@
 
 ![](img/dx9_12shader_color.gif)
 
-**Phong 光照模型**
+**Phong 光照**
 
-![](img/dx9_12shader_light.png)
+|漫反射|+高光|
+|:-:|:-:|
+|![](img/dx9_12shader_light11.png)|![](img/dx9_12shader_light12.png)|
+|![](img/dx9_12shader_light21.png)|![](img/dx9_12shader_light22.png)|
+
+**卡通渲染**，外扩背面顶点来描边
+
+|角度1|角度2|
+|:-:|:-:|
+|![](img/dx9_12shader_cartoon1.png)|![](img/dx9_12shader_cartoon2.png)|
 
 

@@ -21,7 +21,7 @@ bool light_enable = true;
 bool specular_enable = false;
 float4 light_dir;
 float4 ambient = { 0.3f,0.3f,0.3f,1 };
-float4 diffuse = { 1,1,1,1 };
+float4 diffuse = { 0.984f,0.867f,0.573f,1 };
 float4 specular = { 0.6f,0.6f,0.6f,1 };
 float specular_a = 4;
 
@@ -52,7 +52,7 @@ VSOutput main(VSInput input)
 		float s = dot(L, N);
 		if (s > 0)
 		{
-			c += input.color * diffuse * s;
+			c += diffuse * s;
 			if (specular_enable)
 				c += specular * pow(max(0, dot(R, V)), specular_a);
 		}
