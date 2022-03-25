@@ -6,20 +6,75 @@
 
 namespace Dx9 // contents which not have declaration in header file
 {
+	struct VertexXYZ
+	{
+	public:
+		float x, y, z;
+		static const DWORD FVF = D3DFVF_XYZ;
+		VertexXYZ() { x = y = z = 0; }
+		VertexXYZ(float _x, float _y, float _z) { x = _x; y = _y; z = _z; }
+	};
+
+	struct VertexColor
+	{
+		float x, y, z;
+		DWORD color;
+		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_DIFFUSE;
+		static const D3DVERTEXELEMENT9 vertex_color_decl[];
+		VertexColor() { x = y = z = 0; color = 0; }
+		VertexColor(float _x, float _y, float _z) { x = _x; y = _y; z = _z; color = 0xff000000; }
+	};
+	const D3DVERTEXELEMENT9 vertex_color_decl[] = {
+		{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},
+		{0, 12, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0},
+		D3DDECL_END()
+	};
+
+	struct VertexNormal
+	{
+		float x, y, z;
+		float nx, ny, nz;
+		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL;
+		VertexNormal() { x = y = z = 0;  nx = ny = nz = 0; }
+		VertexNormal(float _x, float _y, float _z) { x = _x; y = _y; z = _z; nx = ny = nz = 0; }
+	};
+
 	struct VertexNormalFaceNormals
 	{
 		float x, y, z;
 		float nx, ny, nz;
 		float f1_nx, f1_ny, f1_nz;
 		float f2_nx, f2_ny, f2_nz;
-		static const D3DVERTEXELEMENT9 vertex_normal_face_normals_decl[4];
+		static const D3DVERTEXELEMENT9 vertex_normal_face_normals_decl[];
 	};
 	// Stream Offset Type Method Usage UsageIndex
-	const D3DVERTEXELEMENT9 VertexNormalFaceNormals::vertex_normal_face_normals_decl[4] = {
+	const D3DVERTEXELEMENT9 VertexNormalFaceNormals::vertex_normal_face_normals_decl[] = {
 		{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},
-		{0, 4, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0},
-		{0, 8, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},
-		{0, 12, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0}
+		{0, 12, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_NORMAL, 0},
+		{0, 24, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_NORMAL, 1},
+		{0, 36, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_NORMAL, 2},
+		D3DDECL_END()
+	};
+
+	struct VertexNormalColor
+	{
+		float x, y, z;
+		float nx, ny, nz;
+		DWORD color;
+		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE;
+		VertexNormalColor() { x = y = z = 0;  nx = ny = nz = 0; color = 0xff000000; }
+		VertexNormalColor(float _x, float _y, float _z) { x = _x; y = _y; z = _z; nx = ny = nz = 0; color = 0xff000000; }
+	};
+
+	struct VertexNormalColorTex1
+	{
+		float x, y, z;
+		float nx, ny, nz;
+		DWORD color;
+		float u1, v1;
+		static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE | D3DFVF_TEX1;
+		VertexNormalColorTex1() { x = y = z = 0;  nx = ny = nz = 0; color = 0xff000000; u1 = v1 = 0; }
+		VertexNormalColorTex1(float _x, float _y, float _z) { x = _x; y = _y; z = _z; nx = ny = nz = 0; color = 0xff000000; u1 = v1 = 0; }
 	};
 
 	void VertexSetVector(WORD offset, void* vertex, D3DXVECTOR3 _vec)
@@ -29,6 +84,38 @@ namespace Dx9 // contents which not have declaration in header file
 		p[1] = _vec.y;
 		p[2] = _vec.z;
 	}
+
+	template <class Vertex>
+	void VertexSetNormal(Vertex& v, D3DXVECTOR3 _n)
+	{
+		v.nx = _n.x;
+		v.ny = _n.y;
+		v.nz = _n.z;
+	}
+
+	template <class Vertex>
+	D3DXVECTOR3 VertexToVector(Vertex& v)
+	{
+		return D3DXVECTOR3(v.x, v.y, v.z);
+	}
+
+	template <class Vertex>
+	D3DXVECTOR3 TriangleNormal(Vertex& vertex1, Vertex& vertex2, Vertex& vertex3)
+	{
+		D3DXVECTOR3 p1 = VertexToVector(vertex1), p2 = VertexToVector(vertex2), p3 = VertexToVector(vertex3);
+		D3DXVECTOR3 v1 = p2 - p1, v2 = p3 - p1, v3, v4;
+		D3DXVec3Cross(&v3, &v1, &v2);
+		D3DXVec3Normalize(&v4, &v3);
+		return v4;
+	}
+
+	template <class Vertex>
+	void VertexSetTex1(Vertex& v, float _u, float _v)
+	{
+		v.u1 = _u;
+		v.v1 = _v;
+	}
+
 }
 
 namespace Dx9

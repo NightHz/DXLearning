@@ -25,9 +25,11 @@ namespace Dx9
 		cout << "finish create dx9 device" << endl;
 
 		// create mesh
-		//auto mesh = Mesh::CreateCubeNormalColorTex1(device);
-		auto mesh = Mesh::CreateD3DXTeapot(device);
+		auto mesh = Mesh::CreateCubeNormalColorTex1(device);
 		if (!mesh)
+			return 1;
+		auto mesh_teapot = Mesh::CreateD3DXTeapot(device);
+		if (!mesh_teapot)
 			return 1;
 
 		// create texture
@@ -49,11 +51,9 @@ namespace Dx9
 		camera.pos.z = 5;
 
 		// create shader
-		int current_vs = 2;
+		int current_vs = 1;
 		VertexShader vs2(device, "vs_transform.hlsl");
 		if (!vs2)
-			return 1;
-		if (!vs2.Enable(device))
 			return 1;
 		VertexShader vs3(device, "vs_light.hlsl");
 		if (!vs3)
@@ -156,6 +156,7 @@ namespace Dx9
 			{
 				if (!vs2.Enable(device))
 					return 1;
+				cube.mesh = mesh;
 				cube.texture = nullptr;
 				current_vs = 2;
 			}
@@ -163,6 +164,7 @@ namespace Dx9
 			{
 				if (!vs3.Enable(device))
 					return 1;
+				cube.mesh = mesh_teapot;
 				cube.texture = nullptr;
 				current_vs = 3;
 			}
@@ -170,6 +172,7 @@ namespace Dx9
 			{
 				if (!vs4.Enable(device))
 					return 1;
+				cube.mesh = mesh_teapot;
 				cube.texture = tex_cartoon;
 				current_vs = 4;
 			}
@@ -190,47 +193,27 @@ namespace Dx9
 			if (current_vs == 2)
 			{
 				vs2.GetCT()->SetDefaults(device);
-				hr = vs2.GetCT()->SetMatrix(device, vs2.GetCT()->GetConstantByName(nullptr, "transform"), &to_proj_transform);
-				if (FAILED(hr))
-					return 1;
-				hr = vs2.GetCT()->SetFloat(device, vs2.GetCT()->GetConstantByName(nullptr, "time"), t);
-				if (FAILED(hr))
-					return 1;
+				vs2.GetCT()->SetMatrix(device, vs2.GetCT()->GetConstantByName(nullptr, "transform"), &to_proj_transform);
+				vs2.GetCT()->SetFloat(device, vs2.GetCT()->GetConstantByName(nullptr, "time"), t);
 			}
 			else if (current_vs == 3)
 			{
 				vs3.GetCT()->SetDefaults(device);
-				hr = vs3.GetCT()->SetMatrix(device, vs3.GetCT()->GetConstantByName(nullptr, "world_to_view_transform"), &view_transform);
-				if (FAILED(hr))
-					return 1;
-				hr = vs3.GetCT()->SetMatrix(device, vs3.GetCT()->GetConstantByName(nullptr, "obj_to_view_transform"), &to_view_transform);
-				if (FAILED(hr))
-					return 1;
-				hr = vs3.GetCT()->SetMatrix(device, vs3.GetCT()->GetConstantByName(nullptr, "obj_to_proj_transform"), &to_proj_transform);
-				if (FAILED(hr))
-					return 1;
-				hr = vs3.GetCT()->SetVector(device, vs3.GetCT()->GetConstantByName(nullptr, "light_dir"), &light_dir);
-				if (FAILED(hr))
-					return 1;
-				hr = vs3.GetCT()->SetFloat(device, vs3.GetCT()->GetConstantByName(nullptr, "time"), t);
-				if (FAILED(hr))
-					return 1;
-				hr = vs3.GetCT()->SetFloat(device, vs3.GetCT()->GetConstantByName(nullptr, "delta_time"), dt);
-				if (FAILED(hr))
-					return 1;
+				vs3.GetCT()->SetMatrix(device, vs3.GetCT()->GetConstantByName(nullptr, "world_to_view_transform"), &view_transform);
+				vs3.GetCT()->SetMatrix(device, vs3.GetCT()->GetConstantByName(nullptr, "obj_to_view_transform"), &to_view_transform);
+				vs3.GetCT()->SetMatrix(device, vs3.GetCT()->GetConstantByName(nullptr, "obj_to_proj_transform"), &to_proj_transform);
+				vs3.GetCT()->SetVector(device, vs3.GetCT()->GetConstantByName(nullptr, "light_dir"), &light_dir);
+				vs3.GetCT()->SetFloat(device, vs3.GetCT()->GetConstantByName(nullptr, "time"), t);
+				vs3.GetCT()->SetFloat(device, vs3.GetCT()->GetConstantByName(nullptr, "delta_time"), dt);
 				DWORD v;
 				hr = device->GetRenderState(D3DRS_LIGHTING, &v);
 				if (FAILED(hr))
 					return 1;
-				hr = vs3.GetCT()->SetBool(device, vs3.GetCT()->GetConstantByName(nullptr, "light_enable"), v);
-				if (FAILED(hr))
-					return 1;
+				vs3.GetCT()->SetBool(device, vs3.GetCT()->GetConstantByName(nullptr, "light_enable"), v);
 				hr = device->GetRenderState(D3DRS_SPECULARENABLE, &v);
 				if (FAILED(hr))
 					return 1;
-				hr = vs3.GetCT()->SetBool(device, vs3.GetCT()->GetConstantByName(nullptr, "specular_enable"), v);
-				if (FAILED(hr))
-					return 1;
+				vs3.GetCT()->SetBool(device, vs3.GetCT()->GetConstantByName(nullptr, "specular_enable"), v);
 			}
 			else if (current_vs == 4)
 			{
