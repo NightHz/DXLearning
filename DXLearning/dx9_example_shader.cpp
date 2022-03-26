@@ -42,8 +42,8 @@ namespace Dx9
 
 		// create cube
 		Object cube(mesh);
-		cube.phi = D3DX_PI * 0.25f;
-		cube.theta = D3DX_PI * 0.25f;
+		//cube.phi = D3DX_PI * 0.25f;
+		//cube.theta = D3DX_PI * 0.25f;
 
 		// create camera
 		Camera camera;
@@ -63,6 +63,9 @@ namespace Dx9
 			return 1;
 		VertexShader vs4_2(device, "vs_outline.hlsl");
 		if (!vs4_2)
+			return 1;
+		PixelShader ps5(device, "ps_tex_rotate.hlsl");
+		if (!ps5)
 			return 1;
 
 		// create light
@@ -149,11 +152,17 @@ namespace Dx9
 				hr = device->SetVertexShader(nullptr);
 				if (FAILED(hr))
 					return 1;
+				hr = device->SetPixelShader(nullptr);
+				if (FAILED(hr))
+					return 1;
 				cube.texture = nullptr;
 				current_vs = 1;
 			}
 			else if (KeyIsDown(VK_NUMPAD2))
 			{
+				hr = device->SetPixelShader(nullptr);
+				if (FAILED(hr))
+					return 1;
 				if (!vs2.Enable(device))
 					return 1;
 				cube.mesh = mesh;
@@ -162,6 +171,9 @@ namespace Dx9
 			}
 			else if (KeyIsDown(VK_NUMPAD3))
 			{
+				hr = device->SetPixelShader(nullptr);
+				if (FAILED(hr))
+					return 1;
 				if (!vs3.Enable(device))
 					return 1;
 				cube.mesh = mesh_teapot;
@@ -170,11 +182,27 @@ namespace Dx9
 			}
 			else if (KeyIsDown(VK_NUMPAD4))
 			{
+				hr = device->SetPixelShader(nullptr);
+				if (FAILED(hr))
+					return 1;
 				if (!vs4.Enable(device))
 					return 1;
 				cube.mesh = mesh_teapot;
 				cube.texture = tex_cartoon;
 				current_vs = 4;
+			}
+			else if (KeyIsDown(VK_NUMPAD5))
+			{
+				hr = device->SetVertexShader(nullptr);
+				if (FAILED(hr))
+					return 1;
+				if (!vs2.Enable(device))
+					return 1;
+				if (!ps5.Enable(device))
+					return 1;
+				cube.mesh = mesh;
+				cube.texture = tex;
+				current_vs = 5;
 			}
 
 			// set camera and projection
@@ -246,6 +274,35 @@ namespace Dx9
 				vs4.GetCT()->SetMatrix(device, vs4.GetCT()->GetConstantByName(nullptr, "obj_to_view_transform"), &to_view_transform);
 				vs4.GetCT()->SetMatrix(device, vs4.GetCT()->GetConstantByName(nullptr, "obj_to_proj_transform"), &to_proj_transform);
 				vs4.GetCT()->SetVector(device, vs4.GetCT()->GetConstantByName(nullptr, "light_dir"), &light_dir);
+			}
+			else if (current_vs == 5)
+			{
+				vs2.GetCT()->SetDefaults(device);
+				vs2.GetCT()->SetMatrix(device, vs2.GetCT()->GetConstantByName(nullptr, "transform"), &to_proj_transform);
+				vs2.GetCT()->SetFloat(device, vs2.GetCT()->GetConstantByName(nullptr, "time"), 4.8f);
+				ps5.GetCT()->SetDefaults(device);
+				ps5.GetCT()->SetFloat(device, ps5.GetCT()->GetConstantByName(nullptr, "time"), t);
+				D3DXHANDLE handle = ps5.GetCT()->GetConstantByName(nullptr, "tex1");
+				if (handle != nullptr)
+				{
+					D3DXCONSTANT_DESC desc;
+					UINT count;
+					hr = ps5.GetCT()->GetConstantDesc(handle, &desc, &count);
+					if (FAILED(hr))
+						return 1;
+					hr = device->SetTexture(desc.RegisterIndex, tex->GetInterface());
+					if (FAILED(hr))
+						return 1;
+					hr = device->SetSamplerState(desc.RegisterIndex, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+					if (FAILED(hr))
+						return 1;
+					hr = device->SetSamplerState(desc.RegisterIndex, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+					if (FAILED(hr))
+						return 1;
+					hr = device->SetSamplerState(desc.RegisterIndex, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
+					if (FAILED(hr))
+						return 1;
+				}
 			}
 
 			// render

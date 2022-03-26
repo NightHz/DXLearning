@@ -131,4 +131,8 @@
 |:-:|:-:|
 |![](img/dx9_12shader_cartoon1.png)|![](img/dx9_12shader_cartoon2.png)|
 
+**shader 控制贴图**
+
+![](img/dx9_12shader_pixel.gif)
+
 

@@ -4,8 +4,10 @@
 #include "Rehenz/noise_gen.h"
 #include <algorithm>
 
-namespace Dx9 // contents which not have declaration in header file
+namespace Dx9
 {
+	// contents which not have declaration in header file
+
 	struct VertexXYZ
 	{
 	public:
@@ -116,10 +118,8 @@ namespace Dx9 // contents which not have declaration in header file
 		v.v1 = _v;
 	}
 
-}
+	// contents which have declaration in header file
 
-namespace Dx9
-{
 	IDirect3DDevice9* CreateSimpleDx9Device(SimpleWindow* window)
 	{
 		HRESULT hr;
@@ -2010,7 +2010,7 @@ namespace Dx9
 		HRESULT hr = 0;
 		// compile shader file
 		ID3DXBuffer* buffer, * error_buffer = nullptr;
-		hr = D3DXCompileShaderFromFile(file.c_str(), nullptr, nullptr, "main", "vs_2_0", D3DXSHADER_DEBUG, &buffer, &error_buffer, &ct);
+		hr = D3DXCompileShaderFromFile(file.c_str(), nullptr, nullptr, "main", "vs_3_0", D3DXSHADER_DEBUG, &buffer, &error_buffer, &ct);
 		if (error_buffer != nullptr)
 		{
 			error_buffer->Release();
@@ -2047,6 +2047,56 @@ namespace Dx9
 	bool VertexShader::Enable(IDirect3DDevice9* device)
 	{
 		HRESULT hr = device->SetVertexShader(vs);
+		if (FAILED(hr))
+			return false;
+		return true;
+	}
+
+	PixelShader::PixelShader(IDirect3DDevice9* device, const std::string& file)
+	{
+		ps = nullptr;
+		ct = nullptr;
+
+		HRESULT hr = 0;
+		// compile shader file
+		ID3DXBuffer* buffer, * error_buffer = nullptr;
+		hr = D3DXCompileShaderFromFile(file.c_str(), nullptr, nullptr, "main", "ps_3_0", D3DXSHADER_DEBUG, &buffer, &error_buffer, &ct);
+		if (error_buffer != nullptr)
+		{
+			error_buffer->Release();
+			return;
+		}
+		if (FAILED(hr))
+			return;
+
+		// create pixel shader
+		hr = device->CreatePixelShader(static_cast<DWORD*>(buffer->GetBufferPointer()), &ps);
+		if (FAILED(hr))
+		{
+			buffer->Release();
+			ps->Release();
+			ps = nullptr;
+			return;
+		}
+		buffer->Release();
+	}
+
+	PixelShader::~PixelShader()
+	{
+		if (ps)
+			ps->Release();
+		if (ct)
+			ct->Release();
+	}
+
+	PixelShader::operator bool()
+	{
+		return ps != nullptr;
+	}
+
+	bool PixelShader::Enable(IDirect3DDevice9* device)
+	{
+		HRESULT hr = device->SetPixelShader(ps);
 		if (FAILED(hr))
 			return false;
 		return true;

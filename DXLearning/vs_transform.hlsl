@@ -2,11 +2,13 @@ struct Input
 {
 	vector pos : POSITION;
 	vector color : COLOR;
+	float2 tex : TEXCOORD;
 };
 struct Output
 {
 	vector pos : SV_POSITION;
 	vector color : COLOR;
+	float2 tex : TEXCOORD;
 };
 
 matrix transform;
@@ -28,5 +30,6 @@ Output main(Input input)
 	else if (t < 5.0f) { color.rgb = 1; }
 	else if (t < 6.0f) { color.gb = 6.0f - t; color.r = 1; }
 	output.color = color * input.color;
+	output.tex = input.tex;
 	return output;
 }

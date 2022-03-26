@@ -74,6 +74,8 @@ namespace Dx9
 		Texture& operator=(const Texture&) = delete;
 		~Texture();
 
+		IDirect3DTexture9* GetInterface() { return tex; }
+
 		bool SetTexture(IDirect3DDevice9* device);
 
 		static std::shared_ptr<Texture> CreateTexture(IDirect3DDevice9* device, const char* filename);
@@ -281,6 +283,24 @@ namespace Dx9
 		VertexShader(const VertexShader&) = delete;
 		VertexShader& operator=(const VertexShader&) = delete;
 		~VertexShader();
+
+		operator bool();
+
+		ID3DXConstantTable* GetCT() { return ct; }
+		bool Enable(IDirect3DDevice9* device);
+	};
+
+	class PixelShader
+	{
+	private:
+		IDirect3DPixelShader9* ps;
+		ID3DXConstantTable* ct;
+
+	public:
+		PixelShader(IDirect3DDevice9* device, const std::string& file);
+		PixelShader(const PixelShader&) = delete;
+		PixelShader& operator=(const PixelShader&) = delete;
+		~PixelShader();
 
 		operator bool();
 

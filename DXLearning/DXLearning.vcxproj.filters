@@ -83,5 +83,8 @@
     <FxCompile Include="vs_outline.hlsl">
       <Filter>shader</Filter>
     </FxCompile>
+    <FxCompile Include="ps_tex_rotate.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
