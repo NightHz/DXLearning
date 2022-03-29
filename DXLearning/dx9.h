@@ -307,4 +307,21 @@ namespace Dx9
 		ID3DXConstantTable* GetCT() { return ct; }
 		bool Enable(IDirect3DDevice9* device);
 	};
+
+	class Effect
+	{
+	private:
+		ID3DXEffect* fx;
+
+	public:
+		Effect(IDirect3DDevice9* device, const std::string& file);
+		Effect(const Effect&) = delete;
+		Effect& operator=(const Effect&) = delete;
+		~Effect();
+
+		operator bool();
+
+		ID3DXEffect* GetFX() { return fx; }
+		bool RenderObjWithTechnique(IDirect3DDevice9* device, Object* pobj, D3DXHANDLE tech);
+	};
 }

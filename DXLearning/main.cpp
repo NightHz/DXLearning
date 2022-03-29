@@ -12,11 +12,13 @@ namespace Dx9
 {
 	int dx9_example();
 	int dx9_example_shader();
+	int dx9_example_effect();
 }
 
 int main()
 {
 	cout << "DirectX learning ..." << endl;
 	//return Dx9::dx9_example();
-	return Dx9::dx9_example_shader();
+	//return Dx9::dx9_example_shader();
+	return Dx9::dx9_example_effect();
 }

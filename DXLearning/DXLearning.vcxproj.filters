@@ -46,6 +46,9 @@
     <ClCompile Include="dx9_example_shader.cpp">
       <Filter>source</Filter>
     </ClCompile>
+    <ClCompile Include="dx9_example_effect.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="window.h">
@@ -84,6 +87,9 @@
       <Filter>shader</Filter>
     </FxCompile>
     <FxCompile Include="ps_tex_rotate.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+    <FxCompile Include="effect.fx">
       <Filter>shader</Filter>
     </FxCompile>
   </ItemGroup>

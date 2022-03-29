@@ -2102,4 +2102,77 @@ namespace Dx9
 		return true;
 	}
 
+	Effect::Effect(IDirect3DDevice9* device, const std::string& file)
+	{
+		fx = nullptr;
+
+		HRESULT hr = 0;
+		// create effect
+		hr = D3DXCreateEffectFromFile(device, file.c_str(), nullptr, nullptr, D3DXSHADER_DEBUG, nullptr, &fx, nullptr);
+		if (FAILED(hr))
+			return;
+	}
+
+	Effect::~Effect()
+	{
+		if (fx)
+			fx->Release();
+	}
+
+	Effect::operator bool()
+	{
+		return fx != nullptr;
+	}
+
+	bool Effect::RenderObjWithTechnique(IDirect3DDevice9* device, Object* pobj, D3DXHANDLE tech)
+	{
+		if (tech == nullptr)
+			return false;
+
+		HRESULT hr = 0;
+		// set technique
+		hr = fx->SetTechnique(tech);
+		if (FAILED(hr))
+			return false;
+
+		// begin
+		UINT n;
+		hr = fx->Begin(&n, 0);
+		if (FAILED(hr))
+			return false;
+
+		// render
+		for (UINT i = 0; i < n; ++i)
+		{
+			hr = fx->BeginPass(i);
+			if (FAILED(hr))
+			{
+				fx->End();
+				return false;
+			}
+			//fx->CommitChanges();
+			if (pobj && pobj->mesh)
+			{
+				if (!pobj->mesh->Draw(device))
+				{
+					fx->End();
+					return false;
+				}
+			}
+			hr = fx->EndPass();
+			if (FAILED(hr))
+			{
+				fx->End();
+				return false;
+			}
+		}
+
+		// end
+		hr = fx->End();
+		if (FAILED(hr))
+			return false;
+
+		return true;
+	}
+
 }
