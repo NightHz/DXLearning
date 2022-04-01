@@ -50,6 +50,34 @@ namespace Dx9
 		}
 		D3DXHANDLE tech = fx.GetFX()->GetTechniqueByName("Default");
 
+		// set tex in effect
+		for (int par_index = 0; true; par_index++)
+		{
+			auto tex_handle = fx.GetFX()->GetParameterByName(nullptr, ("tex" + std::to_string(par_index)).c_str());
+			if (tex_handle == nullptr)
+				break;
+			auto name_handle = fx.GetFX()->GetAnnotationByName(tex_handle, "name");
+			if (name_handle == nullptr)
+			{
+				cout << "warn : tex" << par_index << " not have annotation name" << endl;
+				continue;
+			}
+			const char* file_name;
+			hr = fx.GetFX()->GetString(name_handle, &file_name);
+			if (FAILED(hr))
+			{
+				cout << "warn : fail read tex" << par_index << " annotation name" << endl;
+				continue;
+			}
+			auto tex = Texture::CreateTexture(device, file_name);
+			hr = fx.GetFX()->SetTexture(tex_handle, tex->GetInterface());
+			if (FAILED(hr))
+			{
+				cout << "warn : fail set tex" << par_index << " from " << file_name << endl;
+				continue;
+			}
+		}
+
 		cout << "finish setup" << endl;
 
 		POINT mouse_pos;
@@ -90,6 +118,25 @@ namespace Dx9
 			else if (KeyIsDown('N'))
 				cube.mesh = mesh_teapot;
 
+			// set technique
+			D3DXHANDLE tech_new = tech;
+			if (KeyIsDown(VK_NUMPAD1)) tech_new = fx.GetFX()->GetTechnique(0);
+			else if (KeyIsDown(VK_NUMPAD2)) tech_new = fx.GetFX()->GetTechnique(1);
+			else if (KeyIsDown(VK_NUMPAD3)) tech_new = fx.GetFX()->GetTechnique(2);
+			else if (KeyIsDown(VK_NUMPAD4)) tech_new = fx.GetFX()->GetTechnique(3);
+			else if (KeyIsDown(VK_NUMPAD5)) tech_new = fx.GetFX()->GetTechnique(4);
+			else if (KeyIsDown(VK_NUMPAD6)) tech_new = fx.GetFX()->GetTechnique(5);
+			else if (KeyIsDown(VK_NUMPAD7)) tech_new = fx.GetFX()->GetTechnique(6);
+			else if (KeyIsDown(VK_NUMPAD8)) tech_new = fx.GetFX()->GetTechnique(7);
+			if (tech_new != tech && tech_new != nullptr)
+			{
+				hr = fx.GetFX()->ValidateTechnique(tech_new);
+				if (SUCCEEDED(hr))
+					tech = tech_new;
+				else
+					cout << "not support technique !" << endl;
+			}
+
 			// set effect parameter
 			D3DXMATRIX obj_transform = cube.ComputeTransform();
 			D3DXMATRIX view_transform = camera.ComputeViewTransform();
@@ -102,6 +149,9 @@ namespace Dx9
 			fx.GetFX()->SetMatrix(fx.GetFX()->GetParameterByName(nullptr, "world_transform"), &obj_transform);
 			fx.GetFX()->SetMatrix(fx.GetFX()->GetParameterByName(nullptr, "view_transform"), &view_transform);
 			fx.GetFX()->SetMatrix(fx.GetFX()->GetParameterByName(nullptr, "proj_transform"), &proj_transform);
+			fx.GetFX()->SetMatrix(fx.GetFX()->GetParameterByName(nullptr, "obj_to_view_transform"), &to_view_transform);
+			fx.GetFX()->SetMatrix(fx.GetFX()->GetParameterByName(nullptr, "obj_to_proj_transform"), &to_proj_transform);
+			fx.GetFX()->SetFloat(fx.GetFX()->GetParameterByName(nullptr, "time"), t);
 
 			// render
 			hr = device->BeginScene();

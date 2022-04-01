@@ -2151,9 +2151,9 @@ namespace Dx9
 				return false;
 			}
 			//fx->CommitChanges();
-			if (pobj)
+			if (pobj && pobj->mesh)
 			{
-				if (!pobj->Draw(device))
+				if (!pobj->mesh->Draw(device))
 				{
 					fx->End();
 					return false;
