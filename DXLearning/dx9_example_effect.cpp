@@ -104,7 +104,13 @@ namespace Dx9
 			fx.GetFX()->SetMatrix(fx.GetFX()->GetParameterByName(nullptr, "proj_transform"), &proj_transform);
 
 			// render
+			hr = device->BeginScene();
+			if (FAILED(hr))
+				return 1;
 			if (!fx.RenderObjWithTechnique(device, &cube, tech))
+				return 1;
+			hr = device->EndScene();
+			if (FAILED(hr))
 				return 1;
 
 			// present
