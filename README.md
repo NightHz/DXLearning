@@ -1,5 +1,8 @@
 # DirectX 学习代码
 
+- [d3d9](#direct3d-9-docs)
+- [d3d11](#direct3d-11-docs)
+
 ## Direct3D 9 <sup>[docs](https://docs.microsoft.com/en-us/windows/win32/direct3d9/dx9-graphics)</sup>
 
 ### 固定管线渲染
@@ -56,6 +59,7 @@
 |:-:|:-:|
 |![](img/dx9_5alpha.gif)|![](img/dx9_5alpha_spec.gif)|
 
+#### 模板缓存
 
 利用模板缓存可以实现一些特殊效果，模板缓存也是通过 `SetRenderState` 来进行配置。绘制特殊效果时，一般按照以下流程
 
@@ -70,6 +74,7 @@
 
 ![](img/dx9_6stencile.png)
 
+#### 典型情景
 
 学习基础知识后，现在我们可以面对实际应用中的问题，典型情景有：文本渲染、导入模型、外接体辅助判断、地形、粒子系统、物件的拾取。
 
@@ -135,6 +140,7 @@
 
 ![](img/dx9_12shader_pixel.gif)
 
+#### 效果框架
 
 除了用 shader 替换固定管线的功能外，可编程管线也提供了效果框架（常用 `.fx` ）来定义手法与通道。效果框架就类似于渲染管线的 config 文件，按照文件所写的设置来进行渲染。其中手法用于区分不同的机器配置，通道用于多次渲染。
 
@@ -143,3 +149,54 @@
 ![](img/dx9_13effect_fog.gif)
 
 
+
+## Direct3D 11 <sup>[docs](https://docs.microsoft.com/en-us/windows/win32/direct3d11/atoc-dx-graphics-direct3d-11)</sup>
+
+dx11 与 dx9 有很大的不同。
+
+**第一**， dx11 没有固定渲染管线，许多功能直接由 shader 完成。 dx11 的渲染管线可以[在这](https://docs.microsoft.com/en-us/windows/win32/direct3d11/overviews-direct3d-11-graphics-pipeline)看到，简单叙述为 `IA -> VS -> HS -> DS -> GS -> RS -> PS -> OM` ， 在 `context` 接口中也能看到这些前缀。
+
+**第二**， dx11 对功能做了分离，原本只需要一个 `device` 接口，现在被分离成了 `device,context,swap_chain` 三个接口。 `device` 负责创建资源，每个创建函数都是线程安全的； `context` 负责绘制，它不是线程安全的，但可以让每个线程拥有一个 `delay context` 来记录绘制命令，之后递交主线程 `immediate context` 完成最终绘制； `swap_chain` 属于 [dxgi](https://docs.microsoft.com/en-us/windows/win32/direct3ddxgi/dx-graphics-dxgi) ，它保留多个缓冲区域，并将这些缓冲区域轮换刷新到屏幕上。
+
+**第三**， dx11 的渲染目标不直接绑定到屏幕缓冲。如第二点所说，屏幕缓冲由 `swap_chain` 负责，要想让 `context` 绘制到屏幕上，则需要用屏幕缓冲创建 `view` 资源，再对 `context` 设置相应渲染目标。
+
+**第四**， dx11 弃用了 d3dx 实用库，如需使用数学，需要 `#include <DirectXMath.h>` ； dx11 还不再直接支持效果框架，官方对这部分进行了开源，如需使用需要自己编译。
+
+另外，可以 `#include <wrl/client.h>` 来使用组件的智能指针 `Microsoft::WRL::ComPtr< >` 。
+
+### 基本流程
+
+在创建完基本设施（设备、上下文、交换链）后，明确下面三要素便可完成绘制
+
+1. **绘制对象**
+   - 网格
+     - 顶点信息
+     - 索引信息
+   - 变换信息
+   - 材质
+     - vertex shader
+     - pixel shader
+     - shader 所需的颜色值、贴图等资源
+     - ...
+2. **摄像机**
+   - 变换信息
+   - 采样与渲染信息
+   - 渲染目标
+3. **其它对渲染产生影响的要素**
+   - 场景光源
+
+绘制对象的变换信息、摄像机的变换信息、其它对渲染产生影响的要素，这三部分其实是发送给 shader 作为参数的。直接设置到上下文的只有网格信息、材质、采样与渲染信息、渲染目标；网格信息对应 `IA` ，材质对应各个 shader ，采样与渲染信息、渲染目标对应 `RS,OM` 。
+
+
+<!--
+### shader 计算颜色
+
+
+### shader 引用贴图
+
+
+### 混合模式
+
+
+### 模板测试
+--->

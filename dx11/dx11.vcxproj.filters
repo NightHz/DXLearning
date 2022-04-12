@@ -18,6 +18,7 @@
     </Filter>
     <Filter Include="shader">
       <UniqueIdentifier>{6ee9bf73-6b66-434f-8805-1072beb3303c}</UniqueIdentifier>
+      <Extensions>hlsl;hlsli;fx;vs;ps;gs;hs;ds;cs;ts;glsl;vert;tesc;tese;geom;frag;comp</Extensions>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -29,6 +30,12 @@
     </ClCompile>
     <ClCompile Include="Rehenz\window.cpp">
       <Filter>Rehenz</Filter>
+    </ClCompile>
+    <ClCompile Include="dx11_example.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="dx11.cpp">
+      <Filter>source</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -44,5 +51,16 @@
     <ClInclude Include="input.h">
       <Filter>header</Filter>
     </ClInclude>
+    <ClInclude Include="dx11.h">
+      <Filter>header</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="vs0.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+    <FxCompile Include="ps0.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
