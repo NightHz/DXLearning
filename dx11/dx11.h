@@ -18,7 +18,6 @@ namespace Dx11
         ComPtr<ID3D11DeviceContext4> context;
         D3D_FEATURE_LEVEL feature_level;
         ComPtr<IDXGISwapChain> sc;
-        ComPtr<ID3D11RenderTargetView> rtv;
         Infrastructure() { feature_level = D3D_FEATURE_LEVEL_1_0_CORE; }
     };
 
@@ -35,6 +34,7 @@ namespace Dx11
         unsigned int vertex_size;
         std::vector<D3D11_INPUT_ELEMENT_DESC> vertex_desc;
         ComPtr<ID3D11Buffer> ib;
+        unsigned int ib_size;
         unsigned int index_count;
 
         Mesh();
@@ -45,6 +45,7 @@ namespace Dx11
         ~Mesh();
 
         static std::shared_ptr<Mesh> CreateTriangleXYZ(ID3D11Device5* device);
+        static std::shared_ptr<Mesh> CreateCubeColor(ID3D11Device5* device);
     };
 
     class VertexShader
@@ -98,9 +99,11 @@ namespace Dx11
         Object& operator=(const Object&) = delete;
         ~Object();
 
+        operator bool();
+
         bool UpdateInputLayout(ID3D11Device5* device);
 
-        bool Draw(ID3D11DeviceContext4* context);
+        void Draw(ID3D11DeviceContext4* context);
     };
 
     class Camera
@@ -109,6 +112,20 @@ namespace Dx11
         ComPtr<ID3D11RenderTargetView> rtv;
         ComPtr<ID3D11DepthStencilView> dsv;
 
+    public:
+        D3D11_VIEWPORT vp;
+
+        Camera(ID3D11Device5* device, ID3D11Resource* buffer, float width = 0, float height = 0);
+        Camera(ID3D11Device5* device, IDXGISwapChain* sc, float width = 0, float height = 0);
+        Camera(const Camera&) = delete;
+        Camera& operator=(const Camera&) = delete;
+        ~Camera();
+
+        operator bool();
+
+        void Clear(ID3D11DeviceContext4* context, const float rgba[4]);
+        void Clear(ID3D11DeviceContext4* context, float r, float g, float b, float a);
+        void SetContext(ID3D11DeviceContext4* context);
     };
 
 }

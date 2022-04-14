@@ -16,7 +16,8 @@ library<Mesh> meshes;
 library<VertexShader> vses;
 library<PixelShader> pses;
 library<Object> objs;
-std::unordered_map<std::string, int> control_value;
+library<Camera> cams;
+std::unordered_map<std::string, float> control_value;
 
 int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 {
@@ -55,6 +56,26 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	// objs
 	auto cube = std::make_shared<Object>(infra->device.Get(), meshes["cube_xyz"], vses["vs0"], pses["ps0"]);
 	objs["cube"] = cube;
+	for (auto& p : objs)
+	{
+		if (!*p.second)
+			return 1;
+	}
+
+	// cams
+	auto cam = std::make_shared<Camera>(infra->device.Get(), infra->sc.Get(),
+		static_cast<float>(window->GetWidth()), static_cast<float>(window->GetHeight()));
+	cams["cam"] = cam;
+	for (auto& p : cams)
+	{
+		if (!*p.second)
+			return 1;
+	}
+
+	// control_value
+	control_value["bg_r"] = 0.7804f;
+	control_value["bg_g"] = 0.8627f;
+	control_value["bg_b"] = 0.4078f;
 
 	return 0;
 }
@@ -63,6 +84,14 @@ int dx11_control(Infrastructure* infra)
 {
 	HRESULT hr = 0;
 	static bool first = true;
+
+	// bg color
+	if (KeyIsDown('1')) control_value["bg_r"] = 0.0784f;
+	else control_value["bg_r"] = 0.7804f;
+	if (KeyIsDown('2')) control_value["bg_g"] = 0.0784f;
+	else control_value["bg_g"] = 0.8627f;
+	if (KeyIsDown('3')) control_value["bg_b"] = 0.0784f;
+	else control_value["bg_b"] = 0.4078f;
 
 	first = false;
 	return 0;
@@ -73,27 +102,28 @@ int dx11_render(Infrastructure* infra)
 {
 	HRESULT hr = 0;
 
-	// clear
-	float bg_color[] = { 0.7804f, 0.8627f, 0.4078f, 0 };
-	infra->context->ClearRenderTargetView(infra->rtv.Get(), bg_color);
+	// clear and set camera
+	auto& cam = cams["cam"];
+	cam->Clear(infra->context.Get(), control_value["bg_r"], control_value["bg_g"], control_value["bg_b"], 0);
+	cam->SetContext(infra->context.Get());
 
 	// draw
 	for (auto& p : objs)
 	{
 		auto& obj = p.second;
-		if (!obj->Draw(infra->context.Get()))
-			return 1;
+		obj->Draw(infra->context.Get());
 	}
 
 	// present
-	infra->sc->Present(0, 0);
+	hr = infra->sc->Present(0, 0);
+	if (FAILED(hr))
+		return 1;
 
 	return 0;
 }
 
 int dx11_example()
 {
-	HRESULT hr = 0;
 	wcout.imbue(std::locale("", LC_CTYPE)); // set to system code
 
 	auto window = std::make_shared<Rehenz::SimpleWindowWithFC>(GetModuleHandle(nullptr), 800, 600, "dx11");

@@ -41,28 +41,6 @@ namespace Dx11
         if (FAILED(hr))
             return nullptr;
 
-        // create render target view
-        ComPtr<ID3D11Texture2D> sc_buffer;
-        hr = infra->sc->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(sc_buffer.GetAddressOf()));
-        if (FAILED(hr))
-            return nullptr;
-        hr = infra->device->CreateRenderTargetView(sc_buffer.Get(), nullptr, infra->rtv.GetAddressOf());
-        if (FAILED(hr))
-            return nullptr;
-
-        // set render target view
-        infra->context->OMSetRenderTargets(1, infra->rtv.GetAddressOf(), nullptr);
-
-        // set viewport
-        D3D11_VIEWPORT vp;
-        vp.TopLeftX = 0;
-        vp.TopLeftY = 0;
-        vp.Width = static_cast<float>(window->GetWidth());
-        vp.Height = static_cast<float>(window->GetHeight());
-        vp.MinDepth = 0;
-        vp.MaxDepth = 1;
-        infra->context->RSSetViewports(1, &vp);
-
         return infra;
     }
 
@@ -95,6 +73,7 @@ namespace Dx11
         vb_size = 0;
         vertex_count = 0;
         vertex_size = 0;
+        ib_size = 0;
         index_count = 0;
     }
 
@@ -142,6 +121,107 @@ namespace Dx11
 
         // create vertex buffer
         HRESULT hr = device->CreateBuffer(&bd, &sd, mesh->vb.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+
+        return mesh;
+    }
+
+    std::shared_ptr<Mesh> Mesh::CreateCubeColor(ID3D11Device5* device)
+    {
+        std::shared_ptr<Mesh> mesh(new Mesh());
+
+        // set vertex desc
+        struct Vertex
+        {
+            DirectX::XMFLOAT3 pos;
+            DirectX::XMFLOAT4 color;
+        };
+        mesh->vertex_size = sizeof(Vertex);
+        mesh->vertex_desc.resize(2);
+        mesh->vertex_desc[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+        mesh->vertex_desc[1] = { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+
+        // set vertex data
+        std::vector<Vertex> vertices(8);
+        // xyz
+        vertices[0].pos = DirectX::XMFLOAT3(-0.5f, -0.5f, 0.5f);
+        vertices[1].pos = DirectX::XMFLOAT3(0.5f, -0.5f, 0.5f);
+        vertices[2].pos = DirectX::XMFLOAT3(-0.5f, 0.5f, 0.5f);
+        vertices[3].pos = DirectX::XMFLOAT3(0.5f, 0.5f, 0.5f);
+        vertices[4].pos = DirectX::XMFLOAT3(-0.5f, -0.5f, -0.5f);
+        vertices[5].pos = DirectX::XMFLOAT3(0.5f, -0.5f, -0.5f);
+        vertices[6].pos = DirectX::XMFLOAT3(-0.5f, 0.5f, -0.5f);
+        vertices[7].pos = DirectX::XMFLOAT3(0.5f, 0.5f, -0.5f);
+        // color
+        vertices[0].color = DirectX::XMFLOAT4(0, 0, 0, 0);
+        vertices[1].color = DirectX::XMFLOAT4(1, 0, 0, 0);
+        vertices[2].color = DirectX::XMFLOAT4(0, 1, 0, 0);
+        vertices[3].color = DirectX::XMFLOAT4(1, 1, 0, 0);
+        vertices[4].color = DirectX::XMFLOAT4(0, 0, 1, 0);
+        vertices[5].color = DirectX::XMFLOAT4(1, 0, 1, 0);
+        vertices[6].color = DirectX::XMFLOAT4(0, 1, 1, 0);
+        vertices[7].color = DirectX::XMFLOAT4(1, 1, 1, 0);
+
+        // set vertex info
+        mesh->vertex_count = static_cast<unsigned int>(vertices.size());
+        mesh->vb_size = mesh->vertex_size * mesh->vertex_count;
+
+        // fill buffer desc
+        D3D11_BUFFER_DESC bd;
+        bd.ByteWidth = mesh->vb_size;
+        bd.Usage = D3D11_USAGE_DEFAULT;
+        bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        bd.CPUAccessFlags = 0;
+        bd.MiscFlags = 0;
+        bd.StructureByteStride = 0;
+
+        // fill subresource data
+        D3D11_SUBRESOURCE_DATA sd;
+        sd.pSysMem = &vertices[0];
+        sd.SysMemPitch = 0;
+        sd.SysMemSlicePitch = 0;
+
+        // create vertex buffer
+        HRESULT hr = device->CreateBuffer(&bd, &sd, mesh->vb.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+
+
+        // set index data
+        std::vector<WORD> indexes(36);
+        indexes[0] = 0; indexes[1] = 1; indexes[2] = 3;
+        indexes[3] = 0; indexes[4] = 3; indexes[5] = 2;
+        indexes[6] = 4; indexes[7] = 6; indexes[8] = 7;
+        indexes[9] = 4; indexes[10] = 7; indexes[11] = 5;
+        indexes[12] = 0; indexes[13] = 4; indexes[14] = 5;
+        indexes[15] = 0; indexes[16] = 5; indexes[17] = 1;
+        indexes[18] = 2; indexes[19] = 3; indexes[20] = 7;
+        indexes[21] = 2; indexes[22] = 7; indexes[23] = 6;
+        indexes[24] = 1; indexes[25] = 5; indexes[26] = 7;
+        indexes[27] = 1; indexes[28] = 7; indexes[29] = 3;
+        indexes[30] = 0; indexes[31] = 2; indexes[32] = 6;
+        indexes[33] = 0; indexes[34] = 6; indexes[35] = 4;
+
+        // set index info
+        mesh->index_count = static_cast<unsigned int>(indexes.size());
+        mesh->ib_size = sizeof(WORD) * mesh->index_count;
+
+        // fill buffer desc
+        bd.ByteWidth = mesh->ib_size;
+        bd.Usage = D3D11_USAGE_DEFAULT;
+        bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        bd.CPUAccessFlags = 0;
+        bd.MiscFlags = 0;
+        bd.StructureByteStride = 0;
+
+        // fill subresource data
+        sd.pSysMem = &indexes[0];
+        sd.SysMemPitch = 0;
+        sd.SysMemSlicePitch = 0;
+
+        // create index buffer
+        hr = device->CreateBuffer(&bd, &sd, mesh->ib.GetAddressOf());
         if (FAILED(hr))
             return nullptr;
 
@@ -221,8 +301,16 @@ namespace Dx11
     {
     }
 
+    Object::operator bool()
+    {
+        return il;
+    }
+
     bool Object::UpdateInputLayout(ID3D11Device5* device)
     {
+        if (!mesh)
+            return false;
+
         HRESULT hr = device->CreateInputLayout(&mesh->vertex_desc[0], static_cast<unsigned int>(mesh->vertex_desc.size()),
             vs->blob->GetBufferPointer(), vs->blob->GetBufferSize(), il.GetAddressOf());
         if (FAILED(hr))
@@ -231,18 +319,18 @@ namespace Dx11
         return true;
     }
 
-    bool Object::Draw(ID3D11DeviceContext4* context)
+    void Object::Draw(ID3D11DeviceContext4* context)
     {
-        unsigned int zero = 0;
-
         // set vb & ib
-        if (il)
-            context->IASetInputLayout(il.Get());
-        if (mesh->vb)
+        context->IASetInputLayout(il.Get());
+        if (mesh)
+        {
+            unsigned int zero = 0;
             context->IASetVertexBuffers(0, 1, mesh->vb.GetAddressOf(), &mesh->vertex_size, &zero);
-        context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        if (mesh->ib)
-            context->IASetIndexBuffer(mesh->ib.Get(), DXGI_FORMAT_R16_UINT, 0);
+            context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            if (mesh->ib)
+                context->IASetIndexBuffer(mesh->ib.Get(), DXGI_FORMAT_R16_UINT, 0);
+        }
 
         // set shader
         if (vs)
@@ -251,12 +339,72 @@ namespace Dx11
             context->PSSetShader(ps->ps.Get(), nullptr, 0);
 
         // draw
-        if (mesh->ib)
-            context->DrawIndexed(mesh->index_count, 0, 0);
-        else
-            context->Draw(mesh->vertex_count, 0);
+        if (mesh)
+        {
+            if (mesh->ib)
+                context->DrawIndexed(mesh->index_count, 0, 0);
+            else
+                context->Draw(mesh->vertex_count, 0);
+        }
+    }
 
-        return true;
+    Camera::Camera(ID3D11Device5* device, ID3D11Resource* buffer, float width, float height)
+    {
+        HRESULT hr = device->CreateRenderTargetView(buffer, nullptr, rtv.GetAddressOf());
+        if (FAILED(hr))
+            rtv = nullptr;
+        vp.TopLeftX = 0;
+        vp.TopLeftY = 0;
+        vp.Width = width;
+        vp.Height = height;
+        vp.MinDepth = 0;
+        vp.MaxDepth = 1;
+    }
+
+    Camera::Camera(ID3D11Device5* device, IDXGISwapChain* sc, float width, float height)
+    {
+        ComPtr<ID3D11Texture2D> sc_buffer;
+        HRESULT hr = sc->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(sc_buffer.GetAddressOf()));
+        if (FAILED(hr))
+            rtv = nullptr;
+        else
+        {
+            hr = device->CreateRenderTargetView(sc_buffer.Get(), nullptr, rtv.GetAddressOf());
+            if (FAILED(hr))
+                rtv = nullptr;
+        }
+        vp.TopLeftX = 0;
+        vp.TopLeftY = 0;
+        vp.Width = width;
+        vp.Height = height;
+        vp.MinDepth = 0;
+        vp.MaxDepth = 1;
+    }
+
+    Camera::~Camera()
+    {
+    }
+
+    Camera::operator bool()
+    {
+        return rtv;
+    }
+
+    void Camera::Clear(ID3D11DeviceContext4* context, const float rgba[4])
+    {
+        context->ClearRenderTargetView(rtv.Get(), rgba);
+    }
+
+    void Camera::Clear(ID3D11DeviceContext4* context, float r, float g, float b, float a)
+    {
+        float rgba[4] = { r,g,b,a };
+        Clear(context, rgba);
+    }
+
+    void Camera::SetContext(ID3D11DeviceContext4* context)
+    {
+        context->OMSetRenderTargets(1, rtv.GetAddressOf(), nullptr);
+        context->RSSetViewports(1, &vp);
     }
 
 }
