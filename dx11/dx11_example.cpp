@@ -104,7 +104,7 @@ int dx11_render(Infrastructure* infra)
 
 	// clear and set camera
 	auto& cam = cams["cam"];
-	cam->Clear(infra->context.Get(), control_value["bg_r"], control_value["bg_g"], control_value["bg_b"], 0);
+	cam->Clear(infra->context.Get(), control_value["bg_r"], control_value["bg_g"], control_value["bg_b"], 1);
 	cam->SetContext(infra->context.Get());
 
 	// draw

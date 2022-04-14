@@ -154,14 +154,14 @@ namespace Dx11
         vertices[6].pos = DirectX::XMFLOAT3(-0.5f, 0.5f, -0.5f);
         vertices[7].pos = DirectX::XMFLOAT3(0.5f, 0.5f, -0.5f);
         // color
-        vertices[0].color = DirectX::XMFLOAT4(0, 0, 0, 0);
-        vertices[1].color = DirectX::XMFLOAT4(1, 0, 0, 0);
-        vertices[2].color = DirectX::XMFLOAT4(0, 1, 0, 0);
-        vertices[3].color = DirectX::XMFLOAT4(1, 1, 0, 0);
-        vertices[4].color = DirectX::XMFLOAT4(0, 0, 1, 0);
-        vertices[5].color = DirectX::XMFLOAT4(1, 0, 1, 0);
-        vertices[6].color = DirectX::XMFLOAT4(0, 1, 1, 0);
-        vertices[7].color = DirectX::XMFLOAT4(1, 1, 1, 0);
+        vertices[0].color = DirectX::XMFLOAT4(0, 0, 0, 1);
+        vertices[1].color = DirectX::XMFLOAT4(1, 0, 0, 1);
+        vertices[2].color = DirectX::XMFLOAT4(0, 1, 0, 1);
+        vertices[3].color = DirectX::XMFLOAT4(1, 1, 0, 1);
+        vertices[4].color = DirectX::XMFLOAT4(0, 0, 1, 1);
+        vertices[5].color = DirectX::XMFLOAT4(1, 0, 1, 1);
+        vertices[6].color = DirectX::XMFLOAT4(0, 1, 1, 1);
+        vertices[7].color = DirectX::XMFLOAT4(1, 1, 1, 1);
 
         // set vertex info
         mesh->vertex_count = static_cast<unsigned int>(vertices.size());
