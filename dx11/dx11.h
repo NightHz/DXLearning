@@ -125,8 +125,16 @@ namespace Dx11
         Transform();
         ~Transform();
 
+        void PosAddOffset(DirectX::XMFLOAT3 offset, float times = 1);
+
         DirectX::XMMATRIX GetTransformMatrix();
         DirectX::XMMATRIX GetInverseTransformMatrix();
+
+        DirectX::XMFLOAT3 GetFront();
+        DirectX::XMFLOAT3 GetUp();
+        DirectX::XMFLOAT3 GetRight();
+        DirectX::XMFLOAT3 GetFrontXZ();
+        DirectX::XMFLOAT3 GetRightXZ();
     };
 
     class Object

@@ -83,7 +83,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	// cams
 	auto cam = std::make_shared<Camera>(infra->device.Get(), infra->sc.Get(), vscb_transform,
 		static_cast<float>(window->GetWidth()), static_cast<float>(window->GetHeight()));
-	cam->transform.pos.z = -2;
+	cam->transform.pos.z = -5;
 	cams["cam"] = cam;
 	for (auto& p : cams)
 	{
@@ -99,7 +99,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	return 0;
 }
 
-int dx11_control(Infrastructure* infra)
+int dx11_control(Infrastructure* infra, float dt)
 {
 	HRESULT hr = 0;
 	static bool first = true;
@@ -113,14 +113,36 @@ int dx11_control(Infrastructure* infra)
 	else control_value["bg_b"] = 0.4078f;
 
 	// control obj
-	auto control_obj = objs["cube"];
-	float change_value = 0.03f;
-	if (KeyIsDown('I')) control_obj->transform.pitch -= change_value;
-	else if (KeyIsDown('K')) control_obj->transform.pitch += change_value;
-	if (KeyIsDown('J')) control_obj->transform.yaw += change_value;
-	else if (KeyIsDown('L')) control_obj->transform.yaw -= change_value;
-	if (KeyIsDown('U')) control_obj->transform.roll -= change_value;
-	else if (KeyIsDown('O')) control_obj->transform.roll += change_value;
+	static auto control_obj = objs["cube"];
+	float obj_rotate_angle = 3 * dt;
+	if (KeyIsDown('I')) control_obj->transform.pitch += obj_rotate_angle;
+	else if (KeyIsDown('K')) control_obj->transform.pitch -= obj_rotate_angle;
+	if (KeyIsDown('J')) control_obj->transform.yaw += obj_rotate_angle;
+	else if (KeyIsDown('L')) control_obj->transform.yaw -= obj_rotate_angle;
+	if (KeyIsDown('U')) control_obj->transform.roll -= obj_rotate_angle;
+	else if (KeyIsDown('O')) control_obj->transform.roll += obj_rotate_angle;
+
+	// control camera
+	static auto control_cam = cams["cam"];
+	float cam_move_dis = 5 * dt;
+	float cam_rotate_angle = 0.3f * dt;
+	static POINT mouse_pos; if (first) GetCursorPos(&mouse_pos);
+	if (KeyIsDown('W')) control_cam->transform.PosAddOffset(control_cam->transform.GetFrontXZ(), cam_move_dis);
+	else if (KeyIsDown('S')) control_cam->transform.PosAddOffset(control_cam->transform.GetFrontXZ(), -cam_move_dis);
+	if (KeyIsDown('A')) control_cam->transform.PosAddOffset(control_cam->transform.GetRightXZ(), -cam_move_dis);
+	else if (KeyIsDown('D')) control_cam->transform.PosAddOffset(control_cam->transform.GetRightXZ(), cam_move_dis);
+	if (KeyIsDown(VK_SPACE)) control_cam->transform.pos.y += cam_move_dis;
+	else if (KeyIsDown(VK_LSHIFT)) control_cam->transform.pos.y -= cam_move_dis;
+	if (KeyIsDown(VK_MBUTTON))
+	{
+		POINT mouse_pos2;
+		GetCursorPos(&mouse_pos2);
+		control_cam->transform.pitch += cam_rotate_angle * (mouse_pos2.y - mouse_pos.y);
+		control_cam->transform.yaw += cam_rotate_angle * (mouse_pos2.x - mouse_pos.x);
+		SetCursorPos(mouse_pos.x, mouse_pos.y);
+	}
+	else
+		GetCursorPos(&mouse_pos);
 
 	first = false;
 	return 0;
@@ -169,7 +191,7 @@ int dx11_example()
 	while (true)
 	{
 		// control
-		if (dx11_control(infra.get()) != 0)
+		if (dx11_control(infra.get(), window->fps_counter.GetLastDeltatime() / 1000.0f) != 0)
 			return 1;
 
 		// render

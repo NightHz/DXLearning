@@ -1,5 +1,6 @@
 #include "dx11.h"
 #include <d3dcompiler.h>
+#include <cmath>
 
 namespace Dx11
 {
@@ -345,6 +346,13 @@ namespace Dx11
     {
     }
 
+    void Transform::PosAddOffset(DirectX::XMFLOAT3 offset, float times)
+    {
+        pos.x += offset.x * times;
+        pos.y += offset.y * times;
+        pos.z += offset.z * times;
+    }
+
     DirectX::XMMATRIX Transform::GetTransformMatrix()
     {
         DirectX::XMMATRIX mat_scale = DirectX::XMMatrixScaling(scale.x, scale.y, scale.z);
@@ -362,6 +370,56 @@ namespace Dx11
             * DirectX::XMMatrixRotationX(-pitch) * DirectX::XMMatrixRotationZ(-roll);
         DirectX::XMMATRIX mat_translate = DirectX::XMMatrixTranslation(-pos.x, -pos.y, -pos.z);
         return mat_translate * mat_rotate * mat_scale;
+    }
+
+    DirectX::XMFLOAT3 Transform::GetFront()
+    {
+        DirectX::XMFLOAT3 front(0, 0, 1);
+        DirectX::XMVECTOR qua_rotate = DirectX::XMQuaternionRotationRollPitchYaw(roll, yaw, pitch);
+        DirectX::XMStoreFloat3(&front, DirectX::XMVector3Rotate(DirectX::XMLoadFloat3(&front), qua_rotate));
+        return front;
+    }
+
+    DirectX::XMFLOAT3 Transform::GetUp()
+    {
+        DirectX::XMFLOAT3 up(0, 1, 0);
+        DirectX::XMVECTOR qua_rotate = DirectX::XMQuaternionRotationRollPitchYaw(roll, yaw, pitch);
+        DirectX::XMStoreFloat3(&up, DirectX::XMVector3Rotate(DirectX::XMLoadFloat3(&up), qua_rotate));
+        return up;
+    }
+
+    DirectX::XMFLOAT3 Transform::GetRight()
+    {
+        DirectX::XMFLOAT3 right(1, 0, 0);
+        DirectX::XMVECTOR qua_rotate = DirectX::XMQuaternionRotationRollPitchYaw(roll, yaw, pitch);
+        DirectX::XMStoreFloat3(&right, DirectX::XMVector3Rotate(DirectX::XMLoadFloat3(&right), qua_rotate));
+        return right;
+    }
+
+    DirectX::XMFLOAT3 Transform::GetFrontXZ()
+    {
+        DirectX::XMFLOAT3 front = GetFront();
+        float l2 = front.x * front.x + front.z * front.z;
+        if (l2 < 0.0001f)
+            return DirectX::XMFLOAT3(0, 0, 0);
+        else
+        {
+            float divl = 1 / std::sqrtf(l2);
+            return DirectX::XMFLOAT3(front.x * divl, 0, front.z * divl);
+        }
+    }
+
+    DirectX::XMFLOAT3 Transform::GetRightXZ()
+    {
+        DirectX::XMFLOAT3 right = GetRight();
+        float l2 = right.x * right.x + right.z * right.z;
+        if (l2 < 0.0001f)
+            return DirectX::XMFLOAT3(0, 0, 0);
+        else
+        {
+            float divl = 1 / std::sqrtf(l2);
+            return DirectX::XMFLOAT3(right.x * divl, 0, right.z * divl);
+        }
     }
 
     Object::Object()
