@@ -1,11 +1,11 @@
 cbuffer vscb_transform : register(b0)
 {
-    matrix transform_world;
-    matrix transform_view;
-    matrix transform_proj;
-    matrix transform_world_view;
-    matrix transform_view_proj;
-    matrix transform_world_view_proj;
+    matrix world;
+    matrix view;
+    matrix proj;
+    matrix world_view;
+    matrix view_proj;
+    matrix world_view_proj;
 };
 
 struct VSInput
@@ -23,7 +23,7 @@ struct VSOutput
 VSOutput main(VSInput input)
 {
     VSOutput output;
-    output.pos = mul(input.pos, transform_world_view_proj);
+    output.pos = mul(input.pos, world_view_proj);
     output.color = input.color;
     return output;
 }

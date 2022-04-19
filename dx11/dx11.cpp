@@ -316,7 +316,10 @@ namespace Dx11
 
         // fill buffer desc
         D3D11_BUFFER_DESC bd;
-        bd.ByteWidth = cb_size;
+        if (cb_size % 16 == 0)
+            bd.ByteWidth = cb_size;
+        else
+            bd.ByteWidth = (cb_size / 16 + 1) * 16; // align to 16 byte
         bd.Usage = D3D11_USAGE_DYNAMIC;
         bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
         bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -335,11 +338,9 @@ namespace Dx11
         return cb;
     }
 
-    Transform::Transform()
+    Transform::Transform() : pos(0, 0, 0), scale(1, 1, 1)
     {
-        pos.x = pos.y = pos.z = 0;
         roll = pitch = yaw = 0;
-        scale.x = scale.y = scale.z = 1;
     }
 
     Transform::~Transform()
@@ -427,7 +428,8 @@ namespace Dx11
     }
 
     Object::Object(ID3D11Device5* device, std::shared_ptr<Mesh> _mesh,
-        std::shared_ptr<VertexShader> _vs, std::shared_ptr<PixelShader> _ps, std::shared_ptr<CBuffer> _vscb_transform)
+        std::shared_ptr<VertexShader> _vs, std::shared_ptr<PixelShader> _ps,
+        std::shared_ptr<CBuffer> _vscb_transform)
         : mesh(_mesh), vs(_vs), ps(_ps), vscb_transform(_vscb_transform)
     {
         UpdateInputLayout(device);
@@ -482,7 +484,7 @@ namespace Dx11
             vscb_struct->world_view = vscb_struct->view * vscb_struct->world; // =transpose(transpose(world)*transpose(view))
             vscb_struct->world_view_proj = vscb_struct->view_proj * vscb_struct->world; // =transpose(transpose(world)*transpose(view_proj))
             assert(vscb_transform->ApplyToCBuffer(context) == true);
-            context->VSSetConstantBuffers(0, 1, vscb_transform->GetBuffer().GetAddressOf());
+            context->VSSetConstantBuffers(vscb_struct->slot, 1, vscb_transform->GetBuffer().GetAddressOf());
         }
 
         // draw
@@ -585,7 +587,7 @@ namespace Dx11
             vscb_struct->view_proj = vscb_struct->proj * vscb_struct->view; // =transpose(transpose(view)*transpose(proj))
             vscb_struct->world_view_proj = vscb_struct->view_proj * vscb_struct->world; // =transpose(transpose(world)*transpose(view_proj))
             assert(vscb_transform->ApplyToCBuffer(context) == true);
-            context->VSSetConstantBuffers(0, 1, vscb_transform->GetBuffer().GetAddressOf());
+            context->VSSetConstantBuffers(vscb_struct->slot, 1, vscb_transform->GetBuffer().GetAddressOf());
         }
         context->OMSetRenderTargets(1, rtv.GetAddressOf(), nullptr);
         context->RSSetViewports(1, &vp);

@@ -90,6 +90,7 @@ namespace Dx11
         DirectX::XMMATRIX world_view;
         DirectX::XMMATRIX view_proj;
         DirectX::XMMATRIX world_view_proj;
+        static const unsigned int slot = 0;
     };
 
     class CBuffer
@@ -152,7 +153,8 @@ namespace Dx11
 
         Object();
         Object(ID3D11Device5* device, std::shared_ptr<Mesh> _mesh,
-            std::shared_ptr<VertexShader> _vs, std::shared_ptr<PixelShader> _ps, std::shared_ptr<CBuffer> _vscb_transform);
+            std::shared_ptr<VertexShader> _vs, std::shared_ptr<PixelShader> _ps,
+            std::shared_ptr<CBuffer> _vscb_transform);
         Object(const Object&) = delete;
         Object& operator=(const Object&) = delete;
         ~Object();
@@ -188,8 +190,8 @@ namespace Dx11
         Transform transform;
         Projection projection;
 
-        Camera(ID3D11Device5* device, ID3D11Resource* buffer, std::shared_ptr<CBuffer> _vscb_transform = nullptr, float width = 0, float height = 0);
-        Camera(ID3D11Device5* device, IDXGISwapChain* sc, std::shared_ptr<CBuffer> _vscb_transform = nullptr, float width = 0, float height = 0);
+        Camera(ID3D11Device5* device, ID3D11Resource* buffer, std::shared_ptr<CBuffer> _vscb_transform, float width, float height);
+        Camera(ID3D11Device5* device, IDXGISwapChain* sc, std::shared_ptr<CBuffer> _vscb_transform, float width, float height);
         Camera(const Camera&) = delete;
         Camera& operator=(const Camera&) = delete;
         ~Camera();

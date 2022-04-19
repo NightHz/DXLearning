@@ -36,7 +36,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	for (auto& p : meshes)
 	{
 		if (p.second == nullptr)
-			return 1;
+			return 10;
 	}
 
 	// vses
@@ -45,7 +45,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	for (auto& p : vses)
 	{
 		if (p.second == nullptr)
-			return 1;
+			return 20;
 	}
 
 	// pses
@@ -54,7 +54,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	for (auto& p : pses)
 	{
 		if (p.second == nullptr)
-			return 1;
+			return 21;
 	}
 
 	// cbuffers
@@ -63,11 +63,11 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	for (auto& p : cbuffers)
 	{
 		if (p.second == nullptr)
-			return 1;
+			return 30;
 	}
 
 	// objs
-	auto triangle = std::make_shared<Object>(infra->device.Get(), meshes["triangle_xyz"], vses["vs0"], pses["ps0"], vscb_transform);
+	auto triangle = std::make_shared<Object>(infra->device.Get(), meshes["triangle_xyz"], vses["vs0"], pses["ps0"], nullptr);
 	objs["triangle"] = triangle;
 	auto cube = std::make_shared<Object>(infra->device.Get(), meshes["cube_color"], vses["vs_transform"], pses["ps_color"], vscb_transform);
 	cube->transform.roll = std::atanf(1);
@@ -77,7 +77,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	for (auto& p : objs)
 	{
 		if (!*p.second)
-			return 1;
+			return 40;
 	}
 
 	// cams
@@ -88,7 +88,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	for (auto& p : cams)
 	{
 		if (!*p.second)
-			return 1;
+			return 50;
 	}
 
 	// control_value
@@ -172,6 +172,7 @@ int dx11_render(Infrastructure* infra)
 
 int dx11_example()
 {
+	int r;
 	wcout.imbue(std::locale("", LC_CTYPE)); // set to system code
 
 	auto window = std::make_shared<Rehenz::SimpleWindowWithFC>(GetModuleHandle(nullptr), 800, 600, "dx11");
@@ -183,20 +184,23 @@ int dx11_example()
 	if (infra == nullptr)
 		return 1;
 	cout << "finish create dx11 device" << endl;
-
-	if (dx11_setup(window.get(), infra.get()) != 0)
-		return 1;
+	
+	r = dx11_setup(window.get(), infra.get());
+	if (r != 0)
+		return r;
 	cout << "finish setup" << endl;
 
 	while (true)
 	{
 		// control
-		if (dx11_control(infra.get(), window->fps_counter.GetLastDeltatime() / 1000.0f) != 0)
-			return 1;
+		r = dx11_control(infra.get(), window->fps_counter.GetLastDeltatime() / 1000.0f);
+		if (r != 0)
+			return r;
 
 		// render
-		if (dx11_render(infra.get()) != 0)
-			return 1;
+		r = dx11_render(infra.get());
+		if (r != 0)
+			return r;
 
 		// present
 		window->Present();
