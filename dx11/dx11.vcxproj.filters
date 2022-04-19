@@ -62,5 +62,11 @@
     <FxCompile Include="ps0.hlsl">
       <Filter>shader</Filter>
     </FxCompile>
+    <FxCompile Include="vs_transform.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+    <FxCompile Include="ps_color.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

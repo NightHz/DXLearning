@@ -286,13 +286,90 @@ namespace Dx11
         return ps;
     }
 
+    CBuffer::CBuffer()
+    {
+        cb_struct = nullptr;
+        struct_size = 0;
+    }
+
+    CBuffer::~CBuffer()
+    {
+        if (cb_struct)
+            std::free(cb_struct);
+    }
+
+    bool CBuffer::ApplyToCBuffer(ID3D11DeviceContext4* context)
+    {
+        D3D11_MAPPED_SUBRESOURCE ms;
+        HRESULT hr = context->Map(cb.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &ms);
+        if (FAILED(hr))
+            return false;
+        std::memcpy(ms.pData, cb_struct, struct_size);
+        context->Unmap(cb.Get(), 0);
+        return true;
+    }
+
+    std::shared_ptr<CBuffer> CBuffer::CreateCBuffer(ID3D11Device5* device, UINT cb_size)
+    {
+        std::shared_ptr<CBuffer> cb(new CBuffer());
+
+        // fill buffer desc
+        D3D11_BUFFER_DESC bd;
+        bd.ByteWidth = cb_size;
+        bd.Usage = D3D11_USAGE_DYNAMIC;
+        bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        bd.MiscFlags = 0;
+        bd.StructureByteStride = 0;
+
+        // create constant buffer
+        HRESULT hr = device->CreateBuffer(&bd, nullptr, cb->cb.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+
+        // malloc struct
+        cb->struct_size = cb_size;
+        cb->cb_struct = std::calloc(1, cb_size);
+
+        return cb;
+    }
+
+    Transform::Transform()
+    {
+        pos.x = pos.y = pos.z = 0;
+        phi = theta = psi = 0;
+        scale.x = scale.y = scale.z = 1;
+    }
+
+    Transform::~Transform()
+    {
+    }
+
+    DirectX::XMMATRIX Transform::GetTransformMatrix()
+    {
+        DirectX::XMMATRIX mat_scale = DirectX::XMMatrixScaling(scale.x, scale.y, scale.z);
+        DirectX::XMMATRIX mat_rotate = DirectX::XMMatrixRotationY(phi)
+            * DirectX::XMMatrixRotationZ(theta) * DirectX::XMMatrixRotationY(psi);
+        DirectX::XMMATRIX mat_translate = DirectX::XMMatrixTranslation(pos.x, pos.y, pos.z);
+        return mat_scale * mat_rotate * mat_translate;
+    }
+
+    DirectX::XMMATRIX Transform::GetInverseTransformMatrix()
+    {
+        DirectX::XMMATRIX mat_scale = DirectX::XMMatrixScaling(1 / scale.x, 1 / scale.y, 1 / scale.z);
+        DirectX::XMMATRIX mat_rotate = DirectX::XMMatrixRotationY(-psi)
+            * DirectX::XMMatrixRotationZ(-theta) * DirectX::XMMatrixRotationY(-phi);
+        DirectX::XMMATRIX mat_translate = DirectX::XMMatrixTranslation(-pos.x, -pos.y, -pos.z);
+        return mat_translate * mat_rotate * mat_scale;
+    }
+
     Object::Object()
     {
     }
 
     Object::Object(ID3D11Device5* device, std::shared_ptr<Mesh> _mesh,
-        std::shared_ptr<VertexShader> _vs, std::shared_ptr<PixelShader> _ps)
-        : mesh(_mesh), vs(_vs), ps(_ps)
+        std::shared_ptr<VertexShader> _vs, std::shared_ptr<PixelShader> _ps, std::shared_ptr<CBuffer> _vscb_transform)
+        : mesh(_mesh), vs(_vs), ps(_ps), vscb_transform(_vscb_transform)
     {
         UpdateInputLayout(device);
     }
@@ -338,6 +415,17 @@ namespace Dx11
         if (ps)
             context->PSSetShader(ps->ps.Get(), nullptr, 0);
 
+        // set transform
+        if (vscb_transform)
+        {
+            VSCBTransform* vscb_struct = static_cast<VSCBTransform*>(vscb_transform->GetPointer());
+            vscb_struct->world = DirectX::XMMatrixTranspose(transform.GetTransformMatrix());
+            vscb_struct->world_view = vscb_struct->view * vscb_struct->world; // =transpose(transpose(world)*transpose(view))
+            vscb_struct->world_view_proj = vscb_struct->view_proj * vscb_struct->world; // =transpose(transpose(world)*transpose(view_proj))
+            assert(vscb_transform->ApplyToCBuffer(context) == true);
+            context->VSSetConstantBuffers(0, 1, vscb_transform->GetBuffer().GetAddressOf());
+        }
+
         // draw
         if (mesh)
         {
@@ -348,7 +436,22 @@ namespace Dx11
         }
     }
 
-    Camera::Camera(ID3D11Device5* device, ID3D11Resource* buffer, float width, float height)
+    Projection::Projection()
+    {
+        fovy = aspect = znear = zfar = 0;
+    }
+
+    Projection::~Projection()
+    {
+    }
+
+    DirectX::XMMATRIX Projection::GetTransformMatrix()
+    {
+        return DirectX::XMMatrixPerspectiveFovLH(fovy, aspect, znear, zfar);
+    }
+
+    Camera::Camera(ID3D11Device5* device, ID3D11Resource* buffer, std::shared_ptr<CBuffer> _vscb_transform, float width, float height)
+        : vscb_transform(_vscb_transform)
     {
         HRESULT hr = device->CreateRenderTargetView(buffer, nullptr, rtv.GetAddressOf());
         if (FAILED(hr))
@@ -359,9 +462,15 @@ namespace Dx11
         vp.Height = height;
         vp.MinDepth = 0;
         vp.MaxDepth = 1;
+        transform.pos.z = -5;
+        projection.fovy = DirectX::XM_PIDIV2;
+        projection.aspect = width / height;
+        projection.znear = 1;
+        projection.zfar = 500;
     }
 
-    Camera::Camera(ID3D11Device5* device, IDXGISwapChain* sc, float width, float height)
+    Camera::Camera(ID3D11Device5* device, IDXGISwapChain* sc, std::shared_ptr<CBuffer> _vscb_transform, float width, float height)
+        : vscb_transform(_vscb_transform)
     {
         ComPtr<ID3D11Texture2D> sc_buffer;
         HRESULT hr = sc->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(sc_buffer.GetAddressOf()));
@@ -379,6 +488,11 @@ namespace Dx11
         vp.Height = height;
         vp.MinDepth = 0;
         vp.MaxDepth = 1;
+        transform.pos.z = -5;
+        projection.fovy = DirectX::XM_PIDIV2;
+        projection.aspect = width / height;
+        projection.znear = 1;
+        projection.zfar = 500;
     }
 
     Camera::~Camera()
@@ -401,8 +515,19 @@ namespace Dx11
         Clear(context, rgba);
     }
 
-    void Camera::SetContext(ID3D11DeviceContext4* context)
+    void Camera::SetToContext(ID3D11DeviceContext4* context)
     {
+        // set transform
+        if (vscb_transform)
+        {
+            VSCBTransform* vscb_struct = static_cast<VSCBTransform*>(vscb_transform->GetPointer());
+            vscb_struct->view = DirectX::XMMatrixTranspose(transform.GetInverseTransformMatrix());
+            vscb_struct->proj = DirectX::XMMatrixTranspose(projection.GetTransformMatrix());
+            vscb_struct->view_proj = vscb_struct->proj * vscb_struct->view; // =transpose(transpose(view)*transpose(proj))
+            vscb_struct->world_view_proj = vscb_struct->view_proj * vscb_struct->world; // =transpose(transpose(world)*transpose(view_proj))
+            assert(vscb_transform->ApplyToCBuffer(context) == true);
+            context->VSSetConstantBuffers(0, 1, vscb_transform->GetBuffer().GetAddressOf());
+        }
         context->OMSetRenderTargets(1, rtv.GetAddressOf(), nullptr);
         context->RSSetViewports(1, &vp);
     }

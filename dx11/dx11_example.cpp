@@ -15,6 +15,7 @@ using library = std::unordered_map<std::string, std::shared_ptr<T>>;
 library<Mesh> meshes;
 library<VertexShader> vses;
 library<PixelShader> pses;
+library<CBuffer> cbuffers;
 library<Object> objs;
 library<Camera> cams;
 std::unordered_map<std::string, float> control_value;
@@ -30,7 +31,8 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 		wcout << L"  " << s << endl;
 
 	// meshes
-	meshes["cube_xyz"] = Mesh::CreateTriangleXYZ(infra->device.Get());
+	meshes["triangle_xyz"] = Mesh::CreateTriangleXYZ(infra->device.Get());
+	meshes["cube_color"] = Mesh::CreateCubeColor(infra->device.Get());
 	for (auto& p : meshes)
 	{
 		if (p.second == nullptr)
@@ -39,6 +41,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 
 	// vses
 	vses["vs0"] = VertexShader::CompileVS(infra->device.Get(), L"vs0.hlsl");
+	vses["vs_transform"] = VertexShader::CompileVS(infra->device.Get(), L"vs_transform.hlsl");
 	for (auto& p : vses)
 	{
 		if (p.second == nullptr)
@@ -47,14 +50,28 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 
 	// pses
 	pses["ps0"] = PixelShader::CompilePS(infra->device.Get(), L"ps0.hlsl");
+	pses["ps_color"] = PixelShader::CompilePS(infra->device.Get(), L"ps_color.hlsl");
 	for (auto& p : pses)
 	{
 		if (p.second == nullptr)
 			return 1;
 	}
 
+	// cbuffers
+	auto vscb_transform = CBuffer::CreateCBuffer(infra->device.Get(), sizeof(VSCBTransform));
+	cbuffers["transform"] = vscb_transform;
+	for (auto& p : cbuffers)
+	{
+		if (p.second == nullptr)
+			return 1;
+	}
+
 	// objs
-	auto cube = std::make_shared<Object>(infra->device.Get(), meshes["cube_xyz"], vses["vs0"], pses["ps0"]);
+	auto triangle = std::make_shared<Object>(infra->device.Get(), meshes["triangle_xyz"], vses["vs0"], pses["ps0"], vscb_transform);
+	objs["triangle"] = triangle;
+	auto cube = std::make_shared<Object>(infra->device.Get(), meshes["cube_color"], vses["vs_transform"], pses["ps_color"], vscb_transform);
+	cube->transform.phi = -std::atanf(1);
+	cube->transform.theta = std::atanf(std::sqrtf(2));
 	objs["cube"] = cube;
 	for (auto& p : objs)
 	{
@@ -63,8 +80,9 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	}
 
 	// cams
-	auto cam = std::make_shared<Camera>(infra->device.Get(), infra->sc.Get(),
+	auto cam = std::make_shared<Camera>(infra->device.Get(), infra->sc.Get(), vscb_transform,
 		static_cast<float>(window->GetWidth()), static_cast<float>(window->GetHeight()));
+	cam->transform.pos.z = -2;
 	cams["cam"] = cam;
 	for (auto& p : cams)
 	{
@@ -93,6 +111,16 @@ int dx11_control(Infrastructure* infra)
 	if (KeyIsDown('3')) control_value["bg_b"] = 0.0784f;
 	else control_value["bg_b"] = 0.4078f;
 
+	// control obj
+	auto control_obj = objs["cube"];
+	float change_value = 0.03f;
+	if (KeyIsDown('I')) control_obj->transform.theta -= change_value;
+	else if (KeyIsDown('K')) control_obj->transform.theta += change_value;
+	if (KeyIsDown('J')) control_obj->transform.psi -= change_value;
+	else if (KeyIsDown('L')) control_obj->transform.psi += change_value;
+	if (KeyIsDown('U')) control_obj->transform.phi -= change_value;
+	else if (KeyIsDown('O')) control_obj->transform.phi += change_value;
+
 	first = false;
 	return 0;
 }
@@ -105,14 +133,11 @@ int dx11_render(Infrastructure* infra)
 	// clear and set camera
 	auto& cam = cams["cam"];
 	cam->Clear(infra->context.Get(), control_value["bg_r"], control_value["bg_g"], control_value["bg_b"], 1);
-	cam->SetContext(infra->context.Get());
+	cam->SetToContext(infra->context.Get());
 
 	// draw
-	for (auto& p : objs)
-	{
-		auto& obj = p.second;
-		obj->Draw(infra->context.Get());
-	}
+	//objs["triangle"]->Draw(infra->context.Get());
+	objs["cube"]->Draw(infra->context.Get());
 
 	// present
 	hr = infra->sc->Present(0, 0);

@@ -82,6 +82,53 @@ namespace Dx11
         static std::shared_ptr<PixelShader> CompilePS(ID3D11Device5* device, const std::wstring filename);
     };
 
+    struct VSCBTransform
+    {
+        DirectX::XMMATRIX world;
+        DirectX::XMMATRIX view;
+        DirectX::XMMATRIX proj;
+        DirectX::XMMATRIX world_view;
+        DirectX::XMMATRIX view_proj;
+        DirectX::XMMATRIX world_view_proj;
+    };
+
+    class CBuffer
+    {
+    private:
+        ComPtr<ID3D11Buffer> cb;
+        void* cb_struct;
+        unsigned int struct_size;
+
+        CBuffer();
+
+    public:
+        CBuffer(const CBuffer&) = delete;
+        CBuffer& operator=(const CBuffer&) = delete;
+        ~CBuffer();
+
+        ComPtr<ID3D11Buffer> GetBuffer() { return cb; }
+        // use column-first storage(hlsl) instead of row-first storage(dx)
+        void* GetPointer() { return cb_struct; }
+
+        bool ApplyToCBuffer(ID3D11DeviceContext4* context);
+
+        static std::shared_ptr<CBuffer> CreateCBuffer(ID3D11Device5* device, UINT cb_size);
+    };
+
+    class Transform
+    {
+    public:
+        DirectX::XMFLOAT3 pos;
+        float phi, theta, psi;
+        DirectX::XMFLOAT3 scale;
+
+        Transform();
+        ~Transform();
+
+        DirectX::XMMATRIX GetTransformMatrix();
+        DirectX::XMMATRIX GetInverseTransformMatrix();
+    };
+
     class Object
     {
     private:
@@ -91,10 +138,13 @@ namespace Dx11
         std::shared_ptr<Mesh> mesh;
         std::shared_ptr<VertexShader> vs;
         std::shared_ptr<PixelShader> ps;
+        std::shared_ptr<CBuffer> vscb_transform;
+
+        Transform transform;
 
         Object();
         Object(ID3D11Device5* device, std::shared_ptr<Mesh> _mesh,
-            std::shared_ptr<VertexShader> _vs, std::shared_ptr<PixelShader> _ps);
+            std::shared_ptr<VertexShader> _vs, std::shared_ptr<PixelShader> _ps, std::shared_ptr<CBuffer> _vscb_transform);
         Object(const Object&) = delete;
         Object& operator=(const Object&) = delete;
         ~Object();
@@ -106,6 +156,17 @@ namespace Dx11
         void Draw(ID3D11DeviceContext4* context);
     };
 
+    class Projection
+    {
+    public:
+        float fovy, aspect, znear, zfar;
+
+        Projection();
+        ~Projection();
+
+        DirectX::XMMATRIX GetTransformMatrix();
+    };
+
     class Camera
     {
     private:
@@ -114,9 +175,13 @@ namespace Dx11
 
     public:
         D3D11_VIEWPORT vp;
+        std::shared_ptr<CBuffer> vscb_transform;
 
-        Camera(ID3D11Device5* device, ID3D11Resource* buffer, float width = 0, float height = 0);
-        Camera(ID3D11Device5* device, IDXGISwapChain* sc, float width = 0, float height = 0);
+        Transform transform;
+        Projection projection;
+
+        Camera(ID3D11Device5* device, ID3D11Resource* buffer, std::shared_ptr<CBuffer> _vscb_transform = nullptr, float width = 0, float height = 0);
+        Camera(ID3D11Device5* device, IDXGISwapChain* sc, std::shared_ptr<CBuffer> _vscb_transform = nullptr, float width = 0, float height = 0);
         Camera(const Camera&) = delete;
         Camera& operator=(const Camera&) = delete;
         ~Camera();
@@ -125,7 +190,7 @@ namespace Dx11
 
         void Clear(ID3D11DeviceContext4* context, const float rgba[4]);
         void Clear(ID3D11DeviceContext4* context, float r, float g, float b, float a);
-        void SetContext(ID3D11DeviceContext4* context);
+        void SetToContext(ID3D11DeviceContext4* context);
     };
 
 }
