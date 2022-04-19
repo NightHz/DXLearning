@@ -70,8 +70,9 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	auto triangle = std::make_shared<Object>(infra->device.Get(), meshes["triangle_xyz"], vses["vs0"], pses["ps0"], vscb_transform);
 	objs["triangle"] = triangle;
 	auto cube = std::make_shared<Object>(infra->device.Get(), meshes["cube_color"], vses["vs_transform"], pses["ps_color"], vscb_transform);
-	cube->transform.phi = -std::atanf(1);
-	cube->transform.theta = std::atanf(std::sqrtf(2));
+	cube->transform.roll = std::atanf(1);
+	cube->transform.pitch = std::atanf(std::sqrtf(0.5f));
+	cube->transform.yaw = -2.7f;
 	objs["cube"] = cube;
 	for (auto& p : objs)
 	{
@@ -114,12 +115,12 @@ int dx11_control(Infrastructure* infra)
 	// control obj
 	auto control_obj = objs["cube"];
 	float change_value = 0.03f;
-	if (KeyIsDown('I')) control_obj->transform.theta -= change_value;
-	else if (KeyIsDown('K')) control_obj->transform.theta += change_value;
-	if (KeyIsDown('J')) control_obj->transform.psi -= change_value;
-	else if (KeyIsDown('L')) control_obj->transform.psi += change_value;
-	if (KeyIsDown('U')) control_obj->transform.phi -= change_value;
-	else if (KeyIsDown('O')) control_obj->transform.phi += change_value;
+	if (KeyIsDown('I')) control_obj->transform.pitch -= change_value;
+	else if (KeyIsDown('K')) control_obj->transform.pitch += change_value;
+	if (KeyIsDown('J')) control_obj->transform.yaw += change_value;
+	else if (KeyIsDown('L')) control_obj->transform.yaw -= change_value;
+	if (KeyIsDown('U')) control_obj->transform.roll -= change_value;
+	else if (KeyIsDown('O')) control_obj->transform.roll += change_value;
 
 	first = false;
 	return 0;

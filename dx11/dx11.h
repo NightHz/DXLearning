@@ -119,7 +119,7 @@ namespace Dx11
     {
     public:
         DirectX::XMFLOAT3 pos;
-        float phi, theta, psi;
+        float roll, pitch, yaw;
         DirectX::XMFLOAT3 scale;
 
         Transform();

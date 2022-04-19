@@ -337,7 +337,7 @@ namespace Dx11
     Transform::Transform()
     {
         pos.x = pos.y = pos.z = 0;
-        phi = theta = psi = 0;
+        roll = pitch = yaw = 0;
         scale.x = scale.y = scale.z = 1;
     }
 
@@ -348,8 +348,9 @@ namespace Dx11
     DirectX::XMMATRIX Transform::GetTransformMatrix()
     {
         DirectX::XMMATRIX mat_scale = DirectX::XMMatrixScaling(scale.x, scale.y, scale.z);
-        DirectX::XMMATRIX mat_rotate = DirectX::XMMatrixRotationY(phi)
-            * DirectX::XMMatrixRotationZ(theta) * DirectX::XMMatrixRotationY(psi);
+        DirectX::XMMATRIX mat_rotate = DirectX::XMMatrixRotationZ(roll)
+            * DirectX::XMMatrixRotationX(pitch) * DirectX::XMMatrixRotationY(yaw);
+        //mat_rotate = DirectX::XMMatrixRotationRollPitchYaw(pitch, yaw, roll);
         DirectX::XMMATRIX mat_translate = DirectX::XMMatrixTranslation(pos.x, pos.y, pos.z);
         return mat_scale * mat_rotate * mat_translate;
     }
@@ -357,8 +358,8 @@ namespace Dx11
     DirectX::XMMATRIX Transform::GetInverseTransformMatrix()
     {
         DirectX::XMMATRIX mat_scale = DirectX::XMMatrixScaling(1 / scale.x, 1 / scale.y, 1 / scale.z);
-        DirectX::XMMATRIX mat_rotate = DirectX::XMMatrixRotationY(-psi)
-            * DirectX::XMMatrixRotationZ(-theta) * DirectX::XMMatrixRotationY(-phi);
+        DirectX::XMMATRIX mat_rotate = DirectX::XMMatrixRotationY(-yaw)
+            * DirectX::XMMatrixRotationX(-pitch) * DirectX::XMMatrixRotationZ(-roll);
         DirectX::XMMATRIX mat_translate = DirectX::XMMatrixTranslation(-pos.x, -pos.y, -pos.z);
         return mat_translate * mat_rotate * mat_scale;
     }
