@@ -316,10 +316,12 @@ namespace Dx11
 
         // fill buffer desc
         D3D11_BUFFER_DESC bd;
-        if (cb_size % 16 == 0)
+        /*if (cb_size % 16 == 0)
             bd.ByteWidth = cb_size;
         else
-            bd.ByteWidth = (cb_size / 16 + 1) * 16; // align to 16 byte
+            bd.ByteWidth = (cb_size / 16 + 1) * 16; // align to 16 byte*/
+        assert(cb_size % 16 == 0);
+        bd.ByteWidth = cb_size;
         bd.Usage = D3D11_USAGE_DYNAMIC;
         bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
         bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -423,14 +425,44 @@ namespace Dx11
         }
     }
 
+    Material::Material() : Material(white)
+    {
+    }
+
+    Material::Material(DirectX::XMFLOAT4 color)
+        : ambient(color), diffuse(color), specular(color), emissive(0, 0, 0, 1), power(5)
+    {
+    }
+
+    Material::~Material()
+    {
+    }
+
+    void Material::SetToBuffer(VSCBMaterial* vscb_struct)
+    {
+        vscb_struct->ambient = DirectX::XMVectorSet(ambient.x, ambient.y, ambient.z, ambient.w);
+        vscb_struct->diffuse = DirectX::XMVectorSet(diffuse.x, diffuse.y, diffuse.z, diffuse.w);
+        vscb_struct->specular = DirectX::XMVectorSet(specular.x, specular.y, specular.z, specular.w);
+        vscb_struct->emissive = DirectX::XMVectorSet(emissive.x, emissive.y, emissive.z, emissive.w);
+        vscb_struct->power = power;
+    }
+
+    DirectX::XMFLOAT4 Material::white(DirectX::XMFLOAT4(1, 1, 1, 1));
+    DirectX::XMFLOAT4 Material::black(DirectX::XMFLOAT4(0, 0, 0, 1));
+    DirectX::XMFLOAT4 Material::red(DirectX::XMFLOAT4(1, 0, 0, 1));
+    DirectX::XMFLOAT4 Material::green(DirectX::XMFLOAT4(0, 1, 0, 1));
+    DirectX::XMFLOAT4 Material::blue(DirectX::XMFLOAT4(0, 0, 1, 1));
+    DirectX::XMFLOAT4 Material::yellow(DirectX::XMFLOAT4(0.91f, 0.88f, 0.34f, 1));
+    DirectX::XMFLOAT4 Material::orange(DirectX::XMFLOAT4(1, 0.5f, 0.14f, 1));
+
     Object::Object()
     {
     }
 
     Object::Object(ID3D11Device5* device, std::shared_ptr<Mesh> _mesh,
         std::shared_ptr<VertexShader> _vs, std::shared_ptr<PixelShader> _ps,
-        std::shared_ptr<CBuffer> _vscb_transform)
-        : mesh(_mesh), vs(_vs), ps(_ps), vscb_transform(_vscb_transform)
+        std::shared_ptr<CBuffer> _vscb_transform, std::shared_ptr<CBuffer> _vscb_material)
+        : mesh(_mesh), vs(_vs), ps(_ps), vscb_transform(_vscb_transform), vscb_material(_vscb_material)
     {
         UpdateInputLayout(device);
     }
@@ -485,6 +517,15 @@ namespace Dx11
             vscb_struct->world_view_proj = vscb_struct->view_proj * vscb_struct->world; // =transpose(transpose(world)*transpose(view_proj))
             assert(vscb_transform->ApplyToCBuffer(context) == true);
             context->VSSetConstantBuffers(vscb_struct->slot, 1, vscb_transform->GetBuffer().GetAddressOf());
+        }
+
+        // set material
+        if (vscb_material)
+        {
+            VSCBMaterial* vscb_struct = static_cast<VSCBMaterial*>(vscb_material->GetPointer());
+            material.SetToBuffer(vscb_struct);
+            assert(vscb_material->ApplyToCBuffer(context) == true);
+            context->VSSetConstantBuffers(vscb_struct->slot, 1, vscb_material->GetBuffer().GetAddressOf());
         }
 
         // draw

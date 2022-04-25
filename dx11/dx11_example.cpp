@@ -42,6 +42,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	// vses
 	vses["vs0"] = VertexShader::CompileVS(infra->device.Get(), L"vs0.hlsl");
 	vses["vs_transform"] = VertexShader::CompileVS(infra->device.Get(), L"vs_transform.hlsl");
+	vses["vs_light"] = VertexShader::CompileVS(infra->device.Get(), L"vs_light.hlsl");
 	for (auto& p : vses)
 	{
 		if (p.second == nullptr)
@@ -60,6 +61,19 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	// cbuffers
 	auto vscb_transform = CBuffer::CreateCBuffer(infra->device.Get(), sizeof(VSCBTransform));
 	cbuffers["transform"] = vscb_transform;
+	auto vscb_material = CBuffer::CreateCBuffer(infra->device.Get(), sizeof(VSCBMaterial));
+	cbuffers["material"] = vscb_material;
+	auto vscb_light = CBuffer::CreateCBuffer(infra->device.Get(), sizeof(VSCBLight));
+	VSCBLight* vscb_light_struct = static_cast<VSCBLight*>(vscb_light->GetPointer());
+	vscb_light_struct->dl_enable = 1;
+	vscb_light_struct->dl_dir = DirectX::XMVectorSet(0, -1, 0, 1);
+	vscb_light_struct->dl_ambient = DirectX::XMVectorSet(0.2f, 0.2f, 0.2f, 1);
+	vscb_light_struct->dl_diffuse = DirectX::XMVectorSet(1, 1, 1, 1);
+	vscb_light_struct->dl_specular = DirectX::XMVectorSet(1, 1, 1, 1);
+	vscb_light_struct->pl_enable = 0;
+	assert(vscb_light->ApplyToCBuffer(infra->context.Get()) == true);
+	infra->context->VSSetConstantBuffers(vscb_light_struct->slot, 1, vscb_light->GetBuffer().GetAddressOf());
+	cbuffers["light"] = vscb_light;
 	for (auto& p : cbuffers)
 	{
 		if (p.second == nullptr)
@@ -67,9 +81,9 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	}
 
 	// objs
-	auto triangle = std::make_shared<Object>(infra->device.Get(), meshes["triangle_xyz"], vses["vs0"], pses["ps0"], nullptr);
+	auto triangle = std::make_shared<Object>(infra->device.Get(), meshes["triangle_xyz"], vses["vs0"], pses["ps0"], nullptr, nullptr);
 	objs["triangle"] = triangle;
-	auto cube = std::make_shared<Object>(infra->device.Get(), meshes["cube_color"], vses["vs_transform"], pses["ps_color"], vscb_transform);
+	auto cube = std::make_shared<Object>(infra->device.Get(), meshes["cube_color"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
 	cube->transform.roll = std::atanf(1);
 	cube->transform.pitch = std::atanf(std::sqrtf(0.5f));
 	cube->transform.yaw = -2.7f;

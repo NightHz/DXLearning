@@ -93,6 +93,34 @@ namespace Dx11
         static const unsigned int slot = 0;
     };
 
+    struct VSCBMaterial
+    {
+        DirectX::XMVECTOR ambient;
+        DirectX::XMVECTOR diffuse;
+        DirectX::XMVECTOR specular;
+        DirectX::XMVECTOR emissive;
+        float power;
+        static const unsigned int slot = 1;
+    };
+
+    struct VSCBLight
+    {
+        float dl_enable;
+        float dl_specular_enable;
+        DirectX::XMVECTOR dl_dir;
+        DirectX::XMVECTOR dl_ambient;
+        DirectX::XMVECTOR dl_diffuse;
+        DirectX::XMVECTOR dl_specular;
+        float pl_enable;
+        float pl_range;
+        float pl_specular_enable;
+        DirectX::XMVECTOR pl_pos;
+        DirectX::XMVECTOR pl_ambient;
+        DirectX::XMVECTOR pl_diffuse;
+        DirectX::XMVECTOR pl_specular;
+        static const unsigned int slot = 2;
+    };
+
     class CBuffer
     {
     private:
@@ -138,6 +166,24 @@ namespace Dx11
         DirectX::XMFLOAT3 GetRightXZ();
     };
 
+    class Material
+    {
+    public:
+        DirectX::XMFLOAT4 ambient;
+        DirectX::XMFLOAT4 diffuse;
+        DirectX::XMFLOAT4 specular;
+        DirectX::XMFLOAT4 emissive;
+        float power;
+
+        Material();
+        Material(DirectX::XMFLOAT4 color);
+        ~Material();
+
+        void SetToBuffer(VSCBMaterial* vscb_struct);
+        
+        static DirectX::XMFLOAT4 white, black, red, green, blue, yellow, orange, pink;
+    };
+
     class Object
     {
     private:
@@ -148,13 +194,15 @@ namespace Dx11
         std::shared_ptr<VertexShader> vs;
         std::shared_ptr<PixelShader> ps;
         std::shared_ptr<CBuffer> vscb_transform;
+        std::shared_ptr<CBuffer> vscb_material;
 
         Transform transform;
+        Material material;
 
         Object();
         Object(ID3D11Device5* device, std::shared_ptr<Mesh> _mesh,
             std::shared_ptr<VertexShader> _vs, std::shared_ptr<PixelShader> _ps,
-            std::shared_ptr<CBuffer> _vscb_transform);
+            std::shared_ptr<CBuffer> _vscb_transform, std::shared_ptr<CBuffer> _vscb_material);
         Object(const Object&) = delete;
         Object& operator=(const Object&) = delete;
         ~Object();
