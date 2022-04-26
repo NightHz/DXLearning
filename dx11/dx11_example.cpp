@@ -33,6 +33,11 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	// meshes
 	meshes["triangle_xyz"] = Mesh::CreateTriangleXYZ(infra->device.Get());
 	meshes["cube_color"] = Mesh::CreateCubeColor(infra->device.Get());
+	meshes["cube"] = Mesh::CreateFromRehenzMesh(infra->device.Get(), Rehenz::CreateCubeMesh());
+	meshes["sphere"] = Mesh::CreateFromRehenzMesh(infra->device.Get(), Rehenz::CreateSphereMesh());
+	meshes["sphere_b"] = Mesh::CreateFromRehenzMesh(infra->device.Get(), Rehenz::CreateSphereMeshB());
+	meshes["sphere_c"] = Mesh::CreateFromRehenzMesh(infra->device.Get(), Rehenz::CreateSphereMeshC());
+	meshes["sphere_d"] = Mesh::CreateFromRehenzMesh(infra->device.Get(), Rehenz::CreateSphereMeshD());
 	for (auto& p : meshes)
 	{
 		if (p.second == nullptr)
@@ -65,12 +70,19 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	cbuffers["material"] = vscb_material;
 	auto vscb_light = CBuffer::CreateCBuffer(infra->device.Get(), sizeof(VSCBLight));
 	VSCBLight* vscb_light_struct = static_cast<VSCBLight*>(vscb_light->GetPointer());
-	vscb_light_struct->dl_enable = 1;
-	vscb_light_struct->dl_dir = DirectX::XMVectorSet(0, -1, 0, 1);
+	vscb_light_struct->dl_enable = true;
+	vscb_light_struct->dl_specular_enable = true;
+	vscb_light_struct->dl_dir = DirectX::XMVectorSet(0, -1, -0.15f, 0);
 	vscb_light_struct->dl_ambient = DirectX::XMVectorSet(0.2f, 0.2f, 0.2f, 1);
-	vscb_light_struct->dl_diffuse = DirectX::XMVectorSet(1, 1, 1, 1);
-	vscb_light_struct->dl_specular = DirectX::XMVectorSet(1, 1, 1, 1);
-	vscb_light_struct->pl_enable = 0;
+	vscb_light_struct->dl_diffuse = DirectX::XMVectorSet(1, 0.5f, 0.5f, 1);
+	vscb_light_struct->dl_specular = DirectX::XMVectorSet(1, 0.5f, 0.5f, 1);
+	vscb_light_struct->pl_enable = true;
+	vscb_light_struct->pl_specular_enable = true;
+	vscb_light_struct->pl_range = 2;
+	vscb_light_struct->pl_pos = DirectX::XMVectorSet(-3, -3, 0, 1);
+	vscb_light_struct->pl_ambient = DirectX::XMVectorSet(0, 0, 0, 1);
+	vscb_light_struct->pl_diffuse = DirectX::XMVectorSet(0.5f, 1, 0.5f, 1);
+	vscb_light_struct->pl_specular = DirectX::XMVectorSet(0.5f, 1, 0.5f, 1);
 	assert(vscb_light->ApplyToCBuffer(infra->context.Get()) == true);
 	infra->context->VSSetConstantBuffers(vscb_light_struct->slot, 1, vscb_light->GetBuffer().GetAddressOf());
 	cbuffers["light"] = vscb_light;
@@ -83,11 +95,40 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	// objs
 	auto triangle = std::make_shared<Object>(infra->device.Get(), meshes["triangle_xyz"], vses["vs0"], pses["ps0"], nullptr, nullptr);
 	objs["triangle"] = triangle;
-	auto cube = std::make_shared<Object>(infra->device.Get(), meshes["cube_color"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
+	auto cube_color = std::make_shared<Object>(infra->device.Get(), meshes["cube_color"], vses["vs_transform"], pses["ps_color"], vscb_transform, vscb_material);
+	cube_color->transform.roll = std::atanf(1);
+	cube_color->transform.pitch = std::atanf(std::sqrtf(0.5f));
+	cube_color->transform.yaw = -2.7f;
+	objs["cube_color"] = cube_color;
+	auto cube = std::make_shared<Object>(infra->device.Get(), meshes["cube"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
 	cube->transform.roll = std::atanf(1);
 	cube->transform.pitch = std::atanf(std::sqrtf(0.5f));
 	cube->transform.yaw = -2.7f;
+	cube->transform.pos.x = -3;
+	cube->material = Material::orange;
 	objs["cube"] = cube;
+	auto sphere = std::make_shared<Object>(infra->device.Get(), meshes["sphere"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
+	sphere->transform.pos.y = -3;
+	sphere->material = Material::orange;
+	objs["sphere"] = sphere;
+	auto sphere_b = std::make_shared<Object>(infra->device.Get(), meshes["sphere_b"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
+	sphere_b->transform.pos.x = -6;
+	sphere_b->transform.pos.y = -3;
+	sphere_b->transform.SetScale(0.5f);
+	sphere_b->material = Material::orange;
+	objs["sphere_b"] = sphere_b;
+	auto sphere_d = std::make_shared<Object>(infra->device.Get(), meshes["sphere_d"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
+	sphere_d->transform.pos.x = -4.5f;
+	sphere_d->transform.pos.y = -1.5f;
+	sphere_d->transform.SetScale(0.5f);
+	sphere_d->material = Material::orange;
+	objs["sphere_d"] = sphere_d;
+	auto light = std::make_shared<Object>(infra->device.Get(), meshes["sphere_c"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
+	DirectX::XMStoreFloat3(&light->transform.pos, vscb_light_struct->pl_pos);
+	light->transform.SetScale(0.2f);
+	light->material = Material::black;
+	light->material.emissive = DirectX::XMFLOAT4(1, 1, 1, 1);
+	objs["light"] = light;
 	for (auto& p : objs)
 	{
 		if (!*p.second)
@@ -125,6 +166,16 @@ int dx11_control(Infrastructure* infra, float dt)
 	else control_value["bg_g"] = 0.8627f;
 	if (KeyIsDown('3')) control_value["bg_b"] = 0.0784f;
 	else control_value["bg_b"] = 0.4078f;
+
+	// control light
+	auto vscb_light = cbuffers["light"];
+	VSCBLight* vscb_light_struct = static_cast<VSCBLight*>(vscb_light->GetPointer());
+	if (KeyIsDown('4')) vscb_light_struct->dl_enable = true;
+	else if (KeyIsDown('5')) vscb_light_struct->dl_enable = false;
+	if (KeyIsDown('6')) { vscb_light_struct->pl_enable = true; objs["light"]->material.emissive = DirectX::XMFLOAT4(1, 1, 1, 1); }
+	else if (KeyIsDown('7')) { vscb_light_struct->pl_enable = false; objs["light"]->material.emissive = DirectX::XMFLOAT4(0, 0, 0, 1); }
+	assert(vscb_light->ApplyToCBuffer(infra->context.Get()) == true);
+	infra->context->VSSetConstantBuffers(vscb_light_struct->slot, 1, vscb_light->GetBuffer().GetAddressOf());
 
 	// control obj
 	static auto control_obj = objs["cube"];
@@ -174,7 +225,12 @@ int dx11_render(Infrastructure* infra)
 
 	// draw
 	//objs["triangle"]->Draw(infra->context.Get());
+	objs["cube_color"]->Draw(infra->context.Get());
 	objs["cube"]->Draw(infra->context.Get());
+	objs["sphere"]->Draw(infra->context.Get());
+	objs["sphere_b"]->Draw(infra->context.Get());
+	objs["sphere_d"]->Draw(infra->context.Get());
+	objs["light"]->Draw(infra->context.Get());
 
 	// present
 	hr = infra->sc->Present(0, 0);

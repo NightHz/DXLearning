@@ -37,6 +37,12 @@
     <ClCompile Include="dx11.cpp">
       <Filter>source</Filter>
     </ClCompile>
+    <ClCompile Include="Rehenz\math.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
+    <ClCompile Include="Rehenz\mesh.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Rehenz\fps_counter.h">
@@ -53,6 +59,12 @@
     </ClInclude>
     <ClInclude Include="dx11.h">
       <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\math.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\mesh.h">
+      <Filter>Rehenz</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

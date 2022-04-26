@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include "Rehenz/mesh.h"
 
 namespace Dx11
 {
@@ -46,6 +47,7 @@ namespace Dx11
 
         static std::shared_ptr<Mesh> CreateTriangleXYZ(ID3D11Device5* device);
         static std::shared_ptr<Mesh> CreateCubeColor(ID3D11Device5* device);
+        static std::shared_ptr<Mesh> CreateFromRehenzMesh(ID3D11Device5* device, std::shared_ptr<Rehenz::Mesh> _mesh);
     };
 
     class VertexShader
@@ -105,15 +107,15 @@ namespace Dx11
 
     struct VSCBLight
     {
-        float dl_enable;
-        float dl_specular_enable;
+        alignas(4) bool dl_enable;
+        alignas(4) bool dl_specular_enable;
         DirectX::XMVECTOR dl_dir;
         DirectX::XMVECTOR dl_ambient;
         DirectX::XMVECTOR dl_diffuse;
         DirectX::XMVECTOR dl_specular;
-        float pl_enable;
+        alignas(4) bool pl_enable;
+        alignas(4) bool pl_specular_enable;
         float pl_range;
-        float pl_specular_enable;
         DirectX::XMVECTOR pl_pos;
         DirectX::XMVECTOR pl_ambient;
         DirectX::XMVECTOR pl_diffuse;
@@ -164,6 +166,8 @@ namespace Dx11
         DirectX::XMFLOAT3 GetRight();
         DirectX::XMFLOAT3 GetFrontXZ();
         DirectX::XMFLOAT3 GetRightXZ();
+
+        void SetScale(float s);
     };
 
     class Material
@@ -181,7 +185,7 @@ namespace Dx11
 
         void SetToBuffer(VSCBMaterial* vscb_struct);
         
-        static DirectX::XMFLOAT4 white, black, red, green, blue, yellow, orange, pink;
+        static DirectX::XMFLOAT4 white, black, red, green, blue, yellow, orange;
     };
 
     class Object

@@ -229,6 +229,127 @@ namespace Dx11
         return mesh;
     }
 
+    std::shared_ptr<Mesh> Mesh::CreateFromRehenzMesh(ID3D11Device5* device, std::shared_ptr<Rehenz::Mesh> _mesh)
+    {
+        std::shared_ptr<Mesh> mesh(new Mesh());
+
+        // set vertex desc
+        struct Vertex
+        {
+            DirectX::XMFLOAT3 pos;
+            DirectX::XMFLOAT4 normal;
+            DirectX::XMFLOAT4 color;
+            DirectX::XMFLOAT2 uv;
+            DirectX::XMFLOAT2 uv2;
+        };
+        mesh->vertex_size = sizeof(Vertex);
+        mesh->vertex_desc.resize(5);
+        mesh->vertex_desc[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+        mesh->vertex_desc[1] = { "NORMAL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+        mesh->vertex_desc[2] = { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+        mesh->vertex_desc[3] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+        mesh->vertex_desc[4] = { "TEXCOORD", 1, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+
+        // set vertex data
+        std::vector<Vertex> vertices(_mesh->VertexCount());
+        std::vector<int> v_repeat(_mesh->VertexCount(), 0);
+        auto& _vertices = _mesh->GetVertices();
+        for (int i = 0; i < vertices.size(); i++)
+        {
+            vertices[i].pos = DirectX::XMFLOAT3(_vertices[i].p.x, _vertices[i].p.y, _vertices[i].p.z);
+            vertices[i].normal = DirectX::XMFLOAT4(0, 0, 0, 0);
+            vertices[i].color = DirectX::XMFLOAT4(_vertices[i].c.x, _vertices[i].c.y, _vertices[i].c.z, _vertices[i].c.w);
+            vertices[i].uv = DirectX::XMFLOAT2(_vertices[i].uv.x, _vertices[i].uv.y);
+            vertices[i].uv2 = DirectX::XMFLOAT2(_vertices[i].uv2.x, _vertices[i].uv2.y);
+        }
+
+        // set vertex info
+        mesh->vertex_count = static_cast<unsigned int>(vertices.size());
+        mesh->vb_size = mesh->vertex_size * mesh->vertex_count;
+
+        // set index data
+        std::vector<WORD> indexes(_mesh->TriangleCount() * 3);
+        auto& _indexes = _mesh->GetTriangles();
+        auto float4_plus_equal = [](DirectX::XMFLOAT4& v1, const DirectX::XMFLOAT4& v2) { v1.x += v2.x, v1.y += v2.y, v1.z += v2.z, v1.w += v2.w; };
+        auto get_noraml = [](const DirectX::XMFLOAT3& p1, const DirectX::XMFLOAT3& p2, const DirectX::XMFLOAT3& p3)
+        {
+            DirectX::XMVECTOR v12 = DirectX::XMVectorSet(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z, 0);
+            DirectX::XMVECTOR v13 = DirectX::XMVectorSet(p3.x - p1.x, p3.y - p1.y, p3.z - p1.z, 0);
+            DirectX::XMVECTOR cross = DirectX::XMVector3Cross(v12, v13);
+            DirectX::XMFLOAT4 normal;
+            DirectX::XMStoreFloat4(&normal, DirectX::XMVector3Normalize(cross));
+            return normal;
+        };
+        for (size_t i = 0; i < indexes.size(); i += 3)
+        {
+            indexes[i] = static_cast<WORD>(_indexes[i]);
+            indexes[i + 1] = static_cast<WORD>(_indexes[i + 1]);
+            indexes[i + 2] = static_cast<WORD>(_indexes[i + 2]);
+            // compute normal
+            DirectX::XMFLOAT4 normal = get_noraml(vertices[indexes[i]].pos, vertices[indexes[i + 1]].pos, vertices[indexes[i + 2]].pos);
+            float4_plus_equal(vertices[indexes[i]].normal, normal); v_repeat[indexes[i]]++;
+            float4_plus_equal(vertices[indexes[i + 1]].normal, normal); v_repeat[indexes[i + 1]]++;
+            float4_plus_equal(vertices[indexes[i + 2]].normal, normal); v_repeat[indexes[i + 2]]++;
+        }
+        for (int i = 0; i < vertices.size(); i++)
+        {
+            if (v_repeat[i] != 0)
+            {
+                vertices[i].normal.x /= v_repeat[i];
+                vertices[i].normal.y /= v_repeat[i];
+                vertices[i].normal.z /= v_repeat[i];
+                vertices[i].normal.w /= v_repeat[i];
+                DirectX::XMStoreFloat4(&vertices[i].normal, DirectX::XMVector3Normalize(DirectX::XMLoadFloat4(&vertices[i].normal)));
+            }
+        }
+
+        // set index info
+        mesh->index_count = static_cast<unsigned int>(indexes.size());
+        mesh->ib_size = sizeof(WORD) * mesh->index_count;
+
+
+        // fill buffer desc
+        D3D11_BUFFER_DESC bd;
+        bd.ByteWidth = mesh->vb_size;
+        bd.Usage = D3D11_USAGE_DEFAULT;
+        bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        bd.CPUAccessFlags = 0;
+        bd.MiscFlags = 0;
+        bd.StructureByteStride = 0;
+
+        // fill subresource data
+        D3D11_SUBRESOURCE_DATA sd;
+        sd.pSysMem = &vertices[0];
+        sd.SysMemPitch = 0;
+        sd.SysMemSlicePitch = 0;
+
+        // create vertex buffer
+        HRESULT hr = device->CreateBuffer(&bd, &sd, mesh->vb.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+
+
+        // fill buffer desc
+        bd.ByteWidth = mesh->ib_size;
+        bd.Usage = D3D11_USAGE_DEFAULT;
+        bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        bd.CPUAccessFlags = 0;
+        bd.MiscFlags = 0;
+        bd.StructureByteStride = 0;
+
+        // fill subresource data
+        sd.pSysMem = &indexes[0];
+        sd.SysMemPitch = 0;
+        sd.SysMemSlicePitch = 0;
+
+        // create index buffer
+        hr = device->CreateBuffer(&bd, &sd, mesh->ib.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+
+        return mesh;
+    }
+
     VertexShader::VertexShader()
     {
     }
@@ -423,6 +544,11 @@ namespace Dx11
             float divl = 1 / std::sqrtf(l2);
             return DirectX::XMFLOAT3(right.x * divl, 0, right.z * divl);
         }
+    }
+
+    void Transform::SetScale(float s)
+    {
+        scale.x = scale.y = scale.z = s;
     }
 
     Material::Material() : Material(white)
