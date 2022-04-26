@@ -50,6 +50,22 @@ namespace Dx11
         static std::shared_ptr<Mesh> CreateFromRehenzMesh(ID3D11Device5* device, std::shared_ptr<Rehenz::Mesh> _mesh);
     };
 
+    class Texture
+    {
+    private:
+        ComPtr<ID3D11Texture2D> dsv_buffer;
+
+        Texture();
+
+    public:
+        Texture(const Texture&) = delete;
+        Texture& operator=(const Texture&) = delete;
+        ~Texture();
+
+        static ComPtr<ID3D11Texture2D> CreateTextureForRTV(ID3D11Device5* device, unsigned int width, unsigned int height);
+        static ComPtr<ID3D11Texture2D> CreateTextureForDSV(ID3D11Device5* device, unsigned int width, unsigned int height);
+    };
+
     class VertexShader
     {
         friend class Object;
@@ -242,8 +258,10 @@ namespace Dx11
         Transform transform;
         Projection projection;
 
-        Camera(ID3D11Device5* device, ID3D11Resource* buffer, std::shared_ptr<CBuffer> _vscb_transform, float width, float height);
-        Camera(ID3D11Device5* device, IDXGISwapChain* sc, std::shared_ptr<CBuffer> _vscb_transform, float width, float height);
+        Camera(ID3D11Device5* device, ID3D11Resource* rtv_buffer, ID3D11Resource* dsv_buffer,
+            std::shared_ptr<CBuffer> _vscb_transform, float width, float height);
+        Camera(ID3D11Device5* device, IDXGISwapChain* sc, ID3D11Resource* dsv_buffer,
+            std::shared_ptr<CBuffer> _vscb_transform, float width, float height);
         Camera(const Camera&) = delete;
         Camera& operator=(const Camera&) = delete;
         ~Camera();

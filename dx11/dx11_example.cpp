@@ -136,8 +136,9 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	}
 
 	// cams
-	auto cam = std::make_shared<Camera>(infra->device.Get(), infra->sc.Get(), vscb_transform,
-		static_cast<float>(window->GetWidth()), static_cast<float>(window->GetHeight()));
+	auto dsv_buffer = Texture::CreateTextureForDSV(infra->device.Get(), window->GetWidth(), window->GetHeight());
+	auto cam = std::make_shared<Camera>(infra->device.Get(), infra->sc.Get(), dsv_buffer.Get(),
+		vscb_transform, static_cast<float>(window->GetWidth()), static_cast<float>(window->GetHeight()));
 	cam->transform.pos.z = -5;
 	cams["cam"] = cam;
 	for (auto& p : cams)

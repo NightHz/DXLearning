@@ -350,6 +350,66 @@ namespace Dx11
         return mesh;
     }
 
+    Texture::Texture()
+    {
+    }
+
+    Texture::~Texture()
+    {
+    }
+
+    ComPtr<ID3D11Texture2D> Texture::CreateTextureForRTV(ID3D11Device5* device, unsigned int width, unsigned int height)
+    {
+        ComPtr<ID3D11Texture2D> rtv_buffer;
+
+        // fill texture2d desc
+        D3D11_TEXTURE2D_DESC td;
+        td.Width = width;
+        td.Height = height;
+        td.MipLevels = 1;
+        td.ArraySize = 1;
+        td.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+        td.SampleDesc.Count = 1;
+        td.SampleDesc.Quality = 0;
+        td.Usage = D3D11_USAGE_DEFAULT;
+        td.BindFlags = D3D11_BIND_RENDER_TARGET;
+        td.CPUAccessFlags = 0;
+        td.MiscFlags = 0;
+
+        // create rtv buffer
+        HRESULT hr = device->CreateTexture2D(&td, nullptr, rtv_buffer.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+
+        return rtv_buffer;
+    }
+
+    ComPtr<ID3D11Texture2D> Texture::CreateTextureForDSV(ID3D11Device5* device, unsigned int width, unsigned int height)
+    {
+        ComPtr<ID3D11Texture2D> dsv_buffer;
+
+        // fill texture2d desc
+        D3D11_TEXTURE2D_DESC td;
+        td.Width = width;
+        td.Height = height;
+        td.MipLevels = 1;
+        td.ArraySize = 1;
+        td.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+        td.SampleDesc.Count = 1;
+        td.SampleDesc.Quality = 0;
+        td.Usage = D3D11_USAGE_DEFAULT;
+        td.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+        td.CPUAccessFlags = 0;
+        td.MiscFlags = 0;
+
+        // create dsv buffer
+        HRESULT hr = device->CreateTexture2D(&td, nullptr, dsv_buffer.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+
+        return dsv_buffer;
+    }
+
     VertexShader::VertexShader()
     {
     }
@@ -678,12 +738,18 @@ namespace Dx11
         return DirectX::XMMatrixPerspectiveFovLH(fovy, aspect, znear, zfar);
     }
 
-    Camera::Camera(ID3D11Device5* device, ID3D11Resource* buffer, std::shared_ptr<CBuffer> _vscb_transform, float width, float height)
+    Camera::Camera(ID3D11Device5* device, ID3D11Resource* buffer, ID3D11Resource* dsv_buffer,
+        std::shared_ptr<CBuffer> _vscb_transform, float width, float height)
         : vscb_transform(_vscb_transform)
     {
         HRESULT hr = device->CreateRenderTargetView(buffer, nullptr, rtv.GetAddressOf());
         if (FAILED(hr))
             rtv = nullptr;
+
+        hr = device->CreateDepthStencilView(dsv_buffer, nullptr, dsv.GetAddressOf());
+        if (FAILED(hr))
+            dsv = nullptr;
+
         vp.TopLeftX = 0;
         vp.TopLeftY = 0;
         vp.Width = width;
@@ -697,7 +763,8 @@ namespace Dx11
         projection.zfar = 500;
     }
 
-    Camera::Camera(ID3D11Device5* device, IDXGISwapChain* sc, std::shared_ptr<CBuffer> _vscb_transform, float width, float height)
+    Camera::Camera(ID3D11Device5* device, IDXGISwapChain* sc, ID3D11Resource* dsv_buffer,
+        std::shared_ptr<CBuffer> _vscb_transform, float width, float height)
         : vscb_transform(_vscb_transform)
     {
         ComPtr<ID3D11Texture2D> sc_buffer;
@@ -710,6 +777,11 @@ namespace Dx11
             if (FAILED(hr))
                 rtv = nullptr;
         }
+
+        hr = device->CreateDepthStencilView(dsv_buffer, nullptr, dsv.GetAddressOf());
+        if (FAILED(hr))
+            dsv = nullptr;
+
         vp.TopLeftX = 0;
         vp.TopLeftY = 0;
         vp.Width = width;
@@ -729,12 +801,13 @@ namespace Dx11
 
     Camera::operator bool()
     {
-        return rtv;
+        return rtv && dsv;
     }
 
     void Camera::Clear(ID3D11DeviceContext4* context, const float rgba[4])
     {
         context->ClearRenderTargetView(rtv.Get(), rgba);
+        context->ClearDepthStencilView(dsv.Get(), D3D11_CLEAR_DEPTH, 1, 0);
     }
 
     void Camera::Clear(ID3D11DeviceContext4* context, float r, float g, float b, float a)
@@ -756,7 +829,7 @@ namespace Dx11
             assert(vscb_transform->ApplyToCBuffer(context) == true);
             context->VSSetConstantBuffers(vscb_struct->slot, 1, vscb_transform->GetBuffer().GetAddressOf());
         }
-        context->OMSetRenderTargets(1, rtv.GetAddressOf(), nullptr);
+        context->OMSetRenderTargets(1, rtv.GetAddressOf(), dsv.Get());
         context->RSSetViewports(1, &vp);
     }
 
