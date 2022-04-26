@@ -13,6 +13,7 @@ template <typename T>
 using library = std::unordered_map<std::string, std::shared_ptr<T>>;
 
 library<Mesh> meshes;
+library<Texture> textures;
 library<VertexShader> vses;
 library<PixelShader> pses;
 library<CBuffer> cbuffers;
@@ -44,6 +45,14 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 			return 10;
 	}
 
+	// textures
+	textures["plaid"] = Texture::CreateTexturePlaid(infra->device.Get());
+	for (auto& p : textures)
+	{
+		if (p.second == nullptr)
+			return 11;
+	}
+
 	// vses
 	vses["vs0"] = VertexShader::CompileVS(infra->device.Get(), L"vs0.hlsl");
 	vses["vs_transform"] = VertexShader::CompileVS(infra->device.Get(), L"vs_transform.hlsl");
@@ -57,6 +66,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	// pses
 	pses["ps0"] = PixelShader::CompilePS(infra->device.Get(), L"ps0.hlsl");
 	pses["ps_color"] = PixelShader::CompilePS(infra->device.Get(), L"ps_color.hlsl");
+	pses["ps_tex"] = PixelShader::CompilePS(infra->device.Get(), L"ps_tex.hlsl");
 	for (auto& p : pses)
 	{
 		if (p.second == nullptr)
@@ -74,8 +84,8 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	vscb_light_struct->dl_specular_enable = true;
 	vscb_light_struct->dl_dir = DirectX::XMVectorSet(0, -1, -0.15f, 0);
 	vscb_light_struct->dl_ambient = DirectX::XMVectorSet(0.2f, 0.2f, 0.2f, 1);
-	vscb_light_struct->dl_diffuse = DirectX::XMVectorSet(1, 0.5f, 0.5f, 1);
-	vscb_light_struct->dl_specular = DirectX::XMVectorSet(1, 0.5f, 0.5f, 1);
+	vscb_light_struct->dl_diffuse = DirectX::XMVectorSet(1, 1, 1, 1);
+	vscb_light_struct->dl_specular = DirectX::XMVectorSet(1, 1, 1, 1);
 	vscb_light_struct->pl_enable = true;
 	vscb_light_struct->pl_specular_enable = true;
 	vscb_light_struct->pl_range = 2;
@@ -129,6 +139,14 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	light->material = Material::black;
 	light->material.emissive = DirectX::XMFLOAT4(1, 1, 1, 1);
 	objs["light"] = light;
+	auto cube_tex = std::make_shared<Object>(infra->device.Get(), meshes["cube"], vses["vs_light"], pses["ps_tex"], vscb_transform, vscb_material);
+	cube_tex->transform.roll = std::atanf(1);
+	cube_tex->transform.pitch = std::atanf(std::sqrtf(0.5f));
+	cube_tex->transform.yaw = -2.7f;
+	cube_tex->transform.pos.x = 3;
+	cube_tex->material = Material::white;
+	cube_tex->textures.push_back(textures["plaid"]);
+	objs["cube_tex"] = cube_tex;
 	for (auto& p : objs)
 	{
 		if (!*p.second)
@@ -179,7 +197,7 @@ int dx11_control(Infrastructure* infra, float dt)
 	infra->context->VSSetConstantBuffers(vscb_light_struct->slot, 1, vscb_light->GetBuffer().GetAddressOf());
 
 	// control obj
-	static auto control_obj = objs["cube"];
+	static auto control_obj = objs["cube_tex"];
 	float obj_rotate_angle = 3 * dt;
 	if (KeyIsDown('I')) control_obj->transform.pitch += obj_rotate_angle;
 	else if (KeyIsDown('K')) control_obj->transform.pitch -= obj_rotate_angle;
@@ -232,6 +250,7 @@ int dx11_render(Infrastructure* infra)
 	objs["sphere_b"]->Draw(infra->context.Get());
 	objs["sphere_d"]->Draw(infra->context.Get());
 	objs["light"]->Draw(infra->context.Get());
+	objs["cube_tex"]->Draw(infra->context.Get());
 
 	// present
 	hr = infra->sc->Present(0, 0);

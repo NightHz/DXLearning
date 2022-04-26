@@ -83,5 +83,8 @@
     <FxCompile Include="vs_light.hlsl">
       <Filter>shader</Filter>
     </FxCompile>
+    <FxCompile Include="ps_tex.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

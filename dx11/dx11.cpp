@@ -358,6 +358,58 @@ namespace Dx11
     {
     }
 
+    std::shared_ptr<Texture> Texture::CreateTexturePlaid(ID3D11Device5* device,
+        unsigned int color1, unsigned int color2, unsigned int unit_pixel, unsigned int n)
+    {
+        std::shared_ptr<Texture> tex(new Texture());
+
+        // generate texture
+        int width = unit_pixel * 2 * n;
+        int width2 = width * width;
+        std::vector<unsigned int> plaid(width2);
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < width; y++)
+            {
+                int i = y * width + x;
+                int j = x / unit_pixel + y / unit_pixel;
+                plaid[i] = (j % 2 == 0 ? color1 : color2);
+            }
+        }
+
+        // fill texture2d desc
+        D3D11_TEXTURE2D_DESC td;
+        td.Width = width;
+        td.Height = width;
+        td.MipLevels = 1;
+        td.ArraySize = 1;
+        td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        td.SampleDesc.Count = 1;
+        td.SampleDesc.Quality = 0;
+        td.Usage = D3D11_USAGE_DEFAULT;
+        td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        td.CPUAccessFlags = 0;
+        td.MiscFlags = 0;
+
+        // fill subresource data
+        D3D11_SUBRESOURCE_DATA sd;
+        sd.pSysMem = &plaid[0];
+        sd.SysMemPitch = width * sizeof(unsigned int);
+        sd.SysMemSlicePitch = 0;
+
+        // create texture
+        HRESULT hr = device->CreateTexture2D(&td, &sd, tex->tex.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+
+        // create srv
+        hr = device->CreateShaderResourceView(tex->tex.Get(), nullptr, tex->srv.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+
+        return tex;
+    }
+
     ComPtr<ID3D11Texture2D> Texture::CreateTextureForRTV(ID3D11Device5* device, unsigned int width, unsigned int height)
     {
         ComPtr<ID3D11Texture2D> rtv_buffer;
@@ -713,6 +765,10 @@ namespace Dx11
             assert(vscb_material->ApplyToCBuffer(context) == true);
             context->VSSetConstantBuffers(vscb_struct->slot, 1, vscb_material->GetBuffer().GetAddressOf());
         }
+
+        // set texture
+        for (int i = 0; i < textures.size(); i++)
+            context->PSSetShaderResources(i, 1, textures[i]->srv.GetAddressOf());
 
         // draw
         if (mesh)

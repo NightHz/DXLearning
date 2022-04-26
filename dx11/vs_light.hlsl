@@ -39,12 +39,15 @@ struct VSInput
     float4 pos : POSITION;
     float4 norm : NORMAL;
     float4 color : COLOR;
+    float2 uv : TEXCOORD;
+    float2 uv2 : TEXCOORD1;
 };
 
 struct VSOutput
 {
     float4 pos : SV_POSITION;
     float4 color : COLOR;
+    float2 uv : TEXCOORD;
 };
 
 VSOutput main(VSInput input)
@@ -52,6 +55,8 @@ VSOutput main(VSInput input)
     VSOutput output;
     output.pos = mul(input.pos, world_view_proj);
     output.color = 0;
+    output.uv = input.uv;
+
     float4 N = normalize(mul(input.norm, world_view)); // normal
     float4 cam = { 0,0,0,1 };
     float4 pos = mul(input.pos, world_view);

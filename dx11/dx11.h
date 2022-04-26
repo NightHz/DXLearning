@@ -52,8 +52,10 @@ namespace Dx11
 
     class Texture
     {
+        friend class Object;
     private:
-        ComPtr<ID3D11Texture2D> dsv_buffer;
+        ComPtr<ID3D11Texture2D> tex;
+        ComPtr<ID3D11ShaderResourceView> srv;
 
         Texture();
 
@@ -62,6 +64,8 @@ namespace Dx11
         Texture& operator=(const Texture&) = delete;
         ~Texture();
 
+        static std::shared_ptr<Texture> CreateTexturePlaid(ID3D11Device5* device,
+            unsigned int color1 = 0xffffffff, unsigned int color2 = 0xfff0c154, unsigned int unit_pixel = 16, unsigned int n = 4);
         static ComPtr<ID3D11Texture2D> CreateTextureForRTV(ID3D11Device5* device, unsigned int width, unsigned int height);
         static ComPtr<ID3D11Texture2D> CreateTextureForDSV(ID3D11Device5* device, unsigned int width, unsigned int height);
     };
@@ -215,6 +219,8 @@ namespace Dx11
         std::shared_ptr<PixelShader> ps;
         std::shared_ptr<CBuffer> vscb_transform;
         std::shared_ptr<CBuffer> vscb_material;
+
+        std::vector<std::shared_ptr<Texture>> textures;
 
         Transform transform;
         Material material;
