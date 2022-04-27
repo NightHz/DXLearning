@@ -668,7 +668,7 @@ namespace Dx11
     }
 
     Material::Material(DirectX::XMFLOAT4 color)
-        : ambient(color), diffuse(color), specular(color), emissive(0, 0, 0, 1), power(5)
+        : ambient(color), diffuse(color), specular(color), emissive(0, 0, 0, 0), power(5)
     {
     }
 
@@ -693,7 +693,7 @@ namespace Dx11
     DirectX::XMFLOAT4 Material::yellow(DirectX::XMFLOAT4(0.91f, 0.88f, 0.34f, 1));
     DirectX::XMFLOAT4 Material::orange(DirectX::XMFLOAT4(1, 0.5f, 0.14f, 1));
 
-    Object::Object()
+    Object::Object() : blend_factor{ 0,0,0,0 }
     {
     }
 
@@ -769,6 +769,16 @@ namespace Dx11
         // set texture
         for (int i = 0; i < textures.size(); i++)
             context->PSSetShaderResources(i, 1, textures[i]->srv.GetAddressOf());
+
+        // set state
+        if (rs)
+            context->RSSetState(rs.Get());
+        else
+            context->RSSetState(nullptr);
+        if (bs)
+            context->OMSetBlendState(bs.Get(), blend_factor, 0xffffffff);
+        else
+            context->OMSetBlendState(nullptr, nullptr, 0xffffffff);
 
         // draw
         if (mesh)

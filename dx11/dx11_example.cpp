@@ -102,6 +102,42 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 			return 30;
 	}
 
+	// some state interface
+	ComPtr<ID3D11RasterizerState> rs_nocull, rs_frontcull;
+	ComPtr<ID3D11BlendState> bs_alpha;
+	D3D11_RASTERIZER_DESC rd;
+	rd.FillMode = D3D11_FILL_SOLID;
+	rd.CullMode = D3D11_CULL_NONE;
+	rd.FrontCounterClockwise = false;
+	rd.DepthBias = 0;
+	rd.DepthBiasClamp = 0;
+	rd.SlopeScaledDepthBias = 0;
+	rd.DepthClipEnable = true;
+	rd.ScissorEnable = false;
+	rd.MultisampleEnable = false;
+	rd.AntialiasedLineEnable = false;
+	hr = infra->device->CreateRasterizerState(&rd, rs_nocull.GetAddressOf());
+	if (FAILED(hr))
+		return 31;
+	rd.CullMode = D3D11_CULL_FRONT;
+	hr = infra->device->CreateRasterizerState(&rd, rs_frontcull.GetAddressOf());
+	if (FAILED(hr))
+		return 31;
+	D3D11_BLEND_DESC bd;
+	bd.AlphaToCoverageEnable = false;
+	bd.IndependentBlendEnable = false;
+	bd.RenderTarget[0].BlendEnable = true;
+	bd.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	bd.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	bd.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	bd.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	bd.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	bd.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+	hr = infra->device->CreateBlendState(&bd, bs_alpha.GetAddressOf());
+	if (FAILED(hr))
+		return 31;
+
 	// objs
 	auto triangle = std::make_shared<Object>(infra->device.Get(), meshes["triangle_xyz"], vses["vs0"], pses["ps0"], nullptr, nullptr);
 	objs["triangle"] = triangle;
@@ -147,6 +183,14 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	cube_tex->material = Material::white;
 	cube_tex->textures.push_back(textures["plaid"]);
 	objs["cube_tex"] = cube_tex;
+	auto sphere_alpha = std::make_shared<Object>(infra->device.Get(), meshes["sphere"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
+	sphere_alpha->transform.pos.x = 3;
+	sphere_alpha->transform.pos.z = -2;
+	sphere_alpha->transform.SetScale(0.5f);
+	sphere_alpha->material = DirectX::XMFLOAT4(1, 1, 1, 0.5f);
+	//sphere_alpha->rs = rs_nocull;
+	sphere_alpha->bs = bs_alpha;
+	objs["sphere_alpha"] = sphere_alpha;
 	for (auto& p : objs)
 	{
 		if (!*p.second)
@@ -251,6 +295,7 @@ int dx11_render(Infrastructure* infra)
 	objs["sphere_d"]->Draw(infra->context.Get());
 	objs["light"]->Draw(infra->context.Get());
 	objs["cube_tex"]->Draw(infra->context.Get());
+	objs["sphere_alpha"]->Draw(infra->context.Get());
 
 	// present
 	hr = infra->sc->Present(0, 0);

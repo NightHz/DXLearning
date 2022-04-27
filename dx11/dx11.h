@@ -222,6 +222,10 @@ namespace Dx11
 
         std::vector<std::shared_ptr<Texture>> textures;
 
+        ComPtr<ID3D11RasterizerState> rs;
+        ComPtr<ID3D11BlendState> bs;
+        float blend_factor[4];
+
         Transform transform;
         Material material;
 
