@@ -224,7 +224,9 @@ namespace Dx11
 
         ComPtr<ID3D11RasterizerState> rs;
         ComPtr<ID3D11BlendState> bs;
-        float blend_factor[4];
+        float bs_blend_factor[4];
+        ComPtr<ID3D11DepthStencilState> dss;
+        unsigned int dss_stencil_ref;
 
         Transform transform;
         Material material;
@@ -280,7 +282,8 @@ namespace Dx11
 
         void Clear(ID3D11DeviceContext4* context, const float rgba[4]);
         void Clear(ID3D11DeviceContext4* context, float r, float g, float b, float a);
-        void SetToContext(ID3D11DeviceContext4* context);
+        void ClearDepth(ID3D11DeviceContext4* context);
+        void SetToContext(ID3D11DeviceContext4* context, DirectX::XMMATRIX global_transform = DirectX::XMMatrixIdentity());
     };
 
 }

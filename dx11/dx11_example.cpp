@@ -104,7 +104,8 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 
 	// some state interface
 	ComPtr<ID3D11RasterizerState> rs_nocull, rs_frontcull;
-	ComPtr<ID3D11BlendState> bs_alpha;
+	ComPtr<ID3D11BlendState> bs_alpha, bs_times;
+	ComPtr<ID3D11DepthStencilState> dss_set, dss_draw;
 	D3D11_RASTERIZER_DESC rd;
 	rd.FillMode = D3D11_FILL_SOLID;
 	rd.CullMode = D3D11_CULL_NONE;
@@ -136,7 +137,35 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	bd.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 	hr = infra->device->CreateBlendState(&bd, bs_alpha.GetAddressOf());
 	if (FAILED(hr))
-		return 31;
+		return 32;
+	bd.RenderTarget[0].SrcBlend = D3D11_BLEND_ZERO;
+	bd.RenderTarget[0].DestBlend = D3D11_BLEND_SRC_COLOR;
+	hr = infra->device->CreateBlendState(&bd, bs_times.GetAddressOf());
+	if (FAILED(hr))
+		return 32;
+	D3D11_DEPTH_STENCIL_DESC dsd;
+	dsd.DepthEnable = true;
+	dsd.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	dsd.DepthFunc = D3D11_COMPARISON_LESS;
+	dsd.StencilEnable = true;
+	dsd.StencilReadMask = D3D11_DEFAULT_STENCIL_READ_MASK;
+	dsd.StencilWriteMask = D3D11_DEFAULT_STENCIL_WRITE_MASK;
+	dsd.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dsd.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+	dsd.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+	dsd.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	dsd.BackFace = dsd.FrontFace;
+	hr = infra->device->CreateDepthStencilState(&dsd, dss_set.GetAddressOf());
+	if (FAILED(hr))
+		return 33;
+	dsd.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	dsd.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+	dsd.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	dsd.FrontFace.StencilFunc = D3D11_COMPARISON_EQUAL;
+	dsd.BackFace = dsd.FrontFace;
+	hr = infra->device->CreateDepthStencilState(&dsd, dss_draw.GetAddressOf());
+	if (FAILED(hr))
+		return 33;
 
 	// objs
 	auto triangle = std::make_shared<Object>(infra->device.Get(), meshes["triangle_xyz"], vses["vs0"], pses["ps0"], nullptr, nullptr);
@@ -145,6 +174,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	cube_color->transform.roll = std::atanf(1);
 	cube_color->transform.pitch = std::atanf(std::sqrtf(0.5f));
 	cube_color->transform.yaw = -2.7f;
+	cube_color->dss = dss_set;
 	objs["cube_color"] = cube_color;
 	auto cube = std::make_shared<Object>(infra->device.Get(), meshes["cube"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
 	cube->transform.roll = std::atanf(1);
@@ -152,28 +182,33 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	cube->transform.yaw = -2.7f;
 	cube->transform.pos.x = -3;
 	cube->material = Material::orange;
+	cube->dss = dss_set;
 	objs["cube"] = cube;
 	auto sphere = std::make_shared<Object>(infra->device.Get(), meshes["sphere"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
 	sphere->transform.pos.y = -3;
 	sphere->material = Material::orange;
+	sphere->dss = dss_set;
 	objs["sphere"] = sphere;
 	auto sphere_b = std::make_shared<Object>(infra->device.Get(), meshes["sphere_b"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
 	sphere_b->transform.pos.x = -6;
 	sphere_b->transform.pos.y = -3;
 	sphere_b->transform.SetScale(0.5f);
 	sphere_b->material = Material::orange;
+	sphere_b->dss = dss_set;
 	objs["sphere_b"] = sphere_b;
 	auto sphere_d = std::make_shared<Object>(infra->device.Get(), meshes["sphere_d"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
 	sphere_d->transform.pos.x = -4.5f;
 	sphere_d->transform.pos.y = -1.5f;
 	sphere_d->transform.SetScale(0.5f);
 	sphere_d->material = Material::orange;
+	sphere_d->dss = dss_set;
 	objs["sphere_d"] = sphere_d;
 	auto light = std::make_shared<Object>(infra->device.Get(), meshes["sphere_c"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
 	DirectX::XMStoreFloat3(&light->transform.pos, vscb_light_struct->pl_pos);
 	light->transform.SetScale(0.2f);
 	light->material = Material::black;
 	light->material.emissive = DirectX::XMFLOAT4(1, 1, 1, 1);
+	light->dss = dss_set;
 	objs["light"] = light;
 	auto cube_tex = std::make_shared<Object>(infra->device.Get(), meshes["cube"], vses["vs_light"], pses["ps_tex"], vscb_transform, vscb_material);
 	cube_tex->transform.roll = std::atanf(1);
@@ -182,6 +217,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	cube_tex->transform.pos.x = 3;
 	cube_tex->material = Material::white;
 	cube_tex->textures.push_back(textures["plaid"]);
+	cube_tex->dss = dss_set;
 	objs["cube_tex"] = cube_tex;
 	auto sphere_alpha = std::make_shared<Object>(infra->device.Get(), meshes["sphere"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
 	sphere_alpha->transform.pos.x = 3;
@@ -190,7 +226,25 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	sphere_alpha->material = DirectX::XMFLOAT4(1, 1, 1, 0.5f);
 	//sphere_alpha->rs = rs_nocull;
 	sphere_alpha->bs = bs_alpha;
+	sphere_alpha->dss = dss_set;
 	objs["sphere_alpha"] = sphere_alpha;
+	auto cube_mirror = std::make_shared<Object>(infra->device.Get(), meshes["cube"], vses["vs_transform"], pses["ps_color"], vscb_transform, vscb_material);
+	cube_mirror->transform.pos.z = 2;
+	cube_mirror->transform.scale.z = 0;
+	cube_mirror->transform.scale.x = 3;
+	cube_mirror->transform.scale.y = 3;
+	cube_mirror->dss = dss_set;
+	cube_mirror->dss_stencil_ref = 10;
+	objs["cube_mirror"] = cube_mirror;
+	auto cube_color_image = std::make_shared<Object>(infra->device.Get(), cube_color->mesh, cube_color->vs, cube_color->ps, vscb_transform, vscb_material);
+	cube_color_image->transform = cube_color->transform;
+	cube_color_image->material = cube_color->material;
+	cube_color_image->textures = cube_color->textures;
+	cube_color_image->rs = rs_frontcull;
+	cube_color_image->bs = bs_times;
+	cube_color_image->dss = dss_draw;
+	cube_color_image->dss_stencil_ref = cube_mirror->dss_stencil_ref;
+	objs["cube_color_image"] = cube_color_image;
 	for (auto& p : objs)
 	{
 		if (!*p.second)
@@ -241,7 +295,10 @@ int dx11_control(Infrastructure* infra, float dt)
 	infra->context->VSSetConstantBuffers(vscb_light_struct->slot, 1, vscb_light->GetBuffer().GetAddressOf());
 
 	// control obj
-	static auto control_obj = objs["cube_tex"];
+	static auto control_obj = objs["cube_color"];
+	float obj_move_dis = 3 * dt;
+	if (KeyIsDown('T')) control_obj->transform.pos.z += obj_move_dis;
+	else if (KeyIsDown('G')) control_obj->transform.pos.z -= obj_move_dis;
 	float obj_rotate_angle = 3 * dt;
 	if (KeyIsDown('I')) control_obj->transform.pitch += obj_rotate_angle;
 	else if (KeyIsDown('K')) control_obj->transform.pitch -= obj_rotate_angle;
@@ -281,6 +338,9 @@ int dx11_render(Infrastructure* infra)
 {
 	HRESULT hr = 0;
 
+	// sync
+	objs["cube_color_image"]->transform = objs["cube_color"]->transform;
+
 	// clear and set camera
 	auto& cam = cams["cam"];
 	cam->Clear(infra->context.Get(), control_value["bg_r"], control_value["bg_g"], control_value["bg_b"], 1);
@@ -296,6 +356,14 @@ int dx11_render(Infrastructure* infra)
 	objs["light"]->Draw(infra->context.Get());
 	objs["cube_tex"]->Draw(infra->context.Get());
 	objs["sphere_alpha"]->Draw(infra->context.Get());
+	objs["cube_mirror"]->Draw(infra->context.Get());
+
+	// clear depth and reflect camera
+	cam->ClearDepth(infra->context.Get());
+	cam->SetToContext(infra->context.Get(), DirectX::XMMatrixReflect(DirectX::XMVectorSet(0, 0, -1, 2)));
+
+	// draw for stencil region
+	objs["cube_color_image"]->Draw(infra->context.Get());
 
 	// present
 	hr = infra->sc->Present(0, 0);

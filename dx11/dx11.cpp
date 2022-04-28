@@ -693,8 +693,9 @@ namespace Dx11
     DirectX::XMFLOAT4 Material::yellow(DirectX::XMFLOAT4(0.91f, 0.88f, 0.34f, 1));
     DirectX::XMFLOAT4 Material::orange(DirectX::XMFLOAT4(1, 0.5f, 0.14f, 1));
 
-    Object::Object() : blend_factor{ 0,0,0,0 }
+    Object::Object() : bs_blend_factor{ 0,0,0,0 }
     {
+        dss_stencil_ref = 0;
     }
 
     Object::Object(ID3D11Device5* device, std::shared_ptr<Mesh> _mesh,
@@ -776,9 +777,13 @@ namespace Dx11
         else
             context->RSSetState(nullptr);
         if (bs)
-            context->OMSetBlendState(bs.Get(), blend_factor, 0xffffffff);
+            context->OMSetBlendState(bs.Get(), bs_blend_factor, 0xffffffff);
         else
             context->OMSetBlendState(nullptr, nullptr, 0xffffffff);
+        if (dss)
+            context->OMSetDepthStencilState(dss.Get(), dss_stencil_ref);
+        else
+            context->OMSetDepthStencilState(nullptr, 0);
 
         // draw
         if (mesh)
@@ -873,7 +878,7 @@ namespace Dx11
     void Camera::Clear(ID3D11DeviceContext4* context, const float rgba[4])
     {
         context->ClearRenderTargetView(rtv.Get(), rgba);
-        context->ClearDepthStencilView(dsv.Get(), D3D11_CLEAR_DEPTH, 1, 0);
+        context->ClearDepthStencilView(dsv.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
     }
 
     void Camera::Clear(ID3D11DeviceContext4* context, float r, float g, float b, float a)
@@ -882,13 +887,18 @@ namespace Dx11
         Clear(context, rgba);
     }
 
-    void Camera::SetToContext(ID3D11DeviceContext4* context)
+    void Camera::ClearDepth(ID3D11DeviceContext4* context)
+    {
+        context->ClearDepthStencilView(dsv.Get(), D3D11_CLEAR_DEPTH, 1, 0);
+    }
+
+    void Camera::SetToContext(ID3D11DeviceContext4* context, DirectX::XMMATRIX global_transform)
     {
         // set transform
         if (vscb_transform)
         {
             VSCBTransform* vscb_struct = static_cast<VSCBTransform*>(vscb_transform->GetPointer());
-            vscb_struct->view = DirectX::XMMatrixTranspose(transform.GetInverseTransformMatrix());
+            vscb_struct->view = DirectX::XMMatrixTranspose(global_transform * transform.GetInverseTransformMatrix());
             vscb_struct->proj = DirectX::XMMatrixTranspose(projection.GetTransformMatrix());
             vscb_struct->view_proj = vscb_struct->proj * vscb_struct->view; // =transpose(transpose(view)*transpose(proj))
             vscb_struct->world_view_proj = vscb_struct->view_proj * vscb_struct->world; // =transpose(transpose(world)*transpose(view_proj))
