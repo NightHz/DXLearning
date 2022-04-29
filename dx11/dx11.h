@@ -47,7 +47,7 @@ namespace Dx11
 
         static std::shared_ptr<Mesh> CreateTriangleXYZ(ID3D11Device5* device);
         static std::shared_ptr<Mesh> CreateCubeColor(ID3D11Device5* device);
-        static std::shared_ptr<Mesh> CreateFromRehenzMesh(ID3D11Device5* device, std::shared_ptr<Rehenz::Mesh> _mesh);
+        static std::shared_ptr<Mesh> CreateFromRehenzMesh(ID3D11Device5* device, std::shared_ptr<Rehenz::Mesh> _mesh, bool color_as_normal = false);
     };
 
     class Texture

@@ -168,6 +168,7 @@
     <ClCompile Include="Rehenz\math.cpp" />
     <ClCompile Include="Rehenz\mesh.cpp" />
     <ClCompile Include="Rehenz\window.cpp" />
+    <ClCompile Include="rehenz_patch.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dx11.h" />
@@ -177,6 +178,7 @@
     <ClInclude Include="Rehenz\mesh.h" />
     <ClInclude Include="Rehenz\type.h" />
     <ClInclude Include="Rehenz\window.h" />
+    <ClInclude Include="rehenz_patch.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="ps_color.hlsl">

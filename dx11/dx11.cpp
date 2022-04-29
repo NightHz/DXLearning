@@ -229,8 +229,11 @@ namespace Dx11
         return mesh;
     }
 
-    std::shared_ptr<Mesh> Mesh::CreateFromRehenzMesh(ID3D11Device5* device, std::shared_ptr<Rehenz::Mesh> _mesh)
+    std::shared_ptr<Mesh> Mesh::CreateFromRehenzMesh(ID3D11Device5* device, std::shared_ptr<Rehenz::Mesh> _mesh, bool color_as_normal)
     {
+        if (_mesh->GetVertices().empty() || _mesh->GetTriangles().empty())
+            return nullptr;
+
         std::shared_ptr<Mesh> mesh(new Mesh());
 
         // set vertex desc
@@ -258,7 +261,11 @@ namespace Dx11
         {
             vertices[i].pos = DirectX::XMFLOAT3(_vertices[i].p.x, _vertices[i].p.y, _vertices[i].p.z);
             vertices[i].normal = DirectX::XMFLOAT4(0, 0, 0, 0);
-            vertices[i].color = DirectX::XMFLOAT4(_vertices[i].c.x, _vertices[i].c.y, _vertices[i].c.z, _vertices[i].c.w);
+            vertices[i].color = DirectX::XMFLOAT4(1, 1, 1, 1);
+            if (color_as_normal)
+                vertices[i].normal = DirectX::XMFLOAT4(_vertices[i].c.x, _vertices[i].c.y, _vertices[i].c.z, 0);
+            else
+                vertices[i].color = DirectX::XMFLOAT4(_vertices[i].c.x, _vertices[i].c.y, _vertices[i].c.z, _vertices[i].c.w);
             vertices[i].uv = DirectX::XMFLOAT2(_vertices[i].uv.x, _vertices[i].uv.y);
             vertices[i].uv2 = DirectX::XMFLOAT2(_vertices[i].uv2.x, _vertices[i].uv2.y);
         }
@@ -285,27 +292,34 @@ namespace Dx11
             indexes[i] = static_cast<WORD>(_indexes[i]);
             indexes[i + 1] = static_cast<WORD>(_indexes[i + 1]);
             indexes[i + 2] = static_cast<WORD>(_indexes[i + 2]);
-            // compute normal
-            DirectX::XMFLOAT4 normal = get_noraml(vertices[indexes[i]].pos, vertices[indexes[i + 1]].pos, vertices[indexes[i + 2]].pos);
-            float4_plus_equal(vertices[indexes[i]].normal, normal); v_repeat[indexes[i]]++;
-            float4_plus_equal(vertices[indexes[i + 1]].normal, normal); v_repeat[indexes[i + 1]]++;
-            float4_plus_equal(vertices[indexes[i + 2]].normal, normal); v_repeat[indexes[i + 2]]++;
-        }
-        for (int i = 0; i < vertices.size(); i++)
-        {
-            if (v_repeat[i] != 0)
-            {
-                vertices[i].normal.x /= v_repeat[i];
-                vertices[i].normal.y /= v_repeat[i];
-                vertices[i].normal.z /= v_repeat[i];
-                vertices[i].normal.w /= v_repeat[i];
-                DirectX::XMStoreFloat4(&vertices[i].normal, DirectX::XMVector3Normalize(DirectX::XMLoadFloat4(&vertices[i].normal)));
-            }
         }
 
         // set index info
         mesh->index_count = static_cast<unsigned int>(indexes.size());
         mesh->ib_size = sizeof(WORD) * mesh->index_count;
+
+        if (!color_as_normal)
+        {
+            // compute normal
+            for (size_t i = 0; i < indexes.size(); i += 3)
+            {
+                DirectX::XMFLOAT4 normal = get_noraml(vertices[indexes[i]].pos, vertices[indexes[i + 1]].pos, vertices[indexes[i + 2]].pos);
+                float4_plus_equal(vertices[indexes[i]].normal, normal); v_repeat[indexes[i]]++;
+                float4_plus_equal(vertices[indexes[i + 1]].normal, normal); v_repeat[indexes[i + 1]]++;
+                float4_plus_equal(vertices[indexes[i + 2]].normal, normal); v_repeat[indexes[i + 2]]++;
+            }
+            for (size_t i = 0; i < vertices.size(); i++)
+            {
+                if (v_repeat[i] != 0)
+                {
+                    vertices[i].normal.x /= v_repeat[i];
+                    vertices[i].normal.y /= v_repeat[i];
+                    vertices[i].normal.z /= v_repeat[i];
+                    vertices[i].normal.w /= v_repeat[i];
+                    DirectX::XMStoreFloat4(&vertices[i].normal, DirectX::XMVector3Normalize(DirectX::XMLoadFloat4(&vertices[i].normal)));
+                }
+            }
+        }
 
 
         // fill buffer desc
@@ -361,6 +375,8 @@ namespace Dx11
     std::shared_ptr<Texture> Texture::CreateTexturePlaid(ID3D11Device5* device,
         unsigned int color1, unsigned int color2, unsigned int unit_pixel, unsigned int n)
     {
+        unit_pixel = max(unit_pixel, 1);
+        n = max(n, 1);
         std::shared_ptr<Texture> tex(new Texture());
 
         // generate texture

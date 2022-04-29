@@ -43,6 +43,9 @@
     <ClCompile Include="Rehenz\mesh.cpp">
       <Filter>Rehenz</Filter>
     </ClCompile>
+    <ClCompile Include="rehenz_patch.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Rehenz\fps_counter.h">
@@ -65,6 +68,9 @@
     </ClInclude>
     <ClInclude Include="Rehenz\mesh.h">
       <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="rehenz_patch.h">
+      <Filter>header</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

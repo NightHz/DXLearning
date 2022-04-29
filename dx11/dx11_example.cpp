@@ -3,6 +3,7 @@
 #include "input.h"
 #include <unordered_map>
 #include "dx11.h"
+#include "rehenz_patch.h"
 
 using std::cout;
 using std::wcout;
@@ -39,11 +40,13 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	meshes["sphere_b"] = Mesh::CreateFromRehenzMesh(infra->device.Get(), Rehenz::CreateSphereMeshB());
 	meshes["sphere_c"] = Mesh::CreateFromRehenzMesh(infra->device.Get(), Rehenz::CreateSphereMeshC());
 	meshes["sphere_d"] = Mesh::CreateFromRehenzMesh(infra->device.Get(), Rehenz::CreateSphereMeshD());
+	meshes["teapot"] = Mesh::CreateFromRehenzMesh(infra->device.Get(), Rehenz::CreateMeshFromObjFile("assets/teapot.obj"), true);
 	for (auto& p : meshes)
 	{
 		if (p.second == nullptr)
 			return 10;
 	}
+	cout << "finish setup meshes" << endl;
 
 	// textures
 	textures["plaid"] = Texture::CreateTexturePlaid(infra->device.Get());
@@ -52,6 +55,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 		if (p.second == nullptr)
 			return 11;
 	}
+	cout << "finish setup textures" << endl;
 
 	// vses
 	vses["vs0"] = VertexShader::CompileVS(infra->device.Get(), L"vs0.hlsl");
@@ -62,6 +66,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 		if (p.second == nullptr)
 			return 20;
 	}
+	cout << "finish setup vses" << endl;
 
 	// pses
 	pses["ps0"] = PixelShader::CompilePS(infra->device.Get(), L"ps0.hlsl");
@@ -72,6 +77,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 		if (p.second == nullptr)
 			return 21;
 	}
+	cout << "finish setup pses" << endl;
 
 	// cbuffers
 	auto vscb_transform = CBuffer::CreateCBuffer(infra->device.Get(), sizeof(VSCBTransform));
@@ -101,6 +107,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 		if (p.second == nullptr)
 			return 30;
 	}
+	cout << "finish setup cbuffers" << endl;
 
 	// some state interface
 	ComPtr<ID3D11RasterizerState> rs_nocull, rs_frontcull;
@@ -166,6 +173,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	hr = infra->device->CreateDepthStencilState(&dsd, dss_draw.GetAddressOf());
 	if (FAILED(hr))
 		return 33;
+	cout << "finish setup state" << endl;
 
 	// objs
 	auto triangle = std::make_shared<Object>(infra->device.Get(), meshes["triangle_xyz"], vses["vs0"], pses["ps0"], nullptr, nullptr);
@@ -245,11 +253,17 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	cube_color_image->dss = dss_draw;
 	cube_color_image->dss_stencil_ref = cube_mirror->dss_stencil_ref;
 	objs["cube_color_image"] = cube_color_image;
+	auto teapot = std::make_shared<Object>(infra->device.Get(), meshes["teapot"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
+	teapot->transform.pos.y = 3;
+	teapot->material = Material::orange;
+	teapot->dss = dss_set;
+	objs["teapot"] = teapot;
 	for (auto& p : objs)
 	{
 		if (!*p.second)
 			return 40;
 	}
+	cout << "finish setup objs" << endl;
 
 	// cams
 	auto dsv_buffer = Texture::CreateTextureForDSV(infra->device.Get(), window->GetWidth(), window->GetHeight());
@@ -262,6 +276,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 		if (!*p.second)
 			return 50;
 	}
+	cout << "finish setup cams" << endl;
 
 	// control_value
 	control_value["bg_r"] = 0.7804f;
@@ -357,6 +372,7 @@ int dx11_render(Infrastructure* infra)
 	objs["cube_tex"]->Draw(infra->context.Get());
 	objs["sphere_alpha"]->Draw(infra->context.Get());
 	objs["cube_mirror"]->Draw(infra->context.Get());
+	objs["teapot"]->Draw(infra->context.Get());
 
 	// clear depth and reflect camera
 	cam->ClearDepth(infra->context.Get());
