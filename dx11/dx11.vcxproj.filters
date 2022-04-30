@@ -92,5 +92,14 @@
     <FxCompile Include="ps_tex.hlsl">
       <Filter>shader</Filter>
     </FxCompile>
+    <FxCompile Include="vs_cartoon.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+    <FxCompile Include="vs_expand_black.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+    <FxCompile Include="ps_cartoon.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

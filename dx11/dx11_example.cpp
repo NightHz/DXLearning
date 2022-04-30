@@ -61,6 +61,8 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	vses["vs0"] = VertexShader::CompileVS(infra->device.Get(), L"vs0.hlsl");
 	vses["vs_transform"] = VertexShader::CompileVS(infra->device.Get(), L"vs_transform.hlsl");
 	vses["vs_light"] = VertexShader::CompileVS(infra->device.Get(), L"vs_light.hlsl");
+	vses["vs_cartoon"] = VertexShader::CompileVS(infra->device.Get(), L"vs_cartoon.hlsl");
+	vses["vs_expand_black"] = VertexShader::CompileVS(infra->device.Get(), L"vs_expand_black.hlsl");
 	for (auto& p : vses)
 	{
 		if (p.second == nullptr)
@@ -72,6 +74,7 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	pses["ps0"] = PixelShader::CompilePS(infra->device.Get(), L"ps0.hlsl");
 	pses["ps_color"] = PixelShader::CompilePS(infra->device.Get(), L"ps_color.hlsl");
 	pses["ps_tex"] = PixelShader::CompilePS(infra->device.Get(), L"ps_tex.hlsl");
+	pses["ps_cartoon"] = PixelShader::CompilePS(infra->device.Get(), L"ps_cartoon.hlsl");
 	for (auto& p : pses)
 	{
 		if (p.second == nullptr)
@@ -253,11 +256,16 @@ int dx11_setup(Rehenz::SimpleWindow* window, Infrastructure* infra)
 	cube_color_image->dss = dss_draw;
 	cube_color_image->dss_stencil_ref = cube_mirror->dss_stencil_ref;
 	objs["cube_color_image"] = cube_color_image;
-	auto teapot = std::make_shared<Object>(infra->device.Get(), meshes["teapot"], vses["vs_light"], pses["ps_color"], vscb_transform, vscb_material);
+	auto teapot = std::make_shared<Object>(infra->device.Get(), meshes["teapot"], vses["vs_cartoon"], pses["ps_cartoon"], vscb_transform, vscb_material);
 	teapot->transform.pos.y = 3;
 	teapot->material = Material::orange;
 	teapot->dss = dss_set;
 	objs["teapot"] = teapot;
+	auto teapot_back = std::make_shared<Object>(infra->device.Get(), teapot->mesh, vses["vs_expand_black"], pses["ps_color"], vscb_transform, vscb_material);
+	teapot_back->transform = teapot->transform;
+	teapot_back->rs = rs_frontcull;
+	teapot_back->dss = dss_set;
+	objs["teapot_back"] = teapot_back;
 	for (auto& p : objs)
 	{
 		if (!*p.second)
@@ -355,6 +363,7 @@ int dx11_render(Infrastructure* infra)
 
 	// sync
 	objs["cube_color_image"]->transform = objs["cube_color"]->transform;
+	objs["teapot_back"]->transform = objs["teapot"]->transform;
 
 	// clear and set camera
 	auto& cam = cams["cam"];
@@ -373,6 +382,7 @@ int dx11_render(Infrastructure* infra)
 	objs["sphere_alpha"]->Draw(infra->context.Get());
 	objs["cube_mirror"]->Draw(infra->context.Get());
 	objs["teapot"]->Draw(infra->context.Get());
+	objs["teapot_back"]->Draw(infra->context.Get());
 
 	// clear depth and reflect camera
 	cam->ClearDepth(infra->context.Get());
