@@ -220,4 +220,9 @@ dx11 与 dx9 有很大的不同。
 |:-:|:-:|
 |![](img/dx11_04blend.png)|![](img/dx11_05stencil.png)|
 
+### 应用: 导入 .obj 模型与卡通渲染
+
+| .obj | cartoon |
+|:-:|:-:|
+|![](img/dx11_06teapot.png)|![](img/dx11_07cartoon.png)|
 
