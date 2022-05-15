@@ -2,6 +2,90 @@
 
 - [d3d9](#direct3d-9-docs)
 - [d3d11](#direct3d-11-docs)
+- [d3d12](#direct3d-12-docs)
+
+
+## Direct3D 12 <sup>[docs](https://docs.microsoft.com/en-us/windows/win32/direct3d12/direct3d-12-graphics)</sup>
+
+
+
+
+## Direct3D 11 <sup>[docs](https://docs.microsoft.com/en-us/windows/win32/direct3d11/atoc-dx-graphics-direct3d-11)</sup>
+
+dx11 与 dx9 有很大的不同。
+
+**第一**， dx11 没有固定渲染管线，许多功能直接由 shader 完成。 dx11 的渲染管线可以[在这](https://docs.microsoft.com/en-us/windows/win32/direct3d11/overviews-direct3d-11-graphics-pipeline)看到，简单叙述为 `IA -> VS -> HS -> DS -> GS -> RS -> PS -> OM` ， 在 `context` 接口中也能看到这些前缀。
+
+**第二**， dx11 对功能做了分离，原本只需要一个 `device` 接口，现在被分离成了 `device,context,swap_chain` 三个接口。 `device` 负责创建资源，每个创建函数都是线程安全的； `context` 负责绘制，它不是线程安全的，但可以让每个线程拥有一个 `delay context` 来记录绘制命令，之后递交主线程 `immediate context` 完成最终绘制； `swap_chain` 属于 [dxgi](https://docs.microsoft.com/en-us/windows/win32/direct3ddxgi/dx-graphics-dxgi) ，它保留多个缓冲区域，并将这些缓冲区域轮换刷新到屏幕上。
+
+**第三**， dx11 的渲染目标不直接绑定到屏幕缓冲。如第二点所说，屏幕缓冲由 `swap_chain` 负责，要想让 `context` 绘制到屏幕上，则需要用屏幕缓冲创建 `view` 资源，再对 `context` 设置相应渲染目标。
+
+**第四**， dx11 弃用了 d3dx 实用库，如需使用数学，需要 `#include <DirectXMath.h>` ； dx11 还不再直接支持效果框架，官方对这部分进行了开源，如需使用需要自己编译。
+
+另外，可以 `#include <wrl/client.h>` 来使用组件的智能指针 `Microsoft::WRL::ComPtr< >` 。
+
+### 基本流程
+
+在创建完基本设施（设备、上下文、交换链）后，明确下面三要素便可完成绘制
+
+1. **绘制对象**
+   - 网格
+     - 顶点信息
+     - 索引信息
+   - 变换信息
+   - 材质
+     - vertex shader
+     - pixel shader
+     - shader 所需的颜色值、贴图等资源
+     - ...
+   - 渲染信息
+     - 背面消隐
+     - 颜色混合
+     - 模板测试
+     - ...
+2. **摄像机**
+   - 变换信息
+   - 采样信息
+   - 渲染目标
+3. **其它对渲染产生影响的要素**
+   - 场景光源
+
+绘制对象的变换信息、摄像机的变换信息、其它对渲染产生影响的要素，这三部分其实是发送给 shader 作为参数的。直接设置到上下文的只有网格信息、材质、渲染信息、采样信息、渲染目标；网格信息对应 `IA` ，材质对应各个 shader ，渲染信息、采样信息、渲染目标对应 `RS,OM` 。
+
+为了与 shader 进行数据交互，还需要额外创建常量缓存区（ `bn` ），变换信息、颜色、光照等都需要写入常量缓存区。这个常量缓存区一般创建为动态可写缓存区，并要特别注意 hlsl 的内存优先顺序与对齐方案。而纹理则是使用纹理寄存器（ `tn` ）。
+
+### 基础立方体
+
+![](img/dx11_01cube.gif)
+
+### 光照
+
+通过常量缓存区传递数据，在 shader 中计算光照下的颜色。
+
+|方向光|方向光+点光源|点光源|
+|:-:|:-:|:-:|
+|![](img/dx11_02light1.png)|![](img/dx11_02light2.png)|![](img/dx11_02light3.png)|
+
+### 贴图
+
+通过纹理寄存器设置纹理，在 shader 中获取纹理颜色。
+
+![](img/dx11_03texture.gif)
+
+### 混合与模板
+
+在 `OM` 阶段设置混合状态与深度模板状态，在 `RS` 阶段设置光栅化状态。
+
+|透明|镜面|
+|:-:|:-:|
+|![](img/dx11_04blend.png)|![](img/dx11_05stencil.png)|
+
+### 应用: 导入 .obj 模型与卡通渲染
+
+| .obj | cartoon |
+|:-:|:-:|
+|![](img/dx11_06teapot.png)|![](img/dx11_07cartoon.png)|
+
 
 ## Direct3D 9 <sup>[docs](https://docs.microsoft.com/en-us/windows/win32/direct3d9/dx9-graphics)</sup>
 
@@ -148,81 +232,4 @@
 
 ![](img/dx9_13effect_fog.gif)
 
-
-
-## Direct3D 11 <sup>[docs](https://docs.microsoft.com/en-us/windows/win32/direct3d11/atoc-dx-graphics-direct3d-11)</sup>
-
-dx11 与 dx9 有很大的不同。
-
-**第一**， dx11 没有固定渲染管线，许多功能直接由 shader 完成。 dx11 的渲染管线可以[在这](https://docs.microsoft.com/en-us/windows/win32/direct3d11/overviews-direct3d-11-graphics-pipeline)看到，简单叙述为 `IA -> VS -> HS -> DS -> GS -> RS -> PS -> OM` ， 在 `context` 接口中也能看到这些前缀。
-
-**第二**， dx11 对功能做了分离，原本只需要一个 `device` 接口，现在被分离成了 `device,context,swap_chain` 三个接口。 `device` 负责创建资源，每个创建函数都是线程安全的； `context` 负责绘制，它不是线程安全的，但可以让每个线程拥有一个 `delay context` 来记录绘制命令，之后递交主线程 `immediate context` 完成最终绘制； `swap_chain` 属于 [dxgi](https://docs.microsoft.com/en-us/windows/win32/direct3ddxgi/dx-graphics-dxgi) ，它保留多个缓冲区域，并将这些缓冲区域轮换刷新到屏幕上。
-
-**第三**， dx11 的渲染目标不直接绑定到屏幕缓冲。如第二点所说，屏幕缓冲由 `swap_chain` 负责，要想让 `context` 绘制到屏幕上，则需要用屏幕缓冲创建 `view` 资源，再对 `context` 设置相应渲染目标。
-
-**第四**， dx11 弃用了 d3dx 实用库，如需使用数学，需要 `#include <DirectXMath.h>` ； dx11 还不再直接支持效果框架，官方对这部分进行了开源，如需使用需要自己编译。
-
-另外，可以 `#include <wrl/client.h>` 来使用组件的智能指针 `Microsoft::WRL::ComPtr< >` 。
-
-### 基本流程
-
-在创建完基本设施（设备、上下文、交换链）后，明确下面三要素便可完成绘制
-
-1. **绘制对象**
-   - 网格
-     - 顶点信息
-     - 索引信息
-   - 变换信息
-   - 材质
-     - vertex shader
-     - pixel shader
-     - shader 所需的颜色值、贴图等资源
-     - ...
-   - 渲染信息
-     - 背面消隐
-     - 颜色混合
-     - 模板测试
-     - ...
-2. **摄像机**
-   - 变换信息
-   - 采样信息
-   - 渲染目标
-3. **其它对渲染产生影响的要素**
-   - 场景光源
-
-绘制对象的变换信息、摄像机的变换信息、其它对渲染产生影响的要素，这三部分其实是发送给 shader 作为参数的。直接设置到上下文的只有网格信息、材质、渲染信息、采样信息、渲染目标；网格信息对应 `IA` ，材质对应各个 shader ，渲染信息、采样信息、渲染目标对应 `RS,OM` 。
-
-为了与 shader 进行数据交互，还需要额外创建常量缓存区（ `bn` ），变换信息、颜色、光照等都需要写入常量缓存区。这个常量缓存区一般创建为动态可写缓存区，并要特别注意 hlsl 的内存优先顺序与对齐方案。而纹理则是使用纹理寄存器（ `tn` ）。
-
-### 基础立方体
-
-![](img/dx11_01cube.gif)
-
-### 光照
-
-通过常量缓存区传递数据，在 shader 中计算光照下的颜色。
-
-|方向光|方向光+点光源|点光源|
-|:-:|:-:|:-:|
-|![](img/dx11_02light1.png)|![](img/dx11_02light2.png)|![](img/dx11_02light3.png)|
-
-### 贴图
-
-通过纹理寄存器设置纹理，在 shader 中获取纹理颜色。
-
-![](img/dx11_03texture.gif)
-
-### 混合与模板
-
-在 `OM` 阶段设置混合状态与深度模板状态，在 `RS` 阶段设置光栅化状态。
-
-|透明|镜面|
-|:-:|:-:|
-|![](img/dx11_04blend.png)|![](img/dx11_05stencil.png)|
-
-### 应用: 导入 .obj 模型与卡通渲染
-
-| .obj | cartoon |
-|:-:|:-:|
-|![](img/dx11_06teapot.png)|![](img/dx11_07cartoon.png)|
 
