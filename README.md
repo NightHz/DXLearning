@@ -7,6 +7,17 @@
 
 ## Direct3D 12 <sup>[docs](https://docs.microsoft.com/en-us/windows/win32/direct3d12/direct3d-12-graphics)</sup>
 
+dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/win32/direct3d12/pipelines-and-shaders-with-directx-12)看到，其延续了 dx11 ，可以简述为 `IA -> VS -> HS --> TS -> DS -> GS -> RS -> PS -> OM` 。
+
+在接口功能上，dx11 中的 `context` 被移除，取而代之的是 `command list` ，所有绘制命令通过 `command list` 打包再发送给主线程 `command queue` 执行绘制，后者是线程安全的。与屏幕显示的对接依旧由 [dxgi](https://docs.microsoft.com/en-us/windows/win32/direct3ddxgi/dx-graphics-dxgi) 完成。
+
+当 cpu 想要修改等待被 gpu 使用的资源时，需要对 cpu 和 gpu 进行同步，同步会使用 `fence` 完成。
+
+dx12 对资源有了更强的控制力，更加底层
+
+- dx12 中 `view` 是一种**描述符**，其本身不含有资源，而是引用资源，它帮助 GPU 理解与使用资源
+- dx12 允许应用程序主动管理显存中的**资源驻留**情况
+- dx12 中的**资源状态**由应用程序手动控制
 
 
 

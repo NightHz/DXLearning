@@ -17,6 +17,9 @@
       <UniqueIdentifier>{36a8d71b-9056-484a-ae4f-fc1ce0c3f112}</UniqueIdentifier>
       <Extensions>hlsl;hlsli;fx;vs;ps;gs;hs;ds;cs;ts;glsl;vert;tesc;tese;geom;frag;comp</Extensions>
     </Filter>
+    <Filter Include="Rehenz">
+      <UniqueIdentifier>{97a8a9c7-15e5-4d17-978d-5abf24733da4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -25,10 +28,43 @@
     <ClCompile Include="dx12.cpp">
       <Filter>source</Filter>
     </ClCompile>
+    <ClCompile Include="Rehenz\fps_counter.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
+    <ClCompile Include="Rehenz\input.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
+    <ClCompile Include="Rehenz\window.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
+    <ClCompile Include="Rehenz\window_fc.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
+    <ClCompile Include="rehenz\math.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dx12.h">
       <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\fps_counter.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\input.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\type.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\window.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\window_fc.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="rehenz\math.h">
+      <Filter>Rehenz</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
