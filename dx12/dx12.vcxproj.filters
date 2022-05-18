@@ -43,6 +43,18 @@
     <ClCompile Include="rehenz\math.cpp">
       <Filter>Rehenz</Filter>
     </ClCompile>
+    <ClCompile Include="Rehenz\mesh.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
+    <ClCompile Include="Rehenz\render_soft.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
+    <ClCompile Include="Rehenz\clipper.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
+    <ClCompile Include="Rehenz\drawer.cpp">
+      <Filter>Rehenz</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dx12.h">
@@ -64,6 +76,21 @@
       <Filter>Rehenz</Filter>
     </ClInclude>
     <ClInclude Include="rehenz\math.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\mesh.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\util.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\render_soft.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\clipper.h">
+      <Filter>Rehenz</Filter>
+    </ClInclude>
+    <ClInclude Include="Rehenz\drawer.h">
       <Filter>Rehenz</Filter>
     </ClInclude>
   </ItemGroup>
