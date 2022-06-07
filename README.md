@@ -7,17 +7,48 @@
 
 ## Direct3D 12 <sup>[docs](https://docs.microsoft.com/en-us/windows/win32/direct3d12/direct3d-12-graphics)</sup>
 
-dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/win32/direct3d12/pipelines-and-shaders-with-directx-12)看到，其延续了 dx11 ，可以简述为 `IA -> VS -> HS --> TS -> DS -> GS -> RS -> PS -> OM` 。
+dx12 被完全地重新设计， dx11 中为了过渡还保留了一些旧的东西，而 dx12 则完全抛弃了那些，变得更加底层。
 
-在接口功能上，dx11 中的 `context` 被移除，取而代之的是 `command list` ，所有绘制命令通过 `command list` 打包再发送给主线程 `command queue` 执行绘制，后者是线程安全的。与屏幕显示的对接依旧由 [dxgi](https://docs.microsoft.com/en-us/windows/win32/direct3ddxgi/dx-graphics-dxgi) 完成。
+### 预备
 
-当 cpu 想要修改等待被 gpu 使用的资源时，需要对 cpu 和 gpu 进行同步，同步会使用 `fence` 完成。
+**COM** ：组件对象模型。
 
-dx12 对资源有了更强的控制力，更加底层
 
-- dx12 中 `view` 是一种**描述符**，其本身不含有资源，而是引用资源，它帮助 GPU 理解与使用资源
-- dx12 允许应用程序主动管理显存中的**资源驻留**情况
-- dx12 中的**资源状态**由应用程序手动控制
+**[dxgi](https://docs.microsoft.com/en-us/windows/win32/direct3ddxgi/dx-graphics-dxgi)** ：交换链、显示模式、适配器、屏幕都归它管。
+
+**交换链**
+
+
+**纹理资源与数据格式**：统一为 `DXGI_FORMAT` 枚举类型。
+
+**描述符**： dx 资源存储在显存，本质上为内存块，描述符告诉 gpu 如何理解和使用这个内存块，描述符（descriptor）与视图（view）是同义词，本身不含有资源；描述符存储在描述符堆中。
+
+**资源驻留**： dx12 允许应用程序主动管理显存中的资源驻留情况。
+
+**资源状态与转换**：资源状态由枚举量 `D3D12_RESOURCE_STATES` 标识，资源状态原本是驱动的活， dx12 交由软件层管理，通过递交 `resource barrier` 命令可完成转换。
+
+
+**功能检测**： `CheckFeatureSupport` 检查所有功能是否被支持。
+
+**功能级别**
+
+**深度缓冲**
+
+**多重采样**： SSAA 超级采样是指对单一像素多次采样与计算颜色，而 MSAA 多重采样仅多次采样，颜色计算只进行一次。但是， dx12 不支持直接创建 MSAA 的交换链。
+
+
+**命令列表**：我们通过递交命令来让 gpu 帮我们做事。 gpu 有一个 `command queue` ，它会依次执行其中的命令，我们用 cpu 创建 `command list` 打包好命令，然后提交到 gpu 队列中去；
+这种交互方法代替了 dx11 中的 `context` ， `command list` 不是线程安全的，我们可以用多个线程创建很多 `command list` ，然后递交到同一个 `command queue` 中。
+然而这两个东西都只保留命令的引用，命令实际存储在 `command allocator` 中，提交命令也只是将引用交给队列； `command allocator` 创建新命令不是线程安全的，
+所以，要么不同时使用两个 `command list`  记录命令，要么创建多个 `command allocator` ；
+由于 gpu 队列也引用 `command allocator` 的命令，因此不能随意重置 `command allocator` 。
+
+**cpu gpu 同步**：命令会引用一些资源与数据，在 gpu 执行命令前， cpu 修改了它，便会产生问题；我们暂时使用 `fense` 来让 cpu 等待 gpu 完成所有命令这种粗暴的方法。
+
+
+**渲染管线**： dx12 的渲染管线可以[在这](https://docs.microsoft.com/en-us/windows/win32/direct3d12/pipelines-and-shaders-with-directx-12)看到，其延续了 dx11 ，可以简述为 `IA -> VS -> HS --> TS -> DS -> GS -> RS -> PS -> OM` 。
+
+
 
 
 

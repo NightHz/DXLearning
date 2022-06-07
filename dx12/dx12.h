@@ -8,6 +8,7 @@
 #include "Rehenz/type.h"
 #include <ostream>
 #include "Rehenz/window_fc.h"
+#include "Rehenz/render_soft.h"
 
 namespace Dx12
 {
@@ -33,6 +34,21 @@ namespace Dx12
     using dxm::CXMMATRIX; // other
     using dxm::XMFLOAT4X4;
 
+    inline XMVECTOR ToXmVector(Rehenz::Vector v)
+    {
+        XMFLOAT4 f4(v.x, v.y, v.z, v.w);
+        return dxm::XMLoadFloat4(&f4);
+    }
+    inline XMMATRIX ToXmMatrix(const Rehenz::Matrix& m)
+    {
+        XMFLOAT4X4 f4x4(
+            m(0, 0), m(0, 1), m(0, 2), m(0, 3),
+            m(1, 0), m(1, 1), m(1, 2), m(1, 3),
+            m(2, 0), m(2, 1), m(2, 2), m(2, 3),
+            m(3, 0), m(3, 1), m(3, 2), m(3, 3));
+        return dxm::XMLoadFloat4x4(&f4x4);
+    }
+
 
 
     class DeviceDx12;
@@ -41,7 +57,7 @@ namespace Dx12
 
     class DeviceDx12
     {
-    private:
+    protected:
         // device & fence
         ComPtr<ID3D12Device8> device;
         ComPtr<ID3D12Fence1> fence;
@@ -70,9 +86,33 @@ namespace Dx12
         D3D12_VIEWPORT vp;
         D3D12_RECT sr;
 
+
+        // util
+        inline D3D12_RESOURCE_BARRIER GetTransitionStruct(ID3D12Resource2* rc, D3D12_RESOURCE_STATES start, D3D12_RESOURCE_STATES end)
+        {
+            D3D12_RESOURCE_BARRIER rc_barr;
+            rc_barr.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            rc_barr.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+            rc_barr.Transition.pResource = rc;
+            rc_barr.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            rc_barr.Transition.StateBefore = start;
+            rc_barr.Transition.StateAfter = end;
+            return rc_barr;
+        }
+
         // get descriptor & view buffer
-        D3D12_CPU_DESCRIPTOR_HANDLE GetRtv(UINT i = 0);
-        D3D12_CPU_DESCRIPTOR_HANDLE GetDsv(UINT i = 0);
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetRtv(UINT i = 0)
+        {
+            auto dh = rtv_heap->GetCPUDescriptorHandleForHeapStart();
+            dh.ptr += rtv_size * static_cast<unsigned long long>(i);
+            return dh;
+        };
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetDsv(UINT i = 0)
+        {
+            auto dh = dsv_heap->GetCPUDescriptorHandleForHeapStart();
+            dh.ptr += dsv_size * static_cast<unsigned long long>(i);
+            return dh;
+        };
         inline D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRtv() { return GetRtv(sc->GetCurrentBackBufferIndex()); }
         inline ID3D12Resource2* GetCurrentRtvBuffer() { return rtv_buffers[sc->GetCurrentBackBufferIndex()].Get(); }
 

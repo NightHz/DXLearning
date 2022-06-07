@@ -2,20 +2,6 @@
 
 namespace Dx12
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE DeviceDx12::GetRtv(UINT i)
-    {
-        auto dh = rtv_heap->GetCPUDescriptorHandleForHeapStart();
-        dh.ptr += rtv_size * static_cast<unsigned long long>(i);
-        return dh;
-    }
-
-    D3D12_CPU_DESCRIPTOR_HANDLE DeviceDx12::GetDsv(UINT i)
-    {
-        auto dh = dsv_heap->GetCPUDescriptorHandleForHeapStart();
-        dh.ptr += dsv_size * static_cast<unsigned long long>(i);
-        return dh;
-    }
-
     bool DeviceDx12::FlushCmdQueue()
     {
         HRESULT hr = S_OK;
@@ -244,13 +230,8 @@ namespace Dx12
             return false;
 
         // change rtv -> render target
-        D3D12_RESOURCE_BARRIER rc_barr;
-        rc_barr.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        rc_barr.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        rc_barr.Transition.pResource = GetCurrentRtvBuffer();
-        rc_barr.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        rc_barr.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-        rc_barr.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        auto rc_barr = GetTransitionStruct(GetCurrentRtvBuffer(),
+            D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
         cmd_list->ResourceBarrier(1, &rc_barr);
 
         // set viewport & scissor rect
@@ -268,12 +249,8 @@ namespace Dx12
         cmd_list->OMSetRenderTargets(1, &rtv, true, &dsv);
 
         // change rtv -> present
-        rc_barr.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        rc_barr.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        rc_barr.Transition.pResource = GetCurrentRtvBuffer();
-        rc_barr.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        rc_barr.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        rc_barr.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+        rc_barr = GetTransitionStruct(GetCurrentRtvBuffer(),
+            D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
         cmd_list->ResourceBarrier(1, &rc_barr);
 
         // finish command list
