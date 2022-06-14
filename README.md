@@ -21,7 +21,7 @@ dx12 被完全地重新设计， dx11 中为了过渡还保留了一些旧的东
 
 **纹理资源与数据格式**：统一为 `DXGI_FORMAT` 枚举类型。
 
-**描述符**： dx 资源存储在显存，本质上为内存块，描述符告诉 gpu 如何理解和使用这个内存块，描述符（descriptor）与视图（view）是同义词，本身不含有资源；描述符存储在描述符堆中。
+**描述符**： dx 资源存储在显存，本质上为内存块，描述符告诉 gpu 如何理解和使用这个内存块，描述符（descriptor）与视图（view）是同义词，本身不含有资源；部分描述符存储在描述符堆中。
 
 **资源驻留**： dx12 允许应用程序主动管理显存中的资源驻留情况。
 
@@ -46,7 +46,50 @@ dx12 被完全地重新设计， dx11 中为了过渡还保留了一些旧的东
 **cpu gpu 同步**：命令会引用一些资源与数据，在 gpu 执行命令前， cpu 修改了它，便会产生问题；我们暂时使用 `fense` 来让 cpu 等待 gpu 完成所有命令这种粗暴的方法。
 
 
-**渲染管线**： dx12 的渲染管线可以[在这](https://docs.microsoft.com/en-us/windows/win32/direct3d12/pipelines-and-shaders-with-directx-12)看到，其延续了 dx11 ，可以简述为 `IA -> VS -> HS --> TS -> DS -> GS -> RS -> PS -> OM` 。
+### 初始化
+
+1. 创建基础设施
+   1. 创建设备 `ID3D12Device`
+   2. 创建 `ID3D12Fence` 用于同步 cpu 与 gpu
+   3. 创建命令列表 `ID3D12CommandQueue` `ID3D12CommandAllocator` `ID3D12GraphicsCommandList`
+   4. 创建交换链 `IDXGISwapChain` ，其中包含了用于渲染的屏幕资源
+2. 创建基础资源
+   1. 创建描述符堆 `ID3D12DescriptorHeap` ，至少三个分别用于渲染目标、深度模板缓存、常量缓存
+   2. 创建上面三个堆对应的一些资源和相应的描述符
+   3. 存储视口 `D3D12_VIEWPORT` 、裁切矩阵、相机信息
+3. 初始化
+   1. 创建根签名 `ID3D12RootSignature`
+   2. 创建流水线状态对象（PSO） `ID3D12PipelineState` ，我们通过它绑定输入布局、着色器等信息
+   3. 创建用于渲染的更多资源，包括顶点缓存、索引缓存
+
+
+### 渲染流水线
+
+dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/win32/direct3d12/pipelines-and-shaders-with-directx-12)看到，其延续了 dx11 ，可以简述为 `IA -> VS -> HS -> TS -> DS -> GS -> RS -> PS -> OM` 。
+
+其中各 shader 阶段均通过 PSO 设置 shader 代码，并借由根签名将资源映射到 shader 的输入寄存器。 PSO 还设置了 IA 的输入布局、 RS 的光栅化参数、 OM 的混合参数、深度模板参数。
+
+1. 开始阶段
+   1. 重置命令列表 `Reset`
+   2. 转换屏幕资源状态为 `D3D12_RESOURCE_STATE_RENDER_TARGET`
+   3. 清屏 `ClearRenderTargetView` `ClearDepthStencilView`
+   4. 设置渲染目标 `OMSetRenderTargets`
+   5. 设置视口与裁切矩阵 `RSSetViewports` `RSSetScissorRects`
+2. 布局阶段
+   1. 设置常量缓存 `SetDescriptorHeaps` `SetGraphicsRootDescriptorTable`
+   2. 设置根签名 `SetGraphicsRootSignature`
+   3. 设置 PSO `SetPipelineState`
+3. 绘制阶段
+   1. 设置图元拓扑 `IASetPrimitiveTopology`
+   2. 设置顶点缓存 `IASetVertexBuffers`
+   3. 设置索引缓存 `IASetIndexBuffer`
+   4. 向常量缓存写入数据 `Map` 与 `Unmap`
+   5. 绘制 `DrawInstanced` 或 `DrawIndexedInstanced`
+4. 结束阶段
+   1. 转换屏幕资源状态为 `D3D12_RESOURCE_STATE_PRESENT`
+   2. 递交命令给 gpu `Close` `ExecuteCommandLists`
+   3. 更新交换链 `Present`
+   4. 同步 cpu 与 gpu
 
 
 

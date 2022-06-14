@@ -94,4 +94,12 @@
       <Filter>Rehenz</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="dx12_vs_transform.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+    <FxCompile Include="dx12_ps_color.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+  </ItemGroup>
 </Project>

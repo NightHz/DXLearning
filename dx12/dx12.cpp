@@ -2,6 +2,96 @@
 
 namespace Dx12
 {
+    bool UtilDx12::CreateDefaultBuffer(ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list,
+        const void* data, UINT64 size, ComPtr<ID3D12Resource2>& buffer, ComPtr<ID3D12Resource2>& uploader)
+    {
+        HRESULT hr = S_OK;
+
+        // create buffer
+        D3D12_RESOURCE_DESC rc_desc;
+        D3D12_HEAP_PROPERTIES heap_prop;
+        rc_desc = GetBufferRcDesc(size);
+        heap_prop = GetHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+        hr = device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(buffer.GetAddressOf()));
+        if (FAILED(hr))
+            return false;
+
+        // create upload
+        heap_prop = GetHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
+        hr = device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(uploader.GetAddressOf()));
+        if (FAILED(hr))
+            return false;
+
+        // map data to upload
+        void* data2;
+        hr = uploader->Map(0, nullptr, &data2);
+        if (FAILED(hr))
+            return false;
+        std::memcpy(data2, data, size);
+        uploader->Unmap(0, nullptr);
+
+        // copy data
+        auto rc_barr = UtilDx12::GetTransitionStruct(buffer.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
+        cmd_list->ResourceBarrier(1, &rc_barr);
+        cmd_list->CopyBufferRegion(buffer.Get(), 0, uploader.Get(), 0, size);
+        rc_barr = UtilDx12::GetTransitionStruct(buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
+        cmd_list->ResourceBarrier(1, &rc_barr);
+
+        return true;
+    }
+
+    ComPtr<ID3DBlob> UtilDx12::LoadShaderFile(const std::wstring& filename)
+    {
+        HRESULT hr = S_OK;
+        
+        ComPtr<ID3DBlob> shader_blob;
+        
+        // open file
+        std::ifstream fin(filename, std::ios::binary);
+#ifdef _DEBUG
+        if (!fin)
+            fin.open(L"../x64/Debug/" + filename, std::ios::binary);
+#endif
+        if (!fin)
+            return nullptr;
+
+        // get size
+        fin.seekg(0, std::ios_base::end);
+        std::ifstream::pos_type size = (int)fin.tellg();
+        fin.seekg(0, std::ios_base::beg);
+
+        // read to blob
+        hr = D3DCreateBlob(size, shader_blob.GetAddressOf());
+        if (FAILED(hr))
+        {
+            fin.close();
+            return nullptr;
+        }
+        fin.read(static_cast<char*>(shader_blob->GetBufferPointer()), size);
+        fin.close();
+
+        return shader_blob;
+    }
+
+    ComPtr<ID3DBlob> UtilDx12::CompileShaderFile(const std::wstring& filename, const std::string& shader_type)
+    {
+        HRESULT hr = S_OK;
+
+        ComPtr<ID3DBlob> shader_blob;
+
+        // compile shader
+        UINT flags = D3DCOMPILE_ENABLE_STRICTNESS;
+#ifdef _DEBUG
+        flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#endif
+        hr = D3DCompileFromFile(filename.c_str(), nullptr, nullptr, "main", (shader_type + "_5_1").c_str(),
+            flags, 0, shader_blob.GetAddressOf(), nullptr);
+        if (FAILED(hr))
+            return nullptr;
+
+        return shader_blob;
+    }
+
     bool DeviceDx12::FlushCmdQueue()
     {
         HRESULT hr = S_OK;
@@ -38,7 +128,45 @@ namespace Dx12
 
     DeviceDx12::~DeviceDx12()
     {
-        FlushCmdQueue();
+    }
+
+    bool DeviceDx12::ResetCmd()
+    {
+        // reset command queue
+        HRESULT hr = cmd_alloc->Reset();
+        if (FAILED(hr))
+            return false;
+        hr = cmd_list->Reset(cmd_alloc.Get(), nullptr);
+        if (FAILED(hr))
+            return false;
+
+        return true;
+    }
+
+    bool DeviceDx12::FinishCmd()
+    {
+        // finish command list
+        HRESULT hr = cmd_list->Close();
+        if (FAILED(hr))
+            return false;
+
+        // execute commands
+        ID3D12CommandList* lists[]{ cmd_list.Get() };
+        cmd_queue->ExecuteCommandLists(1, lists);
+
+        return true;
+    }
+
+    bool DeviceDx12::SetCBuffer(const CBTransform& cb_struct)
+    {
+        CBTransform* data;
+        HRESULT hr = cbuffer->Map(0, nullptr, reinterpret_cast<void**>(&data));
+        if (FAILED(hr))
+            return false;
+        std::memcpy(data, &cb_struct, sizeof(CBTransform));
+        cbuffer->Unmap(0, nullptr);
+
+        return false;
     }
 
     std::shared_ptr<DeviceDx12> DeviceDx12::CreateDevice(Rehenz::SimpleWindow* window)
@@ -163,29 +291,61 @@ namespace Dx12
         rc_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
         rc_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
         D3D12_HEAP_PROPERTIES heap_prop;
-        heap_prop.Type = D3D12_HEAP_TYPE_DEFAULT;
-        heap_prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-        heap_prop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-        heap_prop.CreationNodeMask = 1;
-        heap_prop.VisibleNodeMask = 1;
+        heap_prop = UtilDx12::GetHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
         D3D12_CLEAR_VALUE clear_val;
-        clear_val.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+        clear_val.Format = rc_desc.Format;
         clear_val.DepthStencil.Depth = 1.0f;
         clear_val.DepthStencil.Stencil = 0;
-        hr = p->device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_COMMON, &clear_val, IID_PPV_ARGS(p->dsv_buffer.GetAddressOf()));
+        hr = p->device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clear_val, IID_PPV_ARGS(p->dsv_buffer.GetAddressOf()));
         if (FAILED(hr))
             return nullptr;
         p->device->CreateDepthStencilView(p->dsv_buffer.Get(), nullptr, p->GetDsv());
 
-        // change dsv -> depth write
-        D3D12_RESOURCE_BARRIER rc_barr;
-        rc_barr.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        rc_barr.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        rc_barr.Transition.pResource = p->dsv_buffer.Get();
-        rc_barr.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        rc_barr.Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
-        rc_barr.Transition.StateAfter = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-        p->cmd_list->ResourceBarrier(1, &rc_barr);
+        // create cbv heap
+        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        dh_desc.NumDescriptors = 1;
+        dh_desc.NodeMask = 0;
+        hr = p->device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(p->cbv_heap.GetAddressOf()));
+        if (FAILED(hr))
+            return nullptr;
+
+        // create cbuffer and cbv
+        rc_desc = UtilDx12::GetBufferRcDesc(UtilDx12::AlignCBuffer(sizeof(CBTransform)));
+        heap_prop = UtilDx12::GetHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
+        hr = p->device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(p->cbuffer.GetAddressOf()));
+        if (FAILED(hr))
+            return nullptr;
+        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc;
+        cbv_desc.BufferLocation = p->cbuffer->GetGPUVirtualAddress();
+        cbv_desc.SizeInBytes = static_cast<UINT>(rc_desc.Width);
+        p->device->CreateConstantBufferView(&cbv_desc, p->GetCbv());
+
+        // create root sig
+        D3D12_DESCRIPTOR_RANGE dr;
+        dr.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+        dr.NumDescriptors = 1;
+        dr.BaseShaderRegister = 0;
+        dr.RegisterSpace = 0;
+        dr.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+        D3D12_ROOT_PARAMETER rp;
+        rp.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        rp.DescriptorTable.NumDescriptorRanges = 1;
+        rp.DescriptorTable.pDescriptorRanges = &dr;
+        rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+        D3D12_ROOT_SIGNATURE_DESC rs_desc;
+        rs_desc.NumParameters = 1;
+        rs_desc.pParameters = &rp;
+        rs_desc.NumStaticSamplers = 0;
+        rs_desc.pStaticSamplers = nullptr;
+        rs_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+        ComPtr<ID3DBlob> root_sig_blob;
+        hr = D3D12SerializeRootSignature(&rs_desc, D3D_ROOT_SIGNATURE_VERSION_1, root_sig_blob.GetAddressOf(), nullptr);
+        if (FAILED(hr))
+            return nullptr;
+        hr = p->device->CreateRootSignature(0, root_sig_blob->GetBufferPointer(), root_sig_blob->GetBufferSize(), IID_PPV_ARGS(p->root_sig.GetAddressOf()));
+        if (FAILED(hr))
+            return nullptr;
 
         // set viewport
         p->vp.TopLeftX = 0;
@@ -194,14 +354,17 @@ namespace Dx12
         p->vp.Height = static_cast<float>(window->GetHeight());
         p->vp.MinDepth = 0;
         p->vp.MaxDepth = 1;
-        p->cmd_list->RSSetViewports(1, &p->vp);
 
         // set scissor rect
-        p->sr.left = 10;
-        p->sr.right = window->GetWidth() / 10;
-        p->sr.top = 10;
-        p->sr.bottom = window->GetHeight() / 10;
-        p->cmd_list->RSSetScissorRects(1, &p->sr);
+        p->sr.left = 0;
+        p->sr.right = window->GetWidth();
+        p->sr.top = 0;
+        p->sr.bottom = window->GetHeight();
+
+        // set camera
+        p->camera_trans.pos.z = -5;
+        p->camera_proj.z_far = 100;
+        p->camera_proj.aspect = static_cast<float>(window->GetWidth()) / window->GetHeight();
 
         // finish command list
         hr = p->cmd_list->Close();
@@ -212,25 +375,21 @@ namespace Dx12
         ID3D12CommandList* lists[]{ p->cmd_list.Get() };
         p->cmd_queue->ExecuteCommandLists(1, lists);
 
+        // flush command queue
+        if (!p->FlushCmdQueue())
+            return nullptr;
+
         return p;
     }
 
-    bool DeviceDx12::Present()
+    bool DeviceDx12::ReadyPresent()
     {
-        HRESULT hr = S_OK;
-
-        // reset command queue
-        if (!FlushCmdQueue())
-            return false;
-        hr = cmd_alloc->Reset();
-        if (FAILED(hr))
-            return false;
-        hr = cmd_list->Reset(cmd_alloc.Get(), nullptr);
-        if (FAILED(hr))
+        // reset command
+        if (!ResetCmd())
             return false;
 
         // change rtv -> render target
-        auto rc_barr = GetTransitionStruct(GetCurrentRtvBuffer(),
+        auto rc_barr = UtilDx12::GetTransitionStruct(GetCurrentRtvBuffer(),
             D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
         cmd_list->ResourceBarrier(1, &rc_barr);
 
@@ -248,23 +407,35 @@ namespace Dx12
         auto dsv = GetDsv();
         cmd_list->OMSetRenderTargets(1, &rtv, true, &dsv);
 
+        // set root sig & cbuffer
+        cmd_list->SetGraphicsRootSignature(root_sig.Get());
+        ID3D12DescriptorHeap* dhs[]{ cbv_heap.Get() };
+        cmd_list->SetDescriptorHeaps(1, dhs);
+        cmd_list->SetGraphicsRootDescriptorTable(0, GetCbvGpu());
+
+        return true;
+    }
+
+    bool DeviceDx12::Present()
+    {
+        HRESULT hr = S_OK;
+
         // change rtv -> present
-        rc_barr = GetTransitionStruct(GetCurrentRtvBuffer(),
+        auto rc_barr = UtilDx12::GetTransitionStruct(GetCurrentRtvBuffer(),
             D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
         cmd_list->ResourceBarrier(1, &rc_barr);
 
-        // finish command list
-        hr = cmd_list->Close();
-        if (FAILED(hr))
+        // finish command
+        if (!FinishCmd())
             return false;
-
-        // execute commands
-        ID3D12CommandList* lists[]{ cmd_list.Get() };
-        cmd_queue->ExecuteCommandLists(1, lists);
 
         // swap
         hr = sc->Present(0, 0);
         if (FAILED(hr))
+            return false;
+
+        // flush command queue
+        if (!FlushCmdQueue())
             return false;
 
         return true;
@@ -456,6 +627,206 @@ namespace Dx12
                 }
             }
         }
+    }
+
+    PipelineStateDx12::PipelineStateDx12()
+    {
+        ::memset(&pso_desc, 0, sizeof(pso_desc));
+        pso_desc.pRootSignature = nullptr;
+
+        pso_desc.VS.pShaderBytecode = nullptr;
+        pso_desc.PS.pShaderBytecode = nullptr;
+        pso_desc.DS.pShaderBytecode = nullptr;
+        pso_desc.HS.pShaderBytecode = nullptr;
+        pso_desc.GS.pShaderBytecode = nullptr;
+        pso_desc.VS.BytecodeLength = 0;
+        pso_desc.PS.BytecodeLength = 0;
+        pso_desc.DS.BytecodeLength = 0;
+        pso_desc.HS.BytecodeLength = 0;
+        pso_desc.GS.BytecodeLength = 0;
+
+        pso_desc.StreamOutput.pSODeclaration = nullptr;
+        pso_desc.StreamOutput.NumEntries = 0;
+        pso_desc.StreamOutput.pBufferStrides = nullptr;
+        pso_desc.StreamOutput.NumStrides = 0;
+        pso_desc.StreamOutput.RasterizedStream = 0;
+
+        pso_desc.BlendState.AlphaToCoverageEnable = false;
+        pso_desc.BlendState.IndependentBlendEnable = false;
+        pso_desc.BlendState.RenderTarget[0].BlendEnable = false;
+        pso_desc.BlendState.RenderTarget[0].LogicOpEnable = false;
+        pso_desc.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_ONE;
+        pso_desc.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_ZERO;
+        pso_desc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+        pso_desc.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+        pso_desc.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+        pso_desc.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+        pso_desc.BlendState.RenderTarget[0].LogicOp = D3D12_LOGIC_OP_NOOP;
+        pso_desc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+        pso_desc.SampleMask = UINT_MAX;
+
+        pso_desc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+        pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+        pso_desc.RasterizerState.FrontCounterClockwise = false;
+        pso_desc.RasterizerState.DepthBias = 0;
+        pso_desc.RasterizerState.DepthBiasClamp = 0;
+        pso_desc.RasterizerState.SlopeScaledDepthBias = 0;
+        pso_desc.RasterizerState.DepthClipEnable = true;
+        pso_desc.RasterizerState.MultisampleEnable = false;
+        pso_desc.RasterizerState.AntialiasedLineEnable = false;
+        pso_desc.RasterizerState.ForcedSampleCount = 0;
+        pso_desc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+
+        pso_desc.DepthStencilState.DepthEnable = true;
+        pso_desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+        pso_desc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+        pso_desc.DepthStencilState.StencilEnable = false;
+        pso_desc.DepthStencilState.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
+        pso_desc.DepthStencilState.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
+        pso_desc.DepthStencilState.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+        pso_desc.DepthStencilState.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+        pso_desc.DepthStencilState.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+        pso_desc.DepthStencilState.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+        pso_desc.DepthStencilState.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+        pso_desc.DepthStencilState.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+        pso_desc.DepthStencilState.BackFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+        pso_desc.DepthStencilState.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+
+        pso_desc.InputLayout.pInputElementDescs = nullptr;
+        pso_desc.InputLayout.NumElements = 0;
+
+        pso_desc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
+        pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+        pso_desc.NumRenderTargets = 1;
+        pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        pso_desc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+        pso_desc.SampleDesc.Count = 1;
+        pso_desc.SampleDesc.Quality = 0;
+
+        pso_desc.NodeMask = 0;
+        pso_desc.CachedPSO.pCachedBlob = nullptr;
+        pso_desc.CachedPSO.CachedBlobSizeInBytes = 0;
+        pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+    }
+
+    PipelineStateDx12::~PipelineStateDx12()
+    {
+    }
+
+    bool PipelineStateDx12::CreatePSO(DeviceDx12* device)
+    {
+        pso = nullptr;
+        HRESULT hr = device->device->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(pso.GetAddressOf()));
+        if (FAILED(hr))
+            return false;
+        return true;
+    }
+
+    MeshDx12::MeshDx12()
+    {
+        std::memset(&vbv, 0, sizeof(vbv));
+        std::memset(&ibv, 0, sizeof(ibv));
+        v_count = i_count = 0;
+    }
+
+    MeshDx12::~MeshDx12()
+    {
+    }
+
+    void MeshDx12::FreeUploader()
+    {
+        vb_uploader = nullptr;
+        ib_uploader = nullptr;
+    }
+
+    std::shared_ptr<MeshDx12> MeshDx12::CreateCube(DeviceDx12* device)
+    {
+        std::shared_ptr<MeshDx12> p(new MeshDx12);
+
+        // set data
+        struct Vertex
+        {
+            XMFLOAT3 pos;
+            XMFLOAT4 color;
+        };
+        std::vector<Vertex> vertices(8);
+        vertices[0] = { XMFLOAT3(-1,-1,-1), XMFLOAT4(1,1,1,1) };
+        vertices[1] = { XMFLOAT3(-1,+1,-1), XMFLOAT4(0,0,0,1) };
+        vertices[2] = { XMFLOAT3(+1,+1,-1), XMFLOAT4(1,0,0,1) };
+        vertices[3] = { XMFLOAT3(+1,-1,-1), XMFLOAT4(0,1,0,1) };
+        vertices[4] = { XMFLOAT3(-1,-1,+1), XMFLOAT4(0,0,1,1) };
+        vertices[5] = { XMFLOAT3(-1,+1,+1), XMFLOAT4(1,1,0,1) };
+        vertices[6] = { XMFLOAT3(+1,+1,+1), XMFLOAT4(1,0,1,1) };
+        vertices[7] = { XMFLOAT3(+1,-1,+1), XMFLOAT4(0,1,1,1) };
+        int v_size = sizeof(Vertex);
+        int v_count = static_cast<int>(vertices.size());
+        int vs_size = v_size * v_count;
+        std::vector<UINT16> indices
+        {
+            0,1,2,  0,2,3,
+            4,6,5,  4,7,6,
+            4,5,1,  4,1,0,
+            3,2,6,  3,6,7,
+            1,5,6,  1,6,2,
+            4,0,3,  4,3,7
+        };
+        int i_count = static_cast<int>(indices.size());
+        int is_size = 2 * i_count;
+
+        // create vb & ib
+        if (!UtilDx12::CreateDefaultBuffer(device->device.Get(), device->cmd_list.Get(), &vertices[0], vs_size, p->vb, p->vb_uploader))
+            return nullptr;
+        if (!UtilDx12::CreateDefaultBuffer(device->device.Get(), device->cmd_list.Get(), &indices[0], is_size, p->ib, p->ib_uploader))
+            return nullptr;
+
+        // set view
+        p->vbv.BufferLocation = p->vb->GetGPUVirtualAddress();
+        p->vbv.SizeInBytes = vs_size;
+        p->vbv.StrideInBytes = v_size;
+        p->v_count = v_count;
+        p->ibv.BufferLocation = p->ib->GetGPUVirtualAddress();
+        p->ibv.SizeInBytes = is_size;
+        p->ibv.Format = DXGI_FORMAT_R16_UINT;
+        p->i_count = i_count;
+
+        return p;
+    }
+
+    ObjectDx12::ObjectDx12(std::shared_ptr<MeshDx12> _mesh) : mesh(_mesh)
+    {
+    }
+
+    ObjectDx12::~ObjectDx12()
+    {
+    }
+
+    bool ObjectDx12::Draw(DeviceDx12* device)
+    {
+        // IA
+        device->cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        device->cmd_list->IASetVertexBuffers(0, 1, &mesh->vbv);
+        device->cmd_list->IASetIndexBuffer(&mesh->ibv);
+
+        // set cbuffer
+        CBTransform cb_struct;
+        XMMATRIX world = ToXmMatrix(transform.GetTransformMatrix());
+        XMMATRIX view = ToXmMatrix(device->camera_trans.GetInverseTransformMatrix());
+        XMMATRIX proj = ToXmMatrix(device->camera_proj.GetTransformMatrix());
+        dxm::XMStoreFloat4x4(&cb_struct.world, dxm::XMMatrixTranspose(world));
+        dxm::XMStoreFloat4x4(&cb_struct.view, dxm::XMMatrixTranspose(view));
+        dxm::XMStoreFloat4x4(&cb_struct.proj, dxm::XMMatrixTranspose(proj));
+        dxm::XMStoreFloat4x4(&cb_struct.world_view, dxm::XMMatrixTranspose(world * view));
+        dxm::XMStoreFloat4x4(&cb_struct.world_view_proj, dxm::XMMatrixTranspose(world * view * proj));
+        dxm::XMStoreFloat4x4(&cb_struct.view_proj, dxm::XMMatrixTranspose(view * proj));
+        device->SetCBuffer(cb_struct);
+
+        // draw
+        //device->cmd_list->DrawInstanced(mesh->v_count, 1, 0, 0);
+        device->cmd_list->DrawIndexedInstanced(mesh->i_count, 1, 0, 0, 0);
+
+        return true;
     }
 
 }
