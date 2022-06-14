@@ -92,6 +92,11 @@ dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/
    4. 同步 cpu 与 gpu
 
 
+### 基础立方体
+
+![](img/dx12_01cube.gif)
+
+
 
 
 
