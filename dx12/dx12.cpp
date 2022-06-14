@@ -794,6 +794,60 @@ namespace Dx12
         return p;
     }
 
+    std::shared_ptr<MeshDx12> MeshDx12::CreateFromRehenzMesh(DeviceDx12* device, std::shared_ptr<Rehenz::Mesh> mesh)
+    {
+        std::shared_ptr<MeshDx12> p(new MeshDx12);
+
+        // set data
+        struct Vertex
+        {
+            XMFLOAT3 pos;
+            XMFLOAT3 normal;
+            XMFLOAT4 color;
+            XMFLOAT2 uv;
+            XMFLOAT2 uv2;
+        };
+        std::vector<Vertex> vertices;
+        vertices.reserve(mesh->VertexCount());
+        for (auto& v : mesh->GetVertices())
+        {
+            Vertex vv;
+            vv.pos = XMFLOAT3(v.p.x, v.p.y, v.p.z);
+            vv.normal = XMFLOAT3(v.n.x, v.n.y, v.n.z);
+            vv.color = XMFLOAT4(v.c.x, v.c.y, v.c.z, v.c.w);
+            vv.uv = XMFLOAT2(v.uv.x, v.uv.y);
+            vv.uv2 = XMFLOAT2(v.uv2.x, v.uv2.y);
+            vertices.push_back(vv);
+        }
+        int v_size = sizeof(Vertex);
+        int v_count = static_cast<int>(vertices.size());
+        int vs_size = v_size * v_count;
+        std::vector<UINT16> indices;
+        indices.reserve(mesh->IndexCount());
+        for (auto i : mesh->GetTriangles())
+            indices.push_back(static_cast<UINT16>(i));
+        int i_count = static_cast<int>(indices.size());
+        int is_size = 2 * i_count;
+
+        // create vb & ib
+        if (!UtilDx12::CreateDefaultBuffer(device->device.Get(), device->cmd_list.Get(), &vertices[0], vs_size, p->vb, p->vb_uploader))
+            return nullptr;
+        if (!UtilDx12::CreateDefaultBuffer(device->device.Get(), device->cmd_list.Get(), &indices[0], is_size, p->ib, p->ib_uploader))
+            return nullptr;
+
+        // set view
+        p->vbv.BufferLocation = p->vb->GetGPUVirtualAddress();
+        p->vbv.SizeInBytes = vs_size;
+        p->vbv.StrideInBytes = v_size;
+        p->v_count = v_count;
+        p->ibv.BufferLocation = p->ib->GetGPUVirtualAddress();
+        p->ibv.SizeInBytes = is_size;
+        p->ibv.Format = DXGI_FORMAT_R16_UINT;
+        p->i_count = i_count;
+
+        return p;
+    }
+
     ObjectDx12::ObjectDx12(std::shared_ptr<MeshDx12> _mesh) : mesh(_mesh)
     {
     }

@@ -278,6 +278,7 @@ namespace Dx12
         void FreeUploader();
 
         static std::shared_ptr<MeshDx12> CreateCube(DeviceDx12* device);
+        static std::shared_ptr<MeshDx12> CreateFromRehenzMesh(DeviceDx12* device, std::shared_ptr<Rehenz::Mesh> mesh);
     };
 
     class ObjectDx12

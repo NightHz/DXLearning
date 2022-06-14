@@ -23,7 +23,7 @@ void update(DeviceDx12* device, float dt)
 {
 	// control camera
 	float cam_move_dis = 5 * dt;
-	float cam_rotate_angle = 0.3f * dt;
+	float cam_rotate_angle = 0.005f;
 	if (KeyIsDown('W')) device->camera_trans.pos += device->camera_trans.GetFrontInGround() * cam_move_dis;
 	else if (KeyIsDown('S')) device->camera_trans.pos -= device->camera_trans.GetFrontInGround() * cam_move_dis;
 	if (KeyIsDown('A')) device->camera_trans.pos -= device->camera_trans.GetRightInGround() * cam_move_dis;
@@ -36,6 +36,21 @@ void update(DeviceDx12* device, float dt)
 		device->camera_trans.axes.yaw += cam_rotate_angle * mouse.GetMoveX();
 		mouse.SetToPrev();
 	}
+	if (KeyIsDown('R'))
+	{
+		device->camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
+		device->camera_trans.axes = Rehenz::AircraftAxes(0.4f, -0.3f, 0);
+	}
+
+	// control object
+	float obj_rotate_angle = 3 * dt;
+	auto obj = obj_lib["cube"];
+	if (KeyIsDown('I')) obj->transform.axes.pitch += obj_rotate_angle;
+	else if (KeyIsDown('K')) obj->transform.axes.pitch -= obj_rotate_angle;
+	if (KeyIsDown('J')) obj->transform.axes.yaw -= obj_rotate_angle;
+	else if (KeyIsDown('L')) obj->transform.axes.yaw += obj_rotate_angle;
+	if (KeyIsDown('U')) obj->transform.axes.roll -= obj_rotate_angle;
+	else if (KeyIsDown('O')) obj->transform.axes.roll += obj_rotate_angle;
 }
 
 bool init(DeviceDx12* device)
@@ -46,6 +61,13 @@ bool init(DeviceDx12* device)
 	il[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
 	il[1] = { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
 	il_lib["pos+color"] = std::make_shared<std::vector<D3D12_INPUT_ELEMENT_DESC>>(std::move(il));
+	il.resize(5);
+	il[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+	il[1] = { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+	il[2] = { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+	il[3] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+	il[4] = { "TEXCOORD", 1, DXGI_FORMAT_R32G32_FLOAT, 0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+	il_lib["rehenz"] = std::make_shared<std::vector<D3D12_INPUT_ELEMENT_DESC>>(std::move(il));
 
 	// init shader
 	shader_lib["vs_transform"] = UtilDx12::CompileShaderFile(L"dx12_vs_transform.hlsl", "vs");
@@ -66,9 +88,18 @@ bool init(DeviceDx12* device)
 	if (!pso->CreatePSO(device))
 		return false;
 	pso_lib["pso1"] = pso;
+	pso = std::make_shared<PipelineStateDx12>();
+	pso->SetRootSignature(device->root_sig.Get());
+	pso->SetInputLayout(*il_lib["rehenz"]);
+	pso->SetVS(shader_lib["vs_transform"].Get());
+	pso->SetPS(shader_lib["ps_color"].Get());
+	if (!pso->CreatePSO(device))
+		return false;
+	pso_lib["pso2"] = pso;
 
 	// init meshs
 	mesh_lib["cube"] = MeshDx12::CreateCube(device);
+	mesh_lib["cube2"] = MeshDx12::CreateFromRehenzMesh(device, Rehenz::CreateCubeMeshColorful());
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
@@ -77,6 +108,9 @@ bool init(DeviceDx12* device)
 
 	// init objs
 	obj_lib["cube"] = std::make_shared<ObjectDx12>(mesh_lib["cube"]);
+	auto cube2 = std::make_shared<ObjectDx12>(mesh_lib["cube2"]);
+	cube2->transform.pos.x = -3;
+	obj_lib["cube2"] = cube2;
 
 	// init camera
 	device->camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
@@ -87,7 +121,8 @@ bool init(DeviceDx12* device)
 
 bool clean_after_init()
 {
-	mesh_lib["cube"]->FreeUploader();
+	for (auto& p : mesh_lib)
+		p.second->FreeUploader();
 
 	return true;
 }
@@ -97,6 +132,11 @@ bool draw(DeviceDx12* device)
 	device->cmd_list->SetPipelineState(pso_lib["pso1"]->pso.Get());
 
 	if (!obj_lib["cube"]->Draw(device))
+		return false;
+
+	device->cmd_list->SetPipelineState(pso_lib["pso2"]->pso.Get());
+
+	if (!obj_lib["cube2"]->Draw(device))
 		return false;
 
 	return true;
