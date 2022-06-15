@@ -54,7 +54,7 @@ dx12 被完全地重新设计， dx11 中为了过渡还保留了一些旧的东
    3. 创建命令列表 `ID3D12CommandQueue` `ID3D12CommandAllocator` `ID3D12GraphicsCommandList`
    4. 创建交换链 `IDXGISwapChain` ，其中包含了用于渲染的屏幕资源
 2. 创建基础资源
-   1. 创建描述符堆 `ID3D12DescriptorHeap` ，至少三个分别用于渲染目标、深度模板缓存、常量缓存
+   1. 创建描述符堆 `ID3D12DescriptorHeap` ，至少三个分别用于渲染目标 `RTV` 、深度模板缓存 `DSV` 、常量缓存等 `CBV,SRV,UAV`
    2. 创建上面三个堆对应的一些资源和相应的描述符
    3. 存储视口 `D3D12_VIEWPORT` 、裁切矩阵、相机信息
 3. 初始化
@@ -75,21 +75,22 @@ dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/
    3. 清屏 `ClearRenderTargetView` `ClearDepthStencilView`
    4. 设置渲染目标 `OMSetRenderTargets`
    5. 设置视口与裁切矩阵 `RSSetViewports` `RSSetScissorRects`
+   6. 设置其它描述符堆 `SetDescriptorHeaps` 并 `Map` cbuffer
 2. 布局阶段
-   1. 设置常量缓存 `SetDescriptorHeaps` `SetGraphicsRootDescriptorTable`
-   2. 设置根签名 `SetGraphicsRootSignature`
-   3. 设置 PSO `SetPipelineState`
+   1. 设置根签名 `SetGraphicsRootSignature`
+   2. 设置 PSO `SetPipelineState`
 3. 绘制阶段
    1. 设置图元拓扑 `IASetPrimitiveTopology`
    2. 设置顶点缓存 `IASetVertexBuffers`
    3. 设置索引缓存 `IASetIndexBuffer`
-   4. 向常量缓存写入数据 `Map` 与 `Unmap`
+   4. 向 cbuffer 写入数据并设置常量缓存 `SetGraphicsRootDescriptorTable`
    5. 绘制 `DrawInstanced` 或 `DrawIndexedInstanced`
 4. 结束阶段
-   1. 转换屏幕资源状态为 `D3D12_RESOURCE_STATE_PRESENT`
-   2. 递交命令给 gpu `Close` `ExecuteCommandLists`
-   3. 更新交换链 `Present`
-   4. 同步 cpu 与 gpu
+   1. `Unmap` cbuffer
+   2. 转换屏幕资源状态为 `D3D12_RESOURCE_STATE_PRESENT`
+   3. 递交命令给 gpu `Close` `ExecuteCommandLists`
+   4. 更新交换链 `Present`
+   5. 同步 cpu 与 gpu
 
 
 ### 基础立方体

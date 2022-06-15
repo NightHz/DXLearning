@@ -157,18 +157,6 @@ namespace Dx12
         return true;
     }
 
-    bool DeviceDx12::SetCBuffer(const CBTransform& cb_struct)
-    {
-        CBTransform* data;
-        HRESULT hr = cbuffer->Map(0, nullptr, reinterpret_cast<void**>(&data));
-        if (FAILED(hr))
-            return false;
-        std::memcpy(data, &cb_struct, sizeof(CBTransform));
-        cbuffer->Unmap(0, nullptr);
-
-        return false;
-    }
-
     std::shared_ptr<DeviceDx12> DeviceDx12::CreateDevice(Rehenz::SimpleWindow* window)
     {
         HRESULT hr = S_OK;
@@ -299,27 +287,12 @@ namespace Dx12
         hr = p->device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clear_val, IID_PPV_ARGS(p->dsv_buffer.GetAddressOf()));
         if (FAILED(hr))
             return nullptr;
-        p->device->CreateDepthStencilView(p->dsv_buffer.Get(), nullptr, p->GetDsv());
+        p->device->CreateDepthStencilView(p->dsv_buffer.Get(), nullptr, p->GetDsv(0));
 
         // create cbv heap
-        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        dh_desc.NumDescriptors = 1;
-        dh_desc.NodeMask = 0;
-        hr = p->device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(p->cbv_heap.GetAddressOf()));
-        if (FAILED(hr))
+        p->cbuffer = std::make_shared<CBufferDx12<CBTransform>>();
+        if (!p->cbuffer->CreateCBuffer(p->device.Get()))
             return nullptr;
-
-        // create cbuffer and cbv
-        rc_desc = UtilDx12::GetBufferRcDesc(UtilDx12::AlignCBuffer(sizeof(CBTransform)));
-        heap_prop = UtilDx12::GetHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
-        hr = p->device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(p->cbuffer.GetAddressOf()));
-        if (FAILED(hr))
-            return nullptr;
-        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc;
-        cbv_desc.BufferLocation = p->cbuffer->GetGPUVirtualAddress();
-        cbv_desc.SizeInBytes = static_cast<UINT>(rc_desc.Width);
-        p->device->CreateConstantBufferView(&cbv_desc, p->GetCbv());
 
         // create root sig
         D3D12_DESCRIPTOR_RANGE dr;
@@ -400,18 +373,23 @@ namespace Dx12
         // clear
         float bg_color[4]{ 0.7804f,0.8627f,0.4078f,0 };
         cmd_list->ClearRenderTargetView(GetCurrentRtv(), bg_color, 0, nullptr);
-        cmd_list->ClearDepthStencilView(GetDsv(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+        cmd_list->ClearDepthStencilView(GetDsv(0), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
         // set render target
         auto rtv = GetCurrentRtv();
-        auto dsv = GetDsv();
+        auto dsv = GetDsv(0);
         cmd_list->OMSetRenderTargets(1, &rtv, true, &dsv);
 
-        // set root sig & cbuffer
-        cmd_list->SetGraphicsRootSignature(root_sig.Get());
-        ID3D12DescriptorHeap* dhs[]{ cbv_heap.Get() };
+        // set heaps
+        ID3D12DescriptorHeap* dhs[]{ cbuffer->cbv_heap.Get() };
         cmd_list->SetDescriptorHeaps(1, dhs);
-        cmd_list->SetGraphicsRootDescriptorTable(0, GetCbvGpu());
+
+        // map cbuffer
+        if (!cbuffer->Map())
+            return false;
+
+        // set root sig
+        cmd_list->SetGraphicsRootSignature(root_sig.Get());
 
         return true;
     }
@@ -419,6 +397,9 @@ namespace Dx12
     bool DeviceDx12::Present()
     {
         HRESULT hr = S_OK;
+
+        // unmap cbuffer
+        cbuffer->Unmap();
 
         // change rtv -> present
         auto rc_barr = UtilDx12::GetTransitionStruct(GetCurrentRtvBuffer(),
@@ -874,7 +855,8 @@ namespace Dx12
         dxm::XMStoreFloat4x4(&cb_struct.world_view, dxm::XMMatrixTranspose(world * view));
         dxm::XMStoreFloat4x4(&cb_struct.world_view_proj, dxm::XMMatrixTranspose(world * view * proj));
         dxm::XMStoreFloat4x4(&cb_struct.view_proj, dxm::XMMatrixTranspose(view * proj));
-        device->SetCBuffer(cb_struct);
+        if (!device->cbuffer->SetCBuffer(device, cb_struct))
+            return false;
 
         // draw
         //device->cmd_list->DrawInstanced(mesh->v_count, 1, 0, 0);
