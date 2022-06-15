@@ -100,6 +100,7 @@ bool init(DeviceDx12* device)
 	// init meshs
 	mesh_lib["cube"] = MeshDx12::CreateCube(device);
 	mesh_lib["cube2"] = MeshDx12::CreateFromRehenzMesh(device, Rehenz::CreateCubeMeshColorful());
+	mesh_lib["sphere"] = MeshDx12::CreateFromRehenzMesh(device, Rehenz::CreateSphereMesh());
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
@@ -111,6 +112,10 @@ bool init(DeviceDx12* device)
 	auto cube2 = std::make_shared<ObjectDx12>(mesh_lib["cube2"]);
 	cube2->transform.pos.x = -3;
 	obj_lib["cube2"] = cube2;
+	auto sphere = std::make_shared<ObjectDx12>(mesh_lib["sphere"]);
+	sphere->transform.pos = Rehenz::Vector(0, 2.4f, 0);
+	sphere->transform.scale = Rehenz::Vector(0.6f, 0.6f, 0.6f);
+	obj_lib["sphere"] = sphere;
 
 	// init camera
 	device->camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
@@ -137,6 +142,8 @@ bool draw(DeviceDx12* device)
 	device->cmd_list->SetPipelineState(pso_lib["pso2"]->pso.Get());
 
 	if (!obj_lib["cube2"]->Draw(device))
+		return false;
+	if (!obj_lib["sphere"]->Draw(device))
 		return false;
 
 	return true;
