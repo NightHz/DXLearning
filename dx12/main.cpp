@@ -108,11 +108,12 @@ bool init(DeviceDx12* device)
 	}
 
 	// init objs
-	obj_lib["cube"] = std::make_shared<ObjectDx12>(mesh_lib["cube"]);
-	auto cube2 = std::make_shared<ObjectDx12>(mesh_lib["cube2"]);
+	UINT cb_slot = 0;
+	obj_lib["cube"] = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube"]);
+	auto cube2 = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
 	cube2->transform.pos.x = -3;
 	obj_lib["cube2"] = cube2;
-	auto sphere = std::make_shared<ObjectDx12>(mesh_lib["sphere"]);
+	auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
 	sphere->transform.pos = Rehenz::Vector(0, 2.4f, 0);
 	sphere->transform.scale = Rehenz::Vector(0.6f, 0.6f, 0.6f);
 	obj_lib["sphere"] = sphere;
@@ -189,6 +190,8 @@ int main()
 		return 1;
 	if (!device->FinishCmd())
 		return 1;
+
+	// clean after init
 	if (!device->FlushCmdQueue())
 		return 1;
 	if (!clean_after_init())
@@ -218,6 +221,8 @@ int main()
 	}
 
 	// clean
+	if (!device->FlushCmdQueue())
+		return 1;
 	clean();
 	device = nullptr;
 	window = nullptr;

@@ -56,7 +56,7 @@ dx12 被完全地重新设计， dx11 中为了过渡还保留了一些旧的东
 2. 创建基础资源
    1. 创建描述符堆 `ID3D12DescriptorHeap` ，至少三个分别用于渲染目标 `RTV` 、深度模板缓存 `DSV` 、常量缓存等 `CBV,SRV,UAV`
    2. 创建上面三个堆对应的一些资源和相应的描述符
-   3. 存储视口 `D3D12_VIEWPORT` 、裁切矩阵、相机信息
+   3. 存储视口 `D3D12_VIEWPORT` 、裁切矩阵
 3. 初始化
    1. 创建根签名 `ID3D12RootSignature`
    2. 创建流水线状态对象（PSO） `ID3D12PipelineState` ，我们通过它绑定输入布局、着色器等信息
@@ -96,6 +96,9 @@ dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/
 ### 基础立方体
 
 ![](img/dx12_01cube.gif)
+
+
+### 组织架构
 
 
 

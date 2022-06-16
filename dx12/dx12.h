@@ -69,6 +69,8 @@ namespace Dx12
 
     class UtilDx12;
     class DeviceDx12;
+    class FrameResourceDx12;
+    class CBufferBaseDx12;
     template<typename T> class CBufferDx12;
     class PipelineStateDx12;
     class MeshDx12;
@@ -131,6 +133,9 @@ namespace Dx12
         static ComPtr<ID3DBlob> LoadShaderFile(const std::wstring& filename);
         // shader_type : vs hs ds gs ps cs
         static ComPtr<ID3DBlob> CompileShaderFile(const std::wstring& filename, const std::string& shader_type);
+
+        // forbid value > current fense value
+        static bool WaitFenceValue(ID3D12Fence1* fence, UINT64 value);
     };
 
     class DeviceDx12
@@ -139,10 +144,10 @@ namespace Dx12
         // device & fence
         ComPtr<ID3D12Device8> device; 
         ComPtr<ID3D12Fence1> fence;
+        UINT64 current_fence_v;
 
-        // command queue & list & allocator
+        // command queue & list
         ComPtr<ID3D12CommandQueue> cmd_queue;
-        ComPtr<ID3D12CommandAllocator> cmd_alloc;
         ComPtr<ID3D12GraphicsCommandList6> cmd_list;
 
         // swap chain
@@ -159,12 +164,6 @@ namespace Dx12
         std::vector<ComPtr<ID3D12Resource2>> rtv_buffers;
         ComPtr<ID3D12Resource2> dsv_buffer;
 
-        // cbv_heap & cbuffer
-        std::shared_ptr<CBufferDx12<CBTransform>> cbuffer;
-
-        // root sig
-        ComPtr<ID3D12RootSignature> root_sig;
-
         // viewport & scissor rect
         D3D12_VIEWPORT vp;
         D3D12_RECT sr;
@@ -172,6 +171,16 @@ namespace Dx12
         // camera info
         Rehenz::Transform camera_trans;
         Rehenz::Projection camera_proj;
+
+
+        // frame resource
+        static const int frame_rc_count = 3;
+        std::unique_ptr<FrameResourceDx12[]> frame_rcs;
+        int current_frame_i;
+
+
+        // root sig
+        ComPtr<ID3D12RootSignature> root_sig;
 
 
         // get descriptor & view buffer
@@ -189,6 +198,10 @@ namespace Dx12
         };
         inline D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRtv() { return GetRtv(sc->GetCurrentBackBufferIndex()); }
         inline ID3D12Resource2* GetCurrentRtvBuffer() { return rtv_buffers[sc->GetCurrentBackBufferIndex()].Get(); }
+
+        // get frame resource & switch to next frame
+        inline void NextFrame() { current_frame_i = (current_frame_i + 1) % frame_rc_count; }
+        inline FrameResourceDx12& GetCurrentFrameResource() { return frame_rcs[current_frame_i]; }
 
         // flush command queue
         bool FlushCmdQueue();
@@ -224,17 +237,32 @@ namespace Dx12
         static void PrintAdapterOutputDisplayInfo(std::wostream& out);
     };
 
-    template<typename T>
-    class CBufferDx12
+    class FrameResourceDx12
+    {
+    public:
+        UINT64 fence_v;
+        ComPtr<ID3D12CommandAllocator> cmd_alloc;
+        std::shared_ptr<CBufferDx12<CBTransform>> cb_obj;
+
+    public:
+        FrameResourceDx12();
+        FrameResourceDx12(const FrameResourceDx12&) = delete;
+        FrameResourceDx12& operator=(const FrameResourceDx12&) = delete;
+        ~FrameResourceDx12();
+
+        bool Create(ID3D12Device8* device);
+    };
+
+    class CBufferBaseDx12
     {
     public:
         UINT cbv_size;
         ComPtr<ID3D12DescriptorHeap> cbv_heap;
         UINT count;
+        UINT struct_size;
         UINT cbuffer_size;
         ComPtr<ID3D12Resource2> cbuffer;
         BYTE* data;
-        UINT current_slot;
 
         inline D3D12_CPU_DESCRIPTOR_HANDLE GetCbv(UINT i)
         {
@@ -250,83 +278,31 @@ namespace Dx12
         };
 
     public:
-        CBufferDx12(UINT _count = 160)
-        {
-            cbv_size = 0;
-            count = _count;
-            cbuffer_size = UtilDx12::AlignCBuffer(sizeof(T));
-            data = nullptr;
-            current_slot = 0;
-        }
+        CBufferBaseDx12(UINT _count, UINT _struct_size);
+        CBufferBaseDx12(const CBufferBaseDx12&) = delete;
+        CBufferBaseDx12& operator=(const CBufferBaseDx12&) = delete;
+        ~CBufferBaseDx12();
+
+        bool Create(ID3D12Device8* device);
+
+        bool Map();
+        void Unmap();
+
+        bool CopyData(UINT slot, const void* cb_struct);
+    };
+
+    template<typename T>
+    class CBufferDx12 : public CBufferBaseDx12
+    {
+    public:
+        CBufferDx12(UINT _count) : CBufferBaseDx12(_count, sizeof(T)) {}
         CBufferDx12(const CBufferDx12&) = delete;
         CBufferDx12& operator=(const CBufferDx12&) = delete;
-        ~CBufferDx12()
+        ~CBufferDx12() {}
+
+        inline bool CopyData(UINT slot, const T& cb_struct)
         {
-        }
-
-        bool CreateCBuffer(ID3D12Device8* device)
-        {
-            HRESULT hr = S_OK;
-
-            cbv_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-            // create cbv heap
-            D3D12_DESCRIPTOR_HEAP_DESC dh_desc;
-            dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-            dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-            dh_desc.NumDescriptors = count;
-            dh_desc.NodeMask = 0;
-            hr = device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(cbv_heap.GetAddressOf()));
-            if (FAILED(hr))
-                return false;
-
-            // create cbuffer and cbv
-            auto rc_desc = UtilDx12::GetBufferRcDesc(count * static_cast<UINT64>(cbuffer_size));
-            auto heap_prop = UtilDx12::GetHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
-            hr = device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(cbuffer.GetAddressOf()));
-            if (FAILED(hr))
-                return false;
-            D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc;
-            for (UINT i = 0; i < count; i++)
-            {
-                cbv_desc.BufferLocation = cbuffer->GetGPUVirtualAddress() + i * static_cast<UINT64>(cbuffer_size);
-                cbv_desc.SizeInBytes = cbuffer_size;
-                device->CreateConstantBufferView(&cbv_desc, GetCbv(i));
-            }
-
-            return true;
-        }
-
-        bool Map()
-        {
-            HRESULT hr = cbuffer->Map(0, nullptr, reinterpret_cast<void**>(&data));
-            if (FAILED(hr))
-                return false;
-            current_slot = 0;
-            return true;
-        }
-        void Unmap()
-        {
-            cbuffer->Unmap(0, nullptr);
-            data = nullptr;
-            current_slot = 0;
-        }
-
-        bool SetCBuffer(DeviceDx12* device, const T& cb_struct)
-        {
-            if (data == nullptr || current_slot >= count)
-                return false;
-
-            // copy data
-            auto data2 = data + current_slot * static_cast<UINT64>(cbuffer_size);
-            std::memcpy(data2, &cb_struct, sizeof(T));
-
-            // set cbv
-            device->cmd_list->SetGraphicsRootDescriptorTable(0, GetCbvGpu(current_slot));
-
-            current_slot++;
-
-            return true;
+            return CBufferBaseDx12::CopyData(slot, &cb_struct);
         }
     };
 
@@ -381,10 +357,11 @@ namespace Dx12
     {
     public:
     public:
+        UINT cb_slot;
         Rehenz::Transform transform;
         std::shared_ptr<MeshDx12> mesh;
 
-        ObjectDx12(std::shared_ptr<MeshDx12> _mesh);
+        ObjectDx12(UINT _cb_slot, std::shared_ptr<MeshDx12> _mesh);
         ObjectDx12(const ObjectDx12&) = delete;
         ObjectDx12& operator=(const ObjectDx12&) = delete;
         ~ObjectDx12();

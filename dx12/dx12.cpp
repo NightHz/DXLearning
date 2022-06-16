@@ -92,31 +92,39 @@ namespace Dx12
         return shader_blob;
     }
 
-    bool DeviceDx12::FlushCmdQueue()
+    bool UtilDx12::WaitFenceValue(ID3D12Fence1* fence, UINT64 value)
     {
-        HRESULT hr = S_OK;
-
-        UINT64 v = fence->GetCompletedValue() + 1;
-        hr = cmd_queue->Signal(fence.Get(), v);
-        if (FAILED(hr))
-            return false;
-        if (fence->GetCompletedValue() < v)
+        if (fence->GetCompletedValue() < value)
         {
             HANDLE event = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
             if (!event)
                 return false;
-            hr = fence->SetEventOnCompletion(v, event);
+            HRESULT hr = fence->SetEventOnCompletion(value, event);
             if (FAILED(hr))
                 return false;
             WaitForSingleObject(event, INFINITE);
             CloseHandle(event);
         }
+        return true;
+    }
+
+    bool DeviceDx12::FlushCmdQueue()
+    {
+        HRESULT hr = S_OK;
+
+        current_fence_v++;
+        hr = cmd_queue->Signal(fence.Get(), current_fence_v);
+        if (FAILED(hr))
+            return false;
+        if (!UtilDx12::WaitFenceValue(fence.Get(), current_fence_v))
+            return false;
 
         return true;
     }
 
     DeviceDx12::DeviceDx12()
     {
+        current_fence_v = 0;
         format = DXGI_FORMAT_R8G8B8A8_UNORM;
         sc_buffer_count = 0;
         rtv_size = 0;
@@ -132,11 +140,18 @@ namespace Dx12
 
     bool DeviceDx12::ResetCmd()
     {
+        HRESULT hr = S_OK;
+
+        // wait gpu if current frame resource is being used
+        auto& frc = GetCurrentFrameResource();
+        if (!UtilDx12::WaitFenceValue(fence.Get(), frc.fence_v))
+            return false;
+
         // reset command queue
-        HRESULT hr = cmd_alloc->Reset();
+        hr = frc.cmd_alloc->Reset();
         if (FAILED(hr))
             return false;
-        hr = cmd_list->Reset(cmd_alloc.Get(), nullptr);
+        hr = cmd_list->Reset(frc.cmd_alloc.Get(), nullptr);
         if (FAILED(hr))
             return false;
 
@@ -145,14 +160,24 @@ namespace Dx12
 
     bool DeviceDx12::FinishCmd()
     {
+        HRESULT hr = S_OK;
+
         // finish command list
-        HRESULT hr = cmd_list->Close();
+        hr = cmd_list->Close();
         if (FAILED(hr))
             return false;
 
         // execute commands
         ID3D12CommandList* lists[]{ cmd_list.Get() };
         cmd_queue->ExecuteCommandLists(1, lists);
+
+        // mark in fence
+        current_fence_v++;
+        auto& frc = GetCurrentFrameResource();
+        frc.fence_v = current_fence_v;
+        hr = cmd_queue->Signal(fence.Get(), frc.fence_v);
+        if (FAILED(hr))
+            return false;
 
         return true;
     }
@@ -191,6 +216,18 @@ namespace Dx12
         hr = p->device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(p->fence.GetAddressOf()));
         if (FAILED(hr))
             return nullptr;
+        p->current_fence_v = p->fence->GetCompletedValue();
+
+        // create frame resource
+        p->frame_rcs = std::make_unique<FrameResourceDx12[]>(p->frame_rc_count);
+        for (int i = 0; i < p->frame_rc_count; i++)
+        {
+            auto& frame_rc = p->frame_rcs[i];
+            if (!frame_rc.Create(p->device.Get()))
+                return nullptr;
+            frame_rc.fence_v = p->current_fence_v;
+        }
+        p->current_frame_i = 0;
 
         // create command queue and list
         D3D12_COMMAND_QUEUE_DESC cmd_queue_desc;
@@ -201,10 +238,7 @@ namespace Dx12
         hr = p->device->CreateCommandQueue(&cmd_queue_desc, IID_PPV_ARGS(p->cmd_queue.GetAddressOf()));
         if (FAILED(hr))
             return nullptr;
-        hr = p->device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(p->cmd_alloc.GetAddressOf()));
-        if (FAILED(hr))
-            return nullptr;
-        hr = p->device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, p->cmd_alloc.Get(), nullptr, IID_PPV_ARGS(p->cmd_list.GetAddressOf()));
+        hr = p->device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, p->GetCurrentFrameResource().cmd_alloc.Get(), nullptr, IID_PPV_ARGS(p->cmd_list.GetAddressOf()));
         if (FAILED(hr))
             return nullptr;
 
@@ -289,11 +323,6 @@ namespace Dx12
             return nullptr;
         p->device->CreateDepthStencilView(p->dsv_buffer.Get(), nullptr, p->GetDsv(0));
 
-        // create cbv heap
-        p->cbuffer = std::make_shared<CBufferDx12<CBTransform>>();
-        if (!p->cbuffer->CreateCBuffer(p->device.Get()))
-            return nullptr;
-
         // create root sig
         D3D12_DESCRIPTOR_RANGE dr;
         dr.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
@@ -340,16 +369,7 @@ namespace Dx12
         p->camera_proj.aspect = static_cast<float>(window->GetWidth()) / window->GetHeight();
 
         // finish command list
-        hr = p->cmd_list->Close();
-        if (FAILED(hr))
-            return nullptr;
-
-        // execute commands
-        ID3D12CommandList* lists[]{ p->cmd_list.Get() };
-        p->cmd_queue->ExecuteCommandLists(1, lists);
-
-        // flush command queue
-        if (!p->FlushCmdQueue())
+        if (!p->FinishCmd())
             return nullptr;
 
         return p;
@@ -357,6 +377,9 @@ namespace Dx12
 
     bool DeviceDx12::ReadyPresent()
     {
+        // next frame
+        NextFrame();
+
         // reset command
         if (!ResetCmd())
             return false;
@@ -381,11 +404,12 @@ namespace Dx12
         cmd_list->OMSetRenderTargets(1, &rtv, true, &dsv);
 
         // set heaps
-        ID3D12DescriptorHeap* dhs[]{ cbuffer->cbv_heap.Get() };
+        auto& frc = GetCurrentFrameResource();
+        ID3D12DescriptorHeap* dhs[]{ frc.cb_obj->cbv_heap.Get() };
         cmd_list->SetDescriptorHeaps(1, dhs);
 
         // map cbuffer
-        if (!cbuffer->Map())
+        if (!frc.cb_obj->Map())
             return false;
 
         // set root sig
@@ -399,7 +423,8 @@ namespace Dx12
         HRESULT hr = S_OK;
 
         // unmap cbuffer
-        cbuffer->Unmap();
+        auto& frc = GetCurrentFrameResource();
+        frc.cb_obj->Unmap();
 
         // change rtv -> present
         auto rc_barr = UtilDx12::GetTransitionStruct(GetCurrentRtvBuffer(),
@@ -413,10 +438,6 @@ namespace Dx12
         // swap
         hr = sc->Present(0, 0);
         if (FAILED(hr))
-            return false;
-
-        // flush command queue
-        if (!FlushCmdQueue())
             return false;
 
         return true;
@@ -608,6 +629,103 @@ namespace Dx12
                 }
             }
         }
+    }
+    
+    FrameResourceDx12::FrameResourceDx12()
+    {
+        fence_v = 0;
+    }
+
+    FrameResourceDx12::~FrameResourceDx12()
+    {
+    }
+
+    bool FrameResourceDx12::Create(ID3D12Device8* device)
+    {
+        HRESULT hr = S_OK;
+
+        // create command allocator
+        hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(cmd_alloc.GetAddressOf()));
+        if (FAILED(hr))
+            return false;
+
+        // create cbuffer
+        cb_obj = std::make_shared<CBufferDx12<CBTransform>>(160);
+        if (!cb_obj->Create(device))
+            return false;
+
+        return true;
+    }
+
+    CBufferBaseDx12::CBufferBaseDx12(UINT _count, UINT _struct_size)
+    {
+        cbv_size = 0;
+        count = _count;
+        struct_size = _struct_size;
+        cbuffer_size = UtilDx12::AlignCBuffer(struct_size);
+        data = nullptr;
+    }
+
+    CBufferBaseDx12::~CBufferBaseDx12()
+    {
+    }
+
+    bool CBufferBaseDx12::Create(ID3D12Device8* device)
+    {
+        HRESULT hr = S_OK;
+
+        cbv_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+        // create cbv heap
+        D3D12_DESCRIPTOR_HEAP_DESC dh_desc;
+        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        dh_desc.NumDescriptors = count;
+        dh_desc.NodeMask = 0;
+        hr = device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(cbv_heap.GetAddressOf()));
+        if (FAILED(hr))
+            return false;
+
+        // create cbuffer
+        auto rc_desc = UtilDx12::GetBufferRcDesc(count * static_cast<UINT64>(cbuffer_size));
+        auto heap_prop = UtilDx12::GetHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
+        hr = device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(cbuffer.GetAddressOf()));
+        if (FAILED(hr))
+            return false;
+
+        // create cbv
+        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc;
+        for (UINT i = 0; i < count; i++)
+        {
+            cbv_desc.BufferLocation = cbuffer->GetGPUVirtualAddress() + i * static_cast<UINT64>(cbuffer_size);
+            cbv_desc.SizeInBytes = cbuffer_size;
+            device->CreateConstantBufferView(&cbv_desc, GetCbv(i));
+        }
+
+        return true;
+    }
+
+    bool CBufferBaseDx12::Map()
+    {
+        HRESULT hr = cbuffer->Map(0, nullptr, reinterpret_cast<void**>(&data));
+        if (FAILED(hr))
+            return false;
+        return true;
+    }
+
+    void CBufferBaseDx12::Unmap()
+    {
+        cbuffer->Unmap(0, nullptr);
+        data = nullptr;
+    }
+
+    bool CBufferBaseDx12::CopyData(UINT slot, const void* cb_struct)
+    {
+        if (data == nullptr || slot >= count)
+            return false;
+        auto data2 = data + slot * static_cast<UINT64>(cbuffer_size);
+        std::memcpy(data2, cb_struct, struct_size);
+        return true;
     }
 
     PipelineStateDx12::PipelineStateDx12()
@@ -829,7 +947,8 @@ namespace Dx12
         return p;
     }
 
-    ObjectDx12::ObjectDx12(std::shared_ptr<MeshDx12> _mesh) : mesh(_mesh)
+    ObjectDx12::ObjectDx12(UINT _cb_slot, std::shared_ptr<MeshDx12> _mesh)
+        : cb_slot(_cb_slot), mesh(_mesh)
     {
     }
 
@@ -844,7 +963,7 @@ namespace Dx12
         device->cmd_list->IASetVertexBuffers(0, 1, &mesh->vbv);
         device->cmd_list->IASetIndexBuffer(&mesh->ibv);
 
-        // set cbuffer
+        // copy data
         CBTransform cb_struct;
         XMMATRIX world = ToXmMatrix(transform.GetTransformMatrix());
         XMMATRIX view = ToXmMatrix(device->camera_trans.GetInverseTransformMatrix());
@@ -855,8 +974,11 @@ namespace Dx12
         dxm::XMStoreFloat4x4(&cb_struct.world_view, dxm::XMMatrixTranspose(world * view));
         dxm::XMStoreFloat4x4(&cb_struct.world_view_proj, dxm::XMMatrixTranspose(world * view * proj));
         dxm::XMStoreFloat4x4(&cb_struct.view_proj, dxm::XMMatrixTranspose(view * proj));
-        if (!device->cbuffer->SetCBuffer(device, cb_struct))
+        if (!device->GetCurrentFrameResource().cb_obj->CopyData(cb_slot, cb_struct))
             return false;
+
+        // set cbuffer
+        device->cmd_list->SetGraphicsRootDescriptorTable(0, device->GetCurrentFrameResource().cb_obj->GetCbvGpu(cb_slot));
 
         // draw
         //device->cmd_list->DrawInstanced(mesh->v_count, 1, 0, 0);
