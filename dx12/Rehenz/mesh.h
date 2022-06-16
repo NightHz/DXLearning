@@ -121,6 +121,11 @@ namespace Rehenz
 	// include pos, normal, uv info
 	std::shared_ptr<Mesh> CreateMeshFromObjFile(const std::string& filename);
 
+	// create frustum mesh which includes pos, normal info
+	// pos   : height = 1, bottom radius = 1, (0,0,0) is center point
+	// normal: 
+	std::shared_ptr<Mesh> CreateFrustumMesh(float top_radius = 0.5f, int smooth = 20);
+
 	class Texture
 	{
 	private:

@@ -579,6 +579,72 @@ namespace Rehenz
 
 		return std::make_shared<Mesh>(std::move(vertices), std::move(triangles));
 	}
+
+	std::shared_ptr<Mesh> CreateFrustumMesh(float top_radius, int smooth)
+	{
+		smooth = Clamp(smooth, 3, 200);
+
+		std::vector<Vertex> vertices;
+		std::vector<int> triangles;
+
+		// add top disc
+		if (top_radius > 0)
+		{
+			vertices.emplace_back(Point(0, 0.5f, 0), Vector(0, 1, 0));
+			for (int i = 0; i < smooth; i++)
+			{
+				float theta = pi_mul2 * i / smooth;
+				vertices.emplace_back(Point(top_radius * cosf(theta), 0.5f, top_radius * sinf(theta)), Vector(0, 1, 0));
+			}
+			for (int i = 1; i < smooth; i++)
+			{
+				triangles.push_back(0); triangles.push_back(i + 1); triangles.push_back(i);
+			}
+			triangles.push_back(0); triangles.push_back(1); triangles.push_back(smooth);
+		}
+
+		// add bottom disc
+		int v_o = static_cast<int>(vertices.size());
+		vertices.emplace_back(Point(0, -0.5f, 0), Vector(0, -1, 0));
+		for (int i = 0; i < smooth; i++)
+		{
+			float theta = pi_mul2 * (i + 0.5f) / smooth;
+			vertices.emplace_back(Point(cosf(theta), -0.5f, sinf(theta)), Vector(0, -1, 0));
+		}
+		for (int i = 1; i < smooth; i++)
+		{
+			triangles.push_back(v_o); triangles.push_back(v_o + i); triangles.push_back(v_o + i + 1);
+		}
+		triangles.push_back(v_o); triangles.push_back(v_o + smooth); triangles.push_back(v_o + 1);
+
+		// add side face
+		Vector normal(1, 1 - top_radius, 0);
+		normal = VectorNormalize(normal);
+		v_o = static_cast<int>(vertices.size());
+		for (int i = 0; i < smooth; i++)
+		{
+			float theta = pi_mul2 * i / smooth;
+			vertices.emplace_back(Point(top_radius * cosf(theta), 0.5f, top_radius * sinf(theta)),
+				Vector(normal.x * cosf(theta), normal.y, normal.x * sinf(theta)));
+		}
+		int v_o2 = static_cast<int>(vertices.size());
+		for (int i = 0; i < smooth; i++)
+		{
+			float theta = pi_mul2 * (i + 0.5f) / smooth;
+			vertices.emplace_back(Point(cosf(theta), -0.5f, sinf(theta)),
+				Vector(normal.x * cosf(theta), normal.y, normal.x * sinf(theta)));
+		}
+		for (int i = 1; i < smooth; i++)
+		{
+			triangles.push_back(v_o + i - 1); triangles.push_back(v_o + i); triangles.push_back(v_o2 + i - 1);
+			triangles.push_back(v_o + i); triangles.push_back(v_o2 + i); triangles.push_back(v_o2 + i - 1);
+		}
+		triangles.push_back(v_o + smooth - 1); triangles.push_back(v_o); triangles.push_back(v_o2 + smooth - 1);
+		triangles.push_back(v_o); triangles.push_back(v_o2); triangles.push_back(v_o2 + smooth - 1);
+
+		return std::make_shared<Mesh>(std::move(vertices), std::move(triangles));
+	}
+
 	Texture::Texture(int _width, int _height) : width(_width), height(_height), buffer(new Color[static_cast<size_t>(_width) * _height])
 	{
 	}
