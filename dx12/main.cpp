@@ -25,6 +25,8 @@ Rehenz::Projection camera_proj;
 CBFrame cb_frame;
 CBLight cb_light;
 
+base_library<std::vector<std::string>> pso_objs; // pso - objs
+
 
 void update(DeviceDx12* device, float dt)
 {
@@ -132,13 +134,16 @@ bool init(DeviceDx12* device)
 	// init objs
 	UINT cb_slot = 0;
 	obj_lib["cube"] = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube"]);
+	pso_objs["pso1"].push_back("cube");
 	auto cube2 = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
 	cube2->transform.pos.x = -3;
 	obj_lib["cube2"] = cube2;
+	pso_objs["pso2"].push_back("cube2");
 	auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
 	sphere->transform.pos = Rehenz::Vector(0, 2.4f, 0);
 	sphere->transform.scale = Rehenz::Vector(0.6f, 0.6f, 0.6f);
 	obj_lib["sphere"] = sphere;
+	pso_objs["pso2"].push_back("sphere");
 
 	// init camera
 	camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
@@ -170,17 +175,15 @@ bool draw(DeviceDx12* device)
 
 	// set pso and draw objects
 
-	device->cmd_list->SetPipelineState(pso_lib["pso1"]->pso.Get());
-
-	if (!obj_lib["cube"]->Draw(device))
-		return false;
-
-	device->cmd_list->SetPipelineState(pso_lib["pso2"]->pso.Get());
-
-	if (!obj_lib["cube2"]->Draw(device))
-		return false;
-	if (!obj_lib["sphere"]->Draw(device))
-		return false;
+	for (auto& pair : pso_objs)
+	{
+		device->cmd_list->SetPipelineState(pso_lib[pair.first]->pso.Get());
+		for (auto& obj_name : pair.second)
+		{
+			if (!obj_lib[obj_name]->Draw(device))
+				return false;
+		}
+	}
 
 	return true;
 }
