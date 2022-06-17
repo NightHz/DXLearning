@@ -54,8 +54,8 @@ dx12 被完全地重新设计， dx11 中为了过渡还保留了一些旧的东
    3. 创建命令列表 `ID3D12CommandQueue` `ID3D12CommandAllocator` `ID3D12GraphicsCommandList`
    4. 创建交换链 `IDXGISwapChain` ，其中包含了用于渲染的屏幕资源
 2. 创建基础资源
-   1. 创建描述符堆 `ID3D12DescriptorHeap` ，至少三个分别用于渲染目标 `RTV` 、深度模板缓存 `DSV` 、常量缓存等 `CBV,SRV,UAV`
-   2. 创建上面三个堆对应的一些资源和相应的描述符
+   1. 创建描述符堆 `ID3D12DescriptorHeap` ，分别用于渲染目标 `RTV` 、深度模板缓存 `DSV` 、常量缓存等 `CBV,SRV,UAV`
+   2. 创建 `RTV` 、深度模板资源与 `DSV` 、常量缓存与 `CBV`
    3. 存储视口 `D3D12_VIEWPORT` 、裁切矩阵
 3. 初始化
    1. 创建根签名 `ID3D12RootSignature`
@@ -70,36 +70,44 @@ dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/
 其中各 shader 阶段均通过 PSO 设置 shader 代码，并借由根签名将资源映射到 shader 的输入寄存器。 PSO 还设置了 IA 的输入布局、 RS 的光栅化参数、 OM 的混合参数、深度模板参数。
 
 1. 开始阶段
-   1. 重置命令列表 `Reset`
-   2. 转换屏幕资源状态为 `D3D12_RESOURCE_STATE_RENDER_TARGET`
-   3. 清屏 `ClearRenderTargetView` `ClearDepthStencilView`
-   4. 设置渲染目标 `OMSetRenderTargets`
-   5. 设置视口与裁切矩阵 `RSSetViewports` `RSSetScissorRects`
-   6. 设置其它描述符堆 `SetDescriptorHeaps` 并 `Map` cbuffer
+   1. 同步 cpu 与 gpu
+   2. 重置命令列表 `Reset`
+   3. 转换屏幕资源状态为 `D3D12_RESOURCE_STATE_RENDER_TARGET`
+   4. 清屏 `ClearRenderTargetView` `ClearDepthStencilView`
+   5. 设置渲染目标 `OMSetRenderTargets`
+   6. 设置视口与裁切矩阵 `RSSetViewports` `RSSetScissorRects`
 2. 布局阶段
-   1. 设置根签名 `SetGraphicsRootSignature`
-   2. 设置 PSO `SetPipelineState`
+   1. 设置其它描述符堆 `SetDescriptorHeaps` 并 `Map` cbuffer
+   2. 设置根签名 `SetGraphicsRootSignature`
+   3. 向 cbuffer 写入数据并设置全局根参数 `SetGraphicsRootDescriptorTable`
+   4. 设置 PSO `SetPipelineState`
 3. 绘制阶段
    1. 设置图元拓扑 `IASetPrimitiveTopology`
    2. 设置顶点缓存 `IASetVertexBuffers`
    3. 设置索引缓存 `IASetIndexBuffer`
-   4. 向 cbuffer 写入数据并设置常量缓存 `SetGraphicsRootDescriptorTable`
+   4. 向 cbuffer 写入数据并设置物品根参数 `SetGraphicsRootDescriptorTable`
    5. 绘制 `DrawInstanced` 或 `DrawIndexedInstanced`
 4. 结束阶段
    1. `Unmap` cbuffer
    2. 转换屏幕资源状态为 `D3D12_RESOURCE_STATE_PRESENT`
    3. 递交命令给 gpu `Close` `ExecuteCommandLists`
    4. 更新交换链 `Present`
-   5. 同步 cpu 与 gpu
 
 
-### 基础立方体
+### 1 基础立方体
 
 ![](img/dx12_01cube.gif)
 
 
 ### 组织架构
 
+**帧资源**：我们可以将单一帧 gpu 所引用到的资源捆绑到一个类中，一般会包括一个 `command allocator` 、描述符堆和常量缓存，如此一来，我们不需要等 gpu 完成后再创建新命令，而是直接使用新的帧资源创建新命令，这样， gpu 引用的资源便不会发生改变。当 cpu 性能足够时，我们可以保证 gpu 处于时刻运转的状态，最大化 gpu 的性能。实际操作中，一般使用一个环形数组。
+
+**常量缓存区**：在 shader 中会使用 `cbuffer xxx : register(bn)` 来使用多个常量缓存区；而且对于不同的物体，上传的数据应出现在常量缓存区的不同位置。为了方便，我们可以将常量缓存区封装成类，实质上是一个上传缓冲区，对外有 `CopyData` 和 `GetCbvDesc` 两个函数。
+
+**网格，物件**：对于图元拓扑、顶点缓存、索引缓存，可以封装为网格。而网格、变换、材质则可以封装为物件。
+
+**PSO - 物件列表**：设置 PSO 到物件列表的字典，可最小化切换 PSO 的次数，同时也支持单一物件在多个 PSO 下重复渲染，以实现一些复杂效果。
 
 
 
