@@ -738,7 +738,7 @@ namespace Dx12
         return true;
     }
 
-    PipelineStateDx12::PipelineStateDx12()
+    PipelineStateCreatorDx12::PipelineStateCreatorDx12()
     {
         ::memset(&pso_desc, 0, sizeof(pso_desc));
         pso_desc.pRootSignature = nullptr;
@@ -820,17 +820,17 @@ namespace Dx12
         pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
     }
 
-    PipelineStateDx12::~PipelineStateDx12()
+    PipelineStateCreatorDx12::~PipelineStateCreatorDx12()
     {
     }
 
-    bool PipelineStateDx12::CreatePSO(DeviceDx12* device)
+    ComPtr<ID3D12PipelineState> PipelineStateCreatorDx12::CreatePSO(DeviceDx12* device)
     {
-        pso = nullptr;
+        ComPtr<ID3D12PipelineState> pso;
         HRESULT hr = device->device->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(pso.GetAddressOf()));
         if (FAILED(hr))
-            return false;
-        return true;
+            return nullptr;
+        return pso;
     }
 
     MeshDx12::MeshDx12()

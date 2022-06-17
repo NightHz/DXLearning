@@ -13,7 +13,7 @@ Rehenz::Mouse mouse;
 
 template <typename T>
 using base_library = std::unordered_map<std::string, T>;
-base_library<std::shared_ptr<PipelineStateDx12>> pso_lib;
+base_library<ComPtr<ID3D12PipelineState>> pso_lib;
 base_library<std::shared_ptr<std::vector<D3D12_INPUT_ELEMENT_DESC>>> il_lib;
 base_library<ComPtr<ID3DBlob>> shader_lib;
 base_library<std::shared_ptr<MeshDx12>> mesh_lib;
@@ -103,23 +103,19 @@ bool init(DeviceDx12* device)
 	}
 
 	// init pso
-	std::shared_ptr<PipelineStateDx12> pso;
-	pso = std::make_shared<PipelineStateDx12>();
-	pso->SetRootSignature(device->root_sig.Get());
-	pso->SetInputLayout(*il_lib["pos+color"]);
-	pso->SetVS(shader_lib["vs_transform"].Get());
-	pso->SetPS(shader_lib["ps_color"].Get());
-	if (!pso->CreatePSO(device))
-		return false;
-	pso_lib["pso1"] = pso;
-	pso = std::make_shared<PipelineStateDx12>();
-	pso->SetRootSignature(device->root_sig.Get());
-	pso->SetInputLayout(*il_lib["rehenz"]);
-	pso->SetVS(shader_lib["vs_transform"].Get());
-	pso->SetPS(shader_lib["ps_color"].Get());
-	if (!pso->CreatePSO(device))
-		return false;
-	pso_lib["pso2"] = pso;
+	PipelineStateCreatorDx12 pso_creator;
+	pso_creator.SetRootSignature(device->root_sig.Get());
+	pso_creator.SetInputLayout(*il_lib["pos+color"]);
+	pso_creator.SetVS(shader_lib["vs_transform"].Get());
+	pso_creator.SetPS(shader_lib["ps_color"].Get());
+	pso_lib["pso1"] = pso_creator.CreatePSO(device);
+	pso_creator.SetInputLayout(*il_lib["rehenz"]);
+	pso_lib["pso2"] = pso_creator.CreatePSO(device);
+	for (auto& p : pso_lib)
+	{
+		if (!p.second)
+			return false;
+	}
 
 	// init meshs
 	mesh_lib["cube"] = MeshDx12::CreateCube(device);
@@ -177,7 +173,7 @@ bool draw(DeviceDx12* device)
 
 	for (auto& pair : pso_objs)
 	{
-		device->cmd_list->SetPipelineState(pso_lib[pair.first]->pso.Get());
+		device->cmd_list->SetPipelineState(pso_lib[pair.first].Get());
 		for (auto& obj_name : pair.second)
 		{
 			if (!obj_lib[obj_name]->Draw(device))

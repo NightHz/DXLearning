@@ -107,7 +107,7 @@ namespace Dx12
     class FrameResourceDx12;
     class CBufferBaseDx12;
     template<typename T> class CBufferDx12;
-    class PipelineStateDx12;
+    class PipelineStateCreatorDx12;
     class MeshDx12;
     class ObjectDx12;
 
@@ -381,17 +381,14 @@ namespace Dx12
         }
     };
 
-    class PipelineStateDx12
+    class PipelineStateCreatorDx12
     {
     public:
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc;
-        ComPtr<ID3D12PipelineState> pso;
 
     public:
-        PipelineStateDx12();
-        PipelineStateDx12(const PipelineStateDx12&) = delete;
-        PipelineStateDx12& operator=(const PipelineStateDx12&) = delete;
-        ~PipelineStateDx12();
+        PipelineStateCreatorDx12();
+        ~PipelineStateCreatorDx12();
 
         inline void SetRootSignature(ID3D12RootSignature* rs) { pso_desc.pRootSignature = rs; }
         inline void SetVS(ID3DBlob* blob) { pso_desc.VS.pShaderBytecode = blob->GetBufferPointer(); pso_desc.VS.BytecodeLength = blob->GetBufferSize(); }
@@ -399,10 +396,13 @@ namespace Dx12
         inline void SetDS(ID3DBlob* blob) { pso_desc.DS.pShaderBytecode = blob->GetBufferPointer(); pso_desc.DS.BytecodeLength = blob->GetBufferSize(); }
         inline void SetHS(ID3DBlob* blob) { pso_desc.HS.pShaderBytecode = blob->GetBufferPointer(); pso_desc.HS.BytecodeLength = blob->GetBufferSize(); }
         inline void SetGS(ID3DBlob* blob) { pso_desc.GS.pShaderBytecode = blob->GetBufferPointer(); pso_desc.GS.BytecodeLength = blob->GetBufferSize(); }
+        inline void ResetDS() { pso_desc.DS.pShaderBytecode = nullptr; pso_desc.DS.BytecodeLength = 0; }
+        inline void ResetHS() { pso_desc.HS.pShaderBytecode = nullptr; pso_desc.HS.BytecodeLength = 0; }
+        inline void ResetGS() { pso_desc.GS.pShaderBytecode = nullptr; pso_desc.GS.BytecodeLength = 0; }
         inline void SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& desc)
         { pso_desc.InputLayout.pInputElementDescs = &desc[0]; pso_desc.InputLayout.NumElements = static_cast<UINT>(desc.size()); }
 
-        bool CreatePSO(DeviceDx12* device);
+        ComPtr<ID3D12PipelineState> CreatePSO(DeviceDx12* device);
     };
 
     class MeshDx12
