@@ -8,7 +8,6 @@
 #include <d3dcompiler.h>
 #include <ostream>
 #include <fstream>
-#include <unordered_map>
 #include "Rehenz/type.h"
 #include "Rehenz/window_fc.h"
 #include "Rehenz/render_soft.h"
@@ -55,14 +54,50 @@ namespace Dx12
 
 
     // cbuffer struct
-    struct CBTransform
+    struct CBObj
     {
         XMFLOAT4X4 world;
+        XMFLOAT4 ambient;
+        XMFLOAT4 diffuse;
+        XMFLOAT4 specular;
+        XMFLOAT4 emissive;
+        float power;
+        float _pad1[3];
+    };
+    struct CBFrame
+    {
         XMFLOAT4X4 view;
         XMFLOAT4X4 proj;
-        XMFLOAT4X4 world_view;
         XMFLOAT4X4 view_proj;
-        XMFLOAT4X4 world_view_proj;
+        XMFLOAT3 eye_pos;
+        float _pad1;
+        XMFLOAT3 eye_at;
+        float _pad2;
+        XMFLOAT2 screen_size;
+        float time;
+        float deltatime;
+    };
+    struct CBLight
+    {
+        bool dl_enable;
+        char _pad1[3];
+        bool dl_specular_enable;
+        char _pad2[3];
+        float _pad3[2];
+        XMFLOAT4 dl_dir;
+        XMFLOAT4 dl_ambient;
+        XMFLOAT4 dl_diffuse;
+        XMFLOAT4 dl_specular;
+        bool pl_enable;
+        char _pad4[3];
+        bool pl_specular_enable;
+        char _pad5[3];
+        float pl_range;
+        float _pad6;
+        XMFLOAT4 pl_pos;
+        XMFLOAT4 pl_ambient;
+        XMFLOAT4 pl_diffuse;
+        XMFLOAT4 pl_specular;
     };
 
 
@@ -122,6 +157,27 @@ namespace Dx12
             return heap_prop;
         }
 
+        inline static D3D12_DESCRIPTOR_RANGE GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE type, UINT count, UINT register_i)
+        {
+            D3D12_DESCRIPTOR_RANGE dr;
+            dr.RangeType = type;
+            dr.NumDescriptors = count;
+            dr.BaseShaderRegister = register_i;
+            dr.RegisterSpace = 0;
+            dr.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+            return dr;
+        }
+
+        inline static D3D12_ROOT_PARAMETER GetRootParameterDT(UINT count, D3D12_DESCRIPTOR_RANGE* pdr)
+        {
+            D3D12_ROOT_PARAMETER rp;
+            rp.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            rp.DescriptorTable.NumDescriptorRanges = count;
+            rp.DescriptorTable.pDescriptorRanges = pdr;
+            rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+            return rp;
+        }
+
         static bool CreateDefaultBuffer(ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list, const void* data, UINT64 size,
             ComPtr<ID3D12Resource2>& buffer, ComPtr<ID3D12Resource2>& uploader);
 
@@ -156,7 +212,7 @@ namespace Dx12
         ComPtr<IDXGISwapChain4> sc;
 
         // descriptor heap
-        UINT rtv_size, dsv_size, cbv_size;
+        UINT rtv_size, dsv_size;
         ComPtr<ID3D12DescriptorHeap> rtv_heap;
         ComPtr<ID3D12DescriptorHeap> dsv_heap;
 
@@ -167,10 +223,6 @@ namespace Dx12
         // viewport & scissor rect
         D3D12_VIEWPORT vp;
         D3D12_RECT sr;
-
-        // camera info
-        Rehenz::Transform camera_trans;
-        Rehenz::Projection camera_proj;
 
 
         // frame resource
@@ -242,32 +294,23 @@ namespace Dx12
     public:
         UINT64 fence_v;
         ComPtr<ID3D12CommandAllocator> cmd_alloc;
-        std::shared_ptr<CBufferDx12<CBTransform>> cb_obj;
 
-    public:
-        FrameResourceDx12();
-        FrameResourceDx12(const FrameResourceDx12&) = delete;
-        FrameResourceDx12& operator=(const FrameResourceDx12&) = delete;
-        ~FrameResourceDx12();
-
-        bool Create(ID3D12Device8* device);
-    };
-
-    class CBufferBaseDx12
-    {
-    public:
         UINT cbv_size;
-        ComPtr<ID3D12DescriptorHeap> cbv_heap;
-        UINT count;
-        UINT struct_size;
-        UINT cbuffer_size;
-        ComPtr<ID3D12Resource2> cbuffer;
-        BYTE* data;
+        static const int cbv_count = 200;
+        ComPtr<ID3D12DescriptorHeap> cbv_heap; // also srv heap and uav heap
+
+        static const int obj_max_count = 80;
+        std::shared_ptr<CBufferDx12<CBObj>> cb_obj;
+        static const int cb_obj_start_slot_in_heap = 2;
+        std::shared_ptr<CBufferDx12<CBFrame>> cb_frame;
+        static const int cb_frame_start_slot_in_heap = 0;
+        std::shared_ptr<CBufferDx12<CBLight>> cb_light;
+        static const int cb_light_start_slot_in_heap = 1;
 
         inline D3D12_CPU_DESCRIPTOR_HANDLE GetCbv(UINT i)
         {
             auto dh = cbv_heap->GetCPUDescriptorHandleForHeapStart();
-            dh.ptr += cbv_size * static_cast<unsigned long long>(i);
+            dh.ptr += cbv_size * static_cast<SIZE_T>(i);
             return dh;
         };
         inline D3D12_GPU_DESCRIPTOR_HANDLE GetCbvGpu(UINT i)
@@ -276,6 +319,38 @@ namespace Dx12
             dh.ptr += cbv_size * static_cast<UINT64>(i);
             return dh;
         };
+
+        inline D3D12_GPU_DESCRIPTOR_HANDLE GetObjCbvGpu(UINT i) { return GetCbvGpu(i + cb_obj_start_slot_in_heap); }
+        inline D3D12_GPU_DESCRIPTOR_HANDLE GetFrameCbvGpu() { return GetCbvGpu(cb_frame_start_slot_in_heap); }
+        inline D3D12_GPU_DESCRIPTOR_HANDLE GetLightCbvGpu() { return GetCbvGpu(cb_light_start_slot_in_heap); }
+
+    public:
+        FrameResourceDx12();
+        FrameResourceDx12(const FrameResourceDx12&) = delete;
+        FrameResourceDx12& operator=(const FrameResourceDx12&) = delete;
+        ~FrameResourceDx12();
+        
+        bool Create(ID3D12Device8* device);
+
+        void CreateContinuousCbvInHeap(ID3D12Device8* device, CBufferBaseDx12* cbuffer, UINT start_slot_in_heap, UINT count);
+    };
+
+    class CBufferBaseDx12
+    {
+    public:
+        UINT count;
+        UINT struct_size;
+        UINT cbuffer_size;
+        ComPtr<ID3D12Resource2> cbuffer;
+        BYTE* data;
+
+        inline D3D12_CONSTANT_BUFFER_VIEW_DESC GetCbvDesc(UINT slot)
+        {
+            D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc;
+            cbv_desc.BufferLocation = cbuffer->GetGPUVirtualAddress() + slot * static_cast<UINT64>(cbuffer_size);
+            cbv_desc.SizeInBytes = cbuffer_size;
+            return cbv_desc;
+        }
 
     public:
         CBufferBaseDx12(UINT _count, UINT _struct_size);

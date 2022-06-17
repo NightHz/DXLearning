@@ -1,6 +1,7 @@
 #include <iostream>
 #include "dx12.h"
 #include "Rehenz/input.h"
+#include <unordered_map>
 
 using std::cout;
 using std::wcout;
@@ -18,28 +19,37 @@ base_library<ComPtr<ID3DBlob>> shader_lib;
 base_library<std::shared_ptr<MeshDx12>> mesh_lib;
 base_library<std::shared_ptr<ObjectDx12>> obj_lib;
 
+Rehenz::Transform camera_trans;
+Rehenz::Projection camera_proj;
+
+CBFrame cb_frame;
+CBLight cb_light;
+
 
 void update(DeviceDx12* device, float dt)
 {
+	static float t = 0;
+	t += dt;
+
 	// control camera
 	float cam_move_dis = 5 * dt;
 	float cam_rotate_angle = 0.005f;
-	if (KeyIsDown('W')) device->camera_trans.pos += device->camera_trans.GetFrontInGround() * cam_move_dis;
-	else if (KeyIsDown('S')) device->camera_trans.pos -= device->camera_trans.GetFrontInGround() * cam_move_dis;
-	if (KeyIsDown('A')) device->camera_trans.pos -= device->camera_trans.GetRightInGround() * cam_move_dis;
-	else if (KeyIsDown('D')) device->camera_trans.pos += device->camera_trans.GetRightInGround() * cam_move_dis;
-	if (KeyIsDown(VK_SPACE)) device->camera_trans.pos.y += cam_move_dis;
-	else if (KeyIsDown(VK_LSHIFT)) device->camera_trans.pos.y -= cam_move_dis;
+	if (KeyIsDown('W')) camera_trans.pos += camera_trans.GetFrontInGround() * cam_move_dis;
+	else if (KeyIsDown('S')) camera_trans.pos -= camera_trans.GetFrontInGround() * cam_move_dis;
+	if (KeyIsDown('A')) camera_trans.pos -= camera_trans.GetRightInGround() * cam_move_dis;
+	else if (KeyIsDown('D')) camera_trans.pos += camera_trans.GetRightInGround() * cam_move_dis;
+	if (KeyIsDown(VK_SPACE)) camera_trans.pos.y += cam_move_dis;
+	else if (KeyIsDown(VK_LSHIFT)) camera_trans.pos.y -= cam_move_dis;
 	if (KeyIsDown(VK_MBUTTON))
 	{
-		device->camera_trans.axes.pitch += cam_rotate_angle * mouse.GetMoveY();
-		device->camera_trans.axes.yaw += cam_rotate_angle * mouse.GetMoveX();
+		camera_trans.axes.pitch += cam_rotate_angle * mouse.GetMoveY();
+		camera_trans.axes.yaw += cam_rotate_angle * mouse.GetMoveX();
 		mouse.SetToPrev();
 	}
 	if (KeyIsDown('R'))
 	{
-		device->camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
-		device->camera_trans.axes = Rehenz::AircraftAxes(0.4f, -0.3f, 0);
+		camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
+		camera_trans.axes = Rehenz::AircraftAxes(0.4f, -0.3f, 0);
 	}
 
 	// control object
@@ -51,6 +61,18 @@ void update(DeviceDx12* device, float dt)
 	else if (KeyIsDown('L')) obj->transform.axes.yaw += obj_rotate_angle;
 	if (KeyIsDown('U')) obj->transform.axes.roll -= obj_rotate_angle;
 	else if (KeyIsDown('O')) obj->transform.axes.roll += obj_rotate_angle;
+
+	// update cbuffer struct
+	XMMATRIX view = ToXmMatrix(camera_trans.GetInverseTransformMatrix());
+	XMMATRIX proj = ToXmMatrix(camera_proj.GetTransformMatrix());
+	dxm::XMStoreFloat4x4(&cb_frame.view, dxm::XMMatrixTranspose(view));
+	dxm::XMStoreFloat4x4(&cb_frame.proj, dxm::XMMatrixTranspose(proj));
+	dxm::XMStoreFloat4x4(&cb_frame.view_proj, dxm::XMMatrixTranspose(view * proj));
+	dxm::XMStoreFloat3(&cb_frame.eye_pos, ToXmVector(camera_trans.pos));
+	dxm::XMStoreFloat3(&cb_frame.eye_at, ToXmVector(camera_trans.GetFront()));
+	cb_frame.screen_size = XMFLOAT2(device->vp.Width, device->vp.Height);
+	cb_frame.time = t;
+	cb_frame.deltatime = dt;
 }
 
 bool init(DeviceDx12* device)
@@ -119,8 +141,10 @@ bool init(DeviceDx12* device)
 	obj_lib["sphere"] = sphere;
 
 	// init camera
-	device->camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
-	device->camera_trans.axes = Rehenz::AircraftAxes(0.4f, -0.3f, 0);
+	camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
+	camera_trans.axes = Rehenz::AircraftAxes(0.4f, -0.3f, 0);
+	camera_proj.z_far = 100;
+	camera_proj.aspect = device->vp.Width / device->vp.Height;
 
 	return true;
 }
@@ -135,6 +159,17 @@ bool clean_after_init()
 
 bool draw(DeviceDx12* device)
 {
+	// set cbuffer
+
+	if (!device->GetCurrentFrameResource().cb_frame->CopyData(0, cb_frame))
+		return false;
+	device->cmd_list->SetGraphicsRootDescriptorTable(1, device->GetCurrentFrameResource().GetFrameCbvGpu());
+	if (!device->GetCurrentFrameResource().cb_light->CopyData(0, cb_light))
+		return false;
+	device->cmd_list->SetGraphicsRootDescriptorTable(2, device->GetCurrentFrameResource().GetLightCbvGpu());
+
+	// set pso and draw objects
+
 	device->cmd_list->SetPipelineState(pso_lib["pso1"]->pso.Get());
 
 	if (!obj_lib["cube"]->Draw(device))

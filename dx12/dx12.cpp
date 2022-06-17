@@ -94,8 +94,10 @@ namespace Dx12
 
     bool UtilDx12::WaitFenceValue(ID3D12Fence1* fence, UINT64 value)
     {
-        if (fence->GetCompletedValue() < value)
+        UINT64 completed_value = fence->GetCompletedValue();
+        if (completed_value < value)
         {
+            //OutputDebugString((std::string() + "CPU wait " + std::to_string(value) + " and GPU is " + std::to_string(completed_value) + ".\n").c_str());
             HANDLE event = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
             if (!event)
                 return false;
@@ -105,6 +107,7 @@ namespace Dx12
             WaitForSingleObject(event, INFINITE);
             CloseHandle(event);
         }
+        //else OutputDebugString((std::string() + "CPU get " + std::to_string(value) + " and GPU is " + std::to_string(completed_value) + ".\n").c_str());
         return true;
     }
 
@@ -116,6 +119,7 @@ namespace Dx12
         hr = cmd_queue->Signal(fence.Get(), current_fence_v);
         if (FAILED(hr))
             return false;
+        //OutputDebugString((std::string() + "Flush command and CPU mark " + std::to_string(current_fence_v) + ".\n").c_str());
         if (!UtilDx12::WaitFenceValue(fence.Get(), current_fence_v))
             return false;
 
@@ -129,7 +133,6 @@ namespace Dx12
         sc_buffer_count = 0;
         rtv_size = 0;
         dsv_size = 0;
-        cbv_size = 0;
         ZeroMemory(&vp, sizeof(vp));
         ZeroMemory(&sr, sizeof(sr));
     }
@@ -178,6 +181,7 @@ namespace Dx12
         hr = cmd_queue->Signal(fence.Get(), frc.fence_v);
         if (FAILED(hr))
             return false;
+        //OutputDebugString((std::string() + "CPU mark " + std::to_string(frc.fence_v) + ".\n").c_str());
 
         return true;
     }
@@ -272,7 +276,6 @@ namespace Dx12
         // create descriptor heap
         p->rtv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         p->dsv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-        p->cbv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         D3D12_DESCRIPTOR_HEAP_DESC dh_desc;
         dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
@@ -323,32 +326,6 @@ namespace Dx12
             return nullptr;
         p->device->CreateDepthStencilView(p->dsv_buffer.Get(), nullptr, p->GetDsv(0));
 
-        // create root sig
-        D3D12_DESCRIPTOR_RANGE dr;
-        dr.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-        dr.NumDescriptors = 1;
-        dr.BaseShaderRegister = 0;
-        dr.RegisterSpace = 0;
-        dr.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-        D3D12_ROOT_PARAMETER rp;
-        rp.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-        rp.DescriptorTable.NumDescriptorRanges = 1;
-        rp.DescriptorTable.pDescriptorRanges = &dr;
-        rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-        D3D12_ROOT_SIGNATURE_DESC rs_desc;
-        rs_desc.NumParameters = 1;
-        rs_desc.pParameters = &rp;
-        rs_desc.NumStaticSamplers = 0;
-        rs_desc.pStaticSamplers = nullptr;
-        rs_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-        ComPtr<ID3DBlob> root_sig_blob;
-        hr = D3D12SerializeRootSignature(&rs_desc, D3D_ROOT_SIGNATURE_VERSION_1, root_sig_blob.GetAddressOf(), nullptr);
-        if (FAILED(hr))
-            return nullptr;
-        hr = p->device->CreateRootSignature(0, root_sig_blob->GetBufferPointer(), root_sig_blob->GetBufferSize(), IID_PPV_ARGS(p->root_sig.GetAddressOf()));
-        if (FAILED(hr))
-            return nullptr;
-
         // set viewport
         p->vp.TopLeftX = 0;
         p->vp.TopLeftY = 0;
@@ -363,10 +340,27 @@ namespace Dx12
         p->sr.top = 0;
         p->sr.bottom = window->GetHeight();
 
-        // set camera
-        p->camera_trans.pos.z = -5;
-        p->camera_proj.z_far = 100;
-        p->camera_proj.aspect = static_cast<float>(window->GetWidth()) / window->GetHeight();
+        // create root sig
+        D3D12_DESCRIPTOR_RANGE dr1 = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
+        D3D12_DESCRIPTOR_RANGE dr2 = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
+        D3D12_DESCRIPTOR_RANGE dr3 = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2);
+        D3D12_ROOT_PARAMETER rp[3];
+        rp[0] = UtilDx12::GetRootParameterDT(1, &dr1);
+        rp[1] = UtilDx12::GetRootParameterDT(1, &dr2);
+        rp[2] = UtilDx12::GetRootParameterDT(1, &dr3);
+        D3D12_ROOT_SIGNATURE_DESC rs_desc;
+        rs_desc.NumParameters = 3;
+        rs_desc.pParameters = rp;
+        rs_desc.NumStaticSamplers = 0;
+        rs_desc.pStaticSamplers = nullptr;
+        rs_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+        ComPtr<ID3DBlob> root_sig_blob;
+        hr = D3D12SerializeRootSignature(&rs_desc, D3D_ROOT_SIGNATURE_VERSION_1, root_sig_blob.GetAddressOf(), nullptr);
+        if (FAILED(hr))
+            return nullptr;
+        hr = p->device->CreateRootSignature(0, root_sig_blob->GetBufferPointer(), root_sig_blob->GetBufferSize(), IID_PPV_ARGS(p->root_sig.GetAddressOf()));
+        if (FAILED(hr))
+            return nullptr;
 
         // finish command list
         if (!p->FinishCmd())
@@ -405,11 +399,15 @@ namespace Dx12
 
         // set heaps
         auto& frc = GetCurrentFrameResource();
-        ID3D12DescriptorHeap* dhs[]{ frc.cb_obj->cbv_heap.Get() };
-        cmd_list->SetDescriptorHeaps(1, dhs);
+        ID3D12DescriptorHeap* dhs[]{ frc.cbv_heap.Get() };
+        cmd_list->SetDescriptorHeaps(_countof(dhs), dhs);
 
         // map cbuffer
         if (!frc.cb_obj->Map())
+            return false;
+        if (!frc.cb_frame->Map())
+            return false;
+        if (!frc.cb_light->Map())
             return false;
 
         // set root sig
@@ -425,6 +423,8 @@ namespace Dx12
         // unmap cbuffer
         auto& frc = GetCurrentFrameResource();
         frc.cb_obj->Unmap();
+        frc.cb_frame->Unmap();
+        frc.cb_light->Unmap();
 
         // change rtv -> present
         auto rc_barr = UtilDx12::GetTransitionStruct(GetCurrentRtvBuffer(),
@@ -634,6 +634,7 @@ namespace Dx12
     FrameResourceDx12::FrameResourceDx12()
     {
         fence_v = 0;
+        cbv_size = 0;
     }
 
     FrameResourceDx12::~FrameResourceDx12()
@@ -649,17 +650,47 @@ namespace Dx12
         if (FAILED(hr))
             return false;
 
+        // create cbv heap
+        cbv_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        D3D12_DESCRIPTOR_HEAP_DESC dh_desc;
+        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        dh_desc.NumDescriptors = cbv_count;
+        dh_desc.NodeMask = 0;
+        hr = device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(cbv_heap.GetAddressOf()));
+        if (FAILED(hr))
+            return false;
+
         // create cbuffer
-        cb_obj = std::make_shared<CBufferDx12<CBTransform>>(160);
+        cb_obj = std::make_shared<CBufferDx12<CBObj>>(obj_max_count);
         if (!cb_obj->Create(device))
             return false;
+        cb_frame = std::make_shared<CBufferDx12<CBFrame>>(1);
+        if (!cb_frame->Create(device))
+            return false;
+        cb_light = std::make_shared<CBufferDx12<CBLight>>(1);
+        if (!cb_light->Create(device))
+            return false;
+
+        // create cbv in heap
+        CreateContinuousCbvInHeap(device, cb_obj.get(), cb_obj_start_slot_in_heap, obj_max_count);
+        CreateContinuousCbvInHeap(device, cb_frame.get(), cb_frame_start_slot_in_heap, 1);
+        CreateContinuousCbvInHeap(device, cb_light.get(), cb_light_start_slot_in_heap, 1);
 
         return true;
     }
 
+    void FrameResourceDx12::CreateContinuousCbvInHeap(ID3D12Device8* device, CBufferBaseDx12* cbuffer, UINT start_slot_in_heap, UINT count)
+    {
+        for (UINT i = 0; i < count; i++)
+        {
+            D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = cbuffer->GetCbvDesc(i);
+            device->CreateConstantBufferView(&cbv_desc, GetCbv(start_slot_in_heap + i));
+        }
+    }
+
     CBufferBaseDx12::CBufferBaseDx12(UINT _count, UINT _struct_size)
     {
-        cbv_size = 0;
         count = _count;
         struct_size = _struct_size;
         cbuffer_size = UtilDx12::AlignCBuffer(struct_size);
@@ -674,33 +705,12 @@ namespace Dx12
     {
         HRESULT hr = S_OK;
 
-        cbv_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-        // create cbv heap
-        D3D12_DESCRIPTOR_HEAP_DESC dh_desc;
-        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        dh_desc.NumDescriptors = count;
-        dh_desc.NodeMask = 0;
-        hr = device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(cbv_heap.GetAddressOf()));
-        if (FAILED(hr))
-            return false;
-
         // create cbuffer
         auto rc_desc = UtilDx12::GetBufferRcDesc(count * static_cast<UINT64>(cbuffer_size));
         auto heap_prop = UtilDx12::GetHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
         hr = device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(cbuffer.GetAddressOf()));
         if (FAILED(hr))
             return false;
-
-        // create cbv
-        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc;
-        for (UINT i = 0; i < count; i++)
-        {
-            cbv_desc.BufferLocation = cbuffer->GetGPUVirtualAddress() + i * static_cast<UINT64>(cbuffer_size);
-            cbv_desc.SizeInBytes = cbuffer_size;
-            device->CreateConstantBufferView(&cbv_desc, GetCbv(i));
-        }
 
         return true;
     }
@@ -964,21 +974,14 @@ namespace Dx12
         device->cmd_list->IASetIndexBuffer(&mesh->ibv);
 
         // copy data
-        CBTransform cb_struct;
+        CBObj cb_struct;
         XMMATRIX world = ToXmMatrix(transform.GetTransformMatrix());
-        XMMATRIX view = ToXmMatrix(device->camera_trans.GetInverseTransformMatrix());
-        XMMATRIX proj = ToXmMatrix(device->camera_proj.GetTransformMatrix());
         dxm::XMStoreFloat4x4(&cb_struct.world, dxm::XMMatrixTranspose(world));
-        dxm::XMStoreFloat4x4(&cb_struct.view, dxm::XMMatrixTranspose(view));
-        dxm::XMStoreFloat4x4(&cb_struct.proj, dxm::XMMatrixTranspose(proj));
-        dxm::XMStoreFloat4x4(&cb_struct.world_view, dxm::XMMatrixTranspose(world * view));
-        dxm::XMStoreFloat4x4(&cb_struct.world_view_proj, dxm::XMMatrixTranspose(world * view * proj));
-        dxm::XMStoreFloat4x4(&cb_struct.view_proj, dxm::XMMatrixTranspose(view * proj));
         if (!device->GetCurrentFrameResource().cb_obj->CopyData(cb_slot, cb_struct))
             return false;
 
         // set cbuffer
-        device->cmd_list->SetGraphicsRootDescriptorTable(0, device->GetCurrentFrameResource().cb_obj->GetCbvGpu(cb_slot));
+        device->cmd_list->SetGraphicsRootDescriptorTable(0, device->GetCurrentFrameResource().GetObjCbvGpu(cb_slot));
 
         // draw
         //device->cmd_list->DrawInstanced(mesh->v_count, 1, 0, 0);
