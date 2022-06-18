@@ -824,10 +824,10 @@ namespace Dx12
     {
     }
 
-    ComPtr<ID3D12PipelineState> PipelineStateCreatorDx12::CreatePSO(DeviceDx12* device)
+    ComPtr<ID3D12PipelineState> PipelineStateCreatorDx12::CreatePSO(ID3D12Device8* device)
     {
         ComPtr<ID3D12PipelineState> pso;
-        HRESULT hr = device->device->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(pso.GetAddressOf()));
+        HRESULT hr = device->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(pso.GetAddressOf()));
         if (FAILED(hr))
             return nullptr;
         return pso;
@@ -835,13 +835,122 @@ namespace Dx12
 
     MeshDx12::MeshDx12()
     {
+        topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+        v_size = 0;
+        v_count = i_count = 0;
         std::memset(&vbv, 0, sizeof(vbv));
         std::memset(&ibv, 0, sizeof(ibv));
-        v_count = i_count = 0;
+        start_pos = 0;
+        vertex_offset = 0;
     }
 
     MeshDx12::~MeshDx12()
     {
+    }
+
+    bool MeshDx12::UploadToGpu(ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list)
+    {
+        // set vertex offset and start pos
+        start_pos = 0;
+        vertex_offset = 0;
+
+        // create vb & vbv
+        if (!UtilDx12::CreateDefaultBuffer(device, cmd_list, vb_blob->GetBufferPointer(), vb_blob->GetBufferSize(), vb, vb_uploader))
+            return false;
+        vbv.BufferLocation = vb->GetGPUVirtualAddress();
+        vbv.SizeInBytes = static_cast<UINT>(vb_blob->GetBufferSize());
+        vbv.StrideInBytes = v_size;
+
+        // create ib & ibv
+        if (ib_blob)
+        {
+            if (!UtilDx12::CreateDefaultBuffer(device, cmd_list, ib_blob->GetBufferPointer(), ib_blob->GetBufferSize(), ib, ib_uploader))
+                return false;
+            ibv.BufferLocation = ib->GetGPUVirtualAddress();
+            ibv.SizeInBytes = static_cast<UINT>(ib_blob->GetBufferSize());
+            ibv.Format = DXGI_FORMAT_R16_UINT;
+        }
+
+        return true;
+    }
+
+    bool MeshDx12::MergeUploadToGpu(const std::vector<MeshDx12*> meshes, ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list)
+    {
+        if (meshes.size() == 0)
+            return true;
+
+        // check vertex size
+        UINT v_size = meshes[0]->v_size;
+        for (auto mesh : meshes)
+        {
+            if (mesh->v_size != v_size)
+                return false;
+        }
+
+        // set vertex offset and start pos & compute sum count
+        UINT v_count = 0;
+        UINT i_count = 0;
+        for (auto mesh : meshes)
+        {
+            mesh->vertex_offset = v_count;
+            mesh->start_pos = (mesh->ib_blob ? i_count : v_count);
+            v_count += mesh->v_count;
+            i_count += (mesh->ib_blob ? mesh->i_count : 0);
+        }
+
+        // copy data
+        UINT vs_size = v_size * v_count;
+        UINT is_size = 2 * i_count;
+        auto v_data = std::make_unique<BYTE[]>(vs_size);
+        auto i_data = std::make_unique<BYTE[]>(is_size);
+        BYTE* data = v_data.get();
+        for (auto mesh : meshes)
+        {
+            ::memcpy(data, mesh->vb_blob->GetBufferPointer(), mesh->vb_blob->GetBufferSize());
+            data += mesh->vb_blob->GetBufferSize();
+        }
+        data = i_data.get();
+        for (auto mesh : meshes)
+        {
+            if (mesh->ib_blob)
+            {
+                ::memcpy(data, mesh->ib_blob->GetBufferPointer(), mesh->ib_blob->GetBufferSize());
+                data += mesh->ib_blob->GetBufferSize();
+            }
+        }
+
+        // create vb & vbv
+        if (!UtilDx12::CreateDefaultBuffer(device, cmd_list, v_data.get(), vs_size, meshes[0]->vb, meshes[0]->vb_uploader))
+            return false;
+        meshes[0]->vbv.BufferLocation = meshes[0]->vb->GetGPUVirtualAddress();
+        meshes[0]->vbv.SizeInBytes = vs_size;
+        meshes[0]->vbv.StrideInBytes = v_size;
+
+        // create ib & ibv
+        if (is_size > 0)
+        {
+            if (!UtilDx12::CreateDefaultBuffer(device, cmd_list, i_data.get(), is_size, meshes[0]->ib, meshes[0]->ib_uploader))
+                return false;
+            meshes[0]->ibv.BufferLocation = meshes[0]->ib->GetGPUVirtualAddress();
+            meshes[0]->ibv.SizeInBytes = is_size;
+            meshes[0]->ibv.Format = DXGI_FORMAT_R16_UINT;
+        }
+
+        // copy to other mesh
+        for (auto mesh : meshes)
+        {
+            mesh->vb = meshes[0]->vb;
+            mesh->vbv = meshes[0]->vbv;
+            if (mesh->ib_blob)
+            {
+                mesh->ib = meshes[0]->ib;
+                mesh->ibv = meshes[0]->ibv;
+            }
+        }
+        if (!meshes[0]->ib_blob)
+            meshes[0]->ib = nullptr;
+
+        return true;
     }
 
     void MeshDx12::FreeUploader()
@@ -850,8 +959,10 @@ namespace Dx12
         ib_uploader = nullptr;
     }
 
-    std::shared_ptr<MeshDx12> MeshDx12::CreateCube(DeviceDx12* device)
+    std::shared_ptr<MeshDx12> MeshDx12::CreateCube()
     {
+        HRESULT hr = S_OK;
+
         std::shared_ptr<MeshDx12> p(new MeshDx12);
 
         // set data
@@ -884,27 +995,28 @@ namespace Dx12
         int i_count = static_cast<int>(indices.size());
         int is_size = 2 * i_count;
 
-        // create vb & ib
-        if (!UtilDx12::CreateDefaultBuffer(device->device.Get(), device->cmd_list.Get(), &vertices[0], vs_size, p->vb, p->vb_uploader))
+        // create vb blob & ib blob
+        hr = D3DCreateBlob(vs_size, p->vb_blob.GetAddressOf());
+        if (FAILED(hr))
             return nullptr;
-        if (!UtilDx12::CreateDefaultBuffer(device->device.Get(), device->cmd_list.Get(), &indices[0], is_size, p->ib, p->ib_uploader))
+        ::memcpy(p->vb_blob->GetBufferPointer(), &vertices[0], vs_size);
+        hr = D3DCreateBlob(is_size, p->ib_blob.GetAddressOf());
+        if (FAILED(hr))
             return nullptr;
+        ::memcpy(p->ib_blob->GetBufferPointer(), &indices[0], is_size);
 
-        // set view
-        p->vbv.BufferLocation = p->vb->GetGPUVirtualAddress();
-        p->vbv.SizeInBytes = vs_size;
-        p->vbv.StrideInBytes = v_size;
+        // set size & count
+        p->v_size = v_size;
         p->v_count = v_count;
-        p->ibv.BufferLocation = p->ib->GetGPUVirtualAddress();
-        p->ibv.SizeInBytes = is_size;
-        p->ibv.Format = DXGI_FORMAT_R16_UINT;
         p->i_count = i_count;
 
         return p;
     }
 
-    std::shared_ptr<MeshDx12> MeshDx12::CreateFromRehenzMesh(DeviceDx12* device, std::shared_ptr<Rehenz::Mesh> mesh)
+    std::shared_ptr<MeshDx12> MeshDx12::CreateFromRehenzMesh(std::shared_ptr<Rehenz::Mesh> mesh)
     {
+        HRESULT hr = S_OK;
+
         std::shared_ptr<MeshDx12> p(new MeshDx12);
 
         // set data
@@ -938,20 +1050,19 @@ namespace Dx12
         int i_count = static_cast<int>(indices.size());
         int is_size = 2 * i_count;
 
-        // create vb & ib
-        if (!UtilDx12::CreateDefaultBuffer(device->device.Get(), device->cmd_list.Get(), &vertices[0], vs_size, p->vb, p->vb_uploader))
+        // create vb blob & ib blob
+        hr = D3DCreateBlob(vs_size, p->vb_blob.GetAddressOf());
+        if (FAILED(hr))
             return nullptr;
-        if (!UtilDx12::CreateDefaultBuffer(device->device.Get(), device->cmd_list.Get(), &indices[0], is_size, p->ib, p->ib_uploader))
+        ::memcpy(p->vb_blob->GetBufferPointer(), &vertices[0], vs_size);
+        hr = D3DCreateBlob(is_size, p->ib_blob.GetAddressOf());
+        if (FAILED(hr))
             return nullptr;
+        ::memcpy(p->ib_blob->GetBufferPointer(), &indices[0], is_size);
 
-        // set view
-        p->vbv.BufferLocation = p->vb->GetGPUVirtualAddress();
-        p->vbv.SizeInBytes = vs_size;
-        p->vbv.StrideInBytes = v_size;
+        // set size & count
+        p->v_size = v_size;
         p->v_count = v_count;
-        p->ibv.BufferLocation = p->ib->GetGPUVirtualAddress();
-        p->ibv.SizeInBytes = is_size;
-        p->ibv.Format = DXGI_FORMAT_R16_UINT;
         p->i_count = i_count;
 
         return p;
@@ -966,26 +1077,29 @@ namespace Dx12
     {
     }
 
-    bool ObjectDx12::Draw(DeviceDx12* device)
+    bool ObjectDx12::Draw(ID3D12GraphicsCommandList6* cmd_list, FrameResourceDx12* frc)
     {
         // IA
-        device->cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        device->cmd_list->IASetVertexBuffers(0, 1, &mesh->vbv);
-        device->cmd_list->IASetIndexBuffer(&mesh->ibv);
+        cmd_list->IASetPrimitiveTopology(mesh->topology);
+        cmd_list->IASetVertexBuffers(0, 1, &mesh->vbv);
+        if (mesh->ib)
+            cmd_list->IASetIndexBuffer(&mesh->ibv);
 
         // copy data
         CBObj cb_struct;
         XMMATRIX world = ToXmMatrix(transform.GetTransformMatrix());
         dxm::XMStoreFloat4x4(&cb_struct.world, dxm::XMMatrixTranspose(world));
-        if (!device->GetCurrentFrameResource().cb_obj->CopyData(cb_slot, cb_struct))
+        if (!frc->cb_obj->CopyData(cb_slot, cb_struct))
             return false;
 
         // set cbuffer
-        device->cmd_list->SetGraphicsRootDescriptorTable(0, device->GetCurrentFrameResource().GetObjCbvGpu(cb_slot));
+        cmd_list->SetGraphicsRootDescriptorTable(0, frc->GetObjCbvGpu(cb_slot));
 
         // draw
-        //device->cmd_list->DrawInstanced(mesh->v_count, 1, 0, 0);
-        device->cmd_list->DrawIndexedInstanced(mesh->i_count, 1, 0, 0, 0);
+        if (!mesh->ib)
+            cmd_list->DrawInstanced(mesh->v_count, 1, mesh->start_pos, 0);
+        else
+            cmd_list->DrawIndexedInstanced(mesh->i_count, 1, mesh->start_pos, mesh->vertex_offset, 0);
 
         return true;
     }

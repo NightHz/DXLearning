@@ -108,9 +108,9 @@ bool init(DeviceDx12* device)
 	pso_creator.SetInputLayout(*il_lib["pos+color"]);
 	pso_creator.SetVS(shader_lib["vs_transform"].Get());
 	pso_creator.SetPS(shader_lib["ps_color"].Get());
-	pso_lib["pso1"] = pso_creator.CreatePSO(device);
+	pso_lib["pso1"] = pso_creator.CreatePSO(device->device.Get());
 	pso_creator.SetInputLayout(*il_lib["rehenz"]);
-	pso_lib["pso2"] = pso_creator.CreatePSO(device);
+	pso_lib["pso2"] = pso_creator.CreatePSO(device->device.Get());
 	for (auto& p : pso_lib)
 	{
 		if (!p.second)
@@ -118,14 +118,18 @@ bool init(DeviceDx12* device)
 	}
 
 	// init meshs
-	mesh_lib["cube"] = MeshDx12::CreateCube(device);
-	mesh_lib["cube2"] = MeshDx12::CreateFromRehenzMesh(device, Rehenz::CreateCubeMeshColorful());
-	mesh_lib["sphere"] = MeshDx12::CreateFromRehenzMesh(device, Rehenz::CreateSphereMesh());
+	mesh_lib["cube"] = MeshDx12::CreateCube();
+	mesh_lib["cube2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateCubeMeshColorful());
+	mesh_lib["sphere"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMesh());
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
 			return false;
 	}
+	if (!mesh_lib["cube"]->UploadToGpu(device->device.Get(), device->cmd_list.Get()))
+		return false;
+	if (!MeshDx12::MergeUploadToGpu(std::vector<MeshDx12*>{ mesh_lib["cube2"].get(), mesh_lib["sphere"].get() }, device->device.Get(), device->cmd_list.Get()))
+		return false;
 
 	// init objs
 	UINT cb_slot = 0;
@@ -160,14 +164,16 @@ bool clean_after_init()
 
 bool draw(DeviceDx12* device)
 {
+	auto& frc = device->GetCurrentFrameResource();
+
 	// set cbuffer
 
-	if (!device->GetCurrentFrameResource().cb_frame->CopyData(0, cb_frame))
+	if (!frc.cb_frame->CopyData(0, cb_frame))
 		return false;
-	device->cmd_list->SetGraphicsRootDescriptorTable(1, device->GetCurrentFrameResource().GetFrameCbvGpu());
-	if (!device->GetCurrentFrameResource().cb_light->CopyData(0, cb_light))
+	device->cmd_list->SetGraphicsRootDescriptorTable(1, frc.GetFrameCbvGpu());
+	if (!frc.cb_light->CopyData(0, cb_light))
 		return false;
-	device->cmd_list->SetGraphicsRootDescriptorTable(2, device->GetCurrentFrameResource().GetLightCbvGpu());
+	device->cmd_list->SetGraphicsRootDescriptorTable(2, frc.GetLightCbvGpu());
 
 	// set pso and draw objects
 
@@ -176,7 +182,7 @@ bool draw(DeviceDx12* device)
 		device->cmd_list->SetPipelineState(pso_lib[pair.first].Get());
 		for (auto& obj_name : pair.second)
 		{
-			if (!obj_lib[obj_name]->Draw(device))
+			if (!obj_lib[obj_name]->Draw(device->cmd_list.Get(), &frc))
 				return false;
 		}
 	}

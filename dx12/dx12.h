@@ -402,18 +402,25 @@ namespace Dx12
         inline void SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& desc)
         { pso_desc.InputLayout.pInputElementDescs = &desc[0]; pso_desc.InputLayout.NumElements = static_cast<UINT>(desc.size()); }
 
-        ComPtr<ID3D12PipelineState> CreatePSO(DeviceDx12* device);
+        ComPtr<ID3D12PipelineState> CreatePSO(ID3D12Device8* device);
     };
 
     class MeshDx12
     {
     public:
+        D3D12_PRIMITIVE_TOPOLOGY topology;
+
+        ComPtr<ID3DBlob> vb_blob, ib_blob;
+        UINT v_size;
+        UINT v_count;
+        UINT i_count;
+
         ComPtr<ID3D12Resource2> vb, ib;
         ComPtr<ID3D12Resource2> vb_uploader, ib_uploader;
         D3D12_VERTEX_BUFFER_VIEW vbv;
         D3D12_INDEX_BUFFER_VIEW ibv;
-        int v_count;
-        int i_count;
+        UINT start_pos;
+        int vertex_offset;
 
     private:
         MeshDx12();
@@ -422,10 +429,13 @@ namespace Dx12
         MeshDx12& operator=(const MeshDx12&) = delete;
         ~MeshDx12();
 
+        bool UploadToGpu(ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list);
+        static bool MergeUploadToGpu(const std::vector<MeshDx12*> meshes, ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list);
+
         void FreeUploader();
 
-        static std::shared_ptr<MeshDx12> CreateCube(DeviceDx12* device);
-        static std::shared_ptr<MeshDx12> CreateFromRehenzMesh(DeviceDx12* device, std::shared_ptr<Rehenz::Mesh> mesh);
+        static std::shared_ptr<MeshDx12> CreateCube();
+        static std::shared_ptr<MeshDx12> CreateFromRehenzMesh(std::shared_ptr<Rehenz::Mesh> mesh);
     };
 
     class ObjectDx12
@@ -441,6 +451,6 @@ namespace Dx12
         ObjectDx12& operator=(const ObjectDx12&) = delete;
         ~ObjectDx12();
 
-        bool Draw(DeviceDx12* device);
+        bool Draw(ID3D12GraphicsCommandList6* cmd_list, FrameResourceDx12* frc);
     };
 }
