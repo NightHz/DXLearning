@@ -121,6 +121,9 @@ bool init(DeviceDx12* device)
 	mesh_lib["cube"] = MeshDx12::CreateCube();
 	mesh_lib["cube2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateCubeMeshColorful());
 	mesh_lib["sphere"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMesh());
+	mesh_lib["sphere2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMeshD());
+	mesh_lib["cone"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0));
+	mesh_lib["frustum"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh());
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
@@ -128,22 +131,49 @@ bool init(DeviceDx12* device)
 	}
 	if (!mesh_lib["cube"]->UploadToGpu(device->device.Get(), device->cmd_list.Get()))
 		return false;
-	if (!MeshDx12::MergeUploadToGpu(std::vector<MeshDx12*>{ mesh_lib["cube2"].get(), mesh_lib["sphere"].get() }, device->device.Get(), device->cmd_list.Get()))
+	if (!MeshDx12::MergeUploadToGpu(
+		std::vector<MeshDx12*>{ mesh_lib["cube2"].get(), mesh_lib["sphere"].get(), mesh_lib["sphere2"].get(), mesh_lib["cone"].get(), mesh_lib["frustum"].get() },
+		device->device.Get(), device->cmd_list.Get()))
 		return false;
 
 	// init objs
 	UINT cb_slot = 0;
-	obj_lib["cube"] = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube"]);
+	auto cube = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube"]);
+	cube->transform.pos = Rehenz::Vector(0, -2, 0);
+	cube->transform.scale = Rehenz::Vector(1.2f, 0.5f, 1.2f);
+	obj_lib["cube"] = cube;
 	pso_objs["pso1"].push_back("cube");
-	auto cube2 = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
-	cube2->transform.pos.x = -3;
-	obj_lib["cube2"] = cube2;
-	pso_objs["pso2"].push_back("cube2");
-	auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
-	sphere->transform.pos = Rehenz::Vector(0, 2.4f, 0);
-	sphere->transform.scale = Rehenz::Vector(0.6f, 0.6f, 0.6f);
-	obj_lib["sphere"] = sphere;
-	pso_objs["pso2"].push_back("sphere");
+	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
+	ground->transform.pos = Rehenz::Vector(0, -3.5f, 0);
+	ground->transform.scale = Rehenz::Vector(20, 1, 20);
+	obj_lib["ground"] = ground;
+	pso_objs["pso2"].push_back("ground");
+	for (float z = -6; z <= 6; z += 3)
+	{
+		std::string id = std::to_string(z) + "Left";
+		auto pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"]);
+		pillar->transform.pos = Rehenz::Vector(-6, -1, z);
+		pillar->transform.scale = Rehenz::Vector(0.8f, 4, 0.8f);
+		obj_lib["pillar" + id] = pillar;
+		pso_objs["pso2"].push_back("pillar" + id);
+		auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
+		sphere->transform.pos = Rehenz::Vector(-6, 1.8f, z);
+		sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
+		obj_lib["sphere" + id] = sphere;
+		pso_objs["pso2"].push_back("sphere" + id);
+
+		id = std::to_string(z) + "Right";
+		pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"]);
+		pillar->transform.pos = Rehenz::Vector(6, -1, z);
+		pillar->transform.scale = Rehenz::Vector(0.8f, 4, 0.8f);
+		obj_lib["pillar" + id] = pillar;
+		pso_objs["pso2"].push_back("pillar" + id);
+		sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
+		sphere->transform.pos = Rehenz::Vector(6, 1.8f, z);
+		sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
+		obj_lib["sphere" + id] = sphere;
+		pso_objs["pso2"].push_back("sphere" + id);
+	}
 
 	// init camera
 	camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
