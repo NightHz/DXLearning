@@ -54,7 +54,7 @@ namespace Dx12
 
 
     // cbuffer struct
-    struct CBObj
+    struct CBObj // b0
     {
         XMFLOAT4X4 world;
         XMFLOAT4 ambient;
@@ -64,7 +64,7 @@ namespace Dx12
         float power;
         float _pad1[3];
     };
-    struct CBFrame
+    struct CBFrame // b1
     {
         XMFLOAT4X4 view;
         XMFLOAT4X4 proj;
@@ -77,7 +77,7 @@ namespace Dx12
         float time;
         float deltatime;
     };
-    struct CBLight
+    struct CBLight // b2
     {
         bool dl_enable;
         char _pad1[3];
@@ -109,6 +109,7 @@ namespace Dx12
     template<typename T> class CBufferDx12;
     class PipelineStateCreatorDx12;
     class MeshDx12;
+    class MaterialDx12;
     class ObjectDx12;
 
 
@@ -178,6 +179,16 @@ namespace Dx12
             return rp;
         }
 
+        inline static D3D12_ROOT_PARAMETER GetRootParameterCBV(UINT register_i)
+        {
+            D3D12_ROOT_PARAMETER rp;
+            rp.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+            rp.Descriptor.ShaderRegister = register_i;
+            rp.Descriptor.RegisterSpace = 0;
+            rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+            return rp;
+        }
+
         static bool CreateDefaultBuffer(ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list, const void* data, UINT64 size,
             ComPtr<ID3D12Resource2>& buffer, ComPtr<ID3D12Resource2>& uploader);
 
@@ -198,7 +209,7 @@ namespace Dx12
     {
     public:
         // device & fence
-        ComPtr<ID3D12Device8> device; 
+        ComPtr<ID3D12Device8> device;
         ComPtr<ID3D12Fence1> fence;
         UINT64 current_fence_v;
 
@@ -301,11 +312,8 @@ namespace Dx12
 
         static const int obj_max_count = 80;
         std::shared_ptr<CBufferDx12<CBObj>> cb_obj;
-        static const int cb_obj_start_slot_in_heap = 2;
         std::shared_ptr<CBufferDx12<CBFrame>> cb_frame;
-        static const int cb_frame_start_slot_in_heap = 0;
         std::shared_ptr<CBufferDx12<CBLight>> cb_light;
-        static const int cb_light_start_slot_in_heap = 1;
 
         inline D3D12_CPU_DESCRIPTOR_HANDLE GetCbv(UINT i)
         {
@@ -320,19 +328,27 @@ namespace Dx12
             return dh;
         };
 
-        inline D3D12_GPU_DESCRIPTOR_HANDLE GetObjCbvGpu(UINT i) { return GetCbvGpu(i + cb_obj_start_slot_in_heap); }
-        inline D3D12_GPU_DESCRIPTOR_HANDLE GetFrameCbvGpu() { return GetCbvGpu(cb_frame_start_slot_in_heap); }
-        inline D3D12_GPU_DESCRIPTOR_HANDLE GetLightCbvGpu() { return GetCbvGpu(cb_light_start_slot_in_heap); }
-
     public:
         FrameResourceDx12();
         FrameResourceDx12(const FrameResourceDx12&) = delete;
         FrameResourceDx12& operator=(const FrameResourceDx12&) = delete;
         ~FrameResourceDx12();
-        
+
         bool Create(ID3D12Device8* device);
 
         void CreateContinuousCbvInHeap(ID3D12Device8* device, CBufferBaseDx12* cbuffer, UINT start_slot_in_heap, UINT count);
+
+        // cbv_heap       -->  root_sig
+        // 0    cb_frame  -->  1 DT
+        // 1    cb_light
+        // 2-81 cb_obj    -->  0 CBV
+        static const int cb_frame_start_slot_in_heap = 0;
+        static const int cb_light_start_slot_in_heap = 1;
+        static const int cb_obj_start_slot_in_heap = 2;
+        static const int rp_obj_index = 0;
+        static const int rp_frame_index = 1;
+        void SetRootParameterObj(ID3D12GraphicsCommandList6* cmd_list, UINT i);
+        void SetRootParameterFrame(ID3D12GraphicsCommandList6* cmd_list);
     };
 
     class CBufferBaseDx12
@@ -400,7 +416,9 @@ namespace Dx12
         inline void ResetHS() { pso_desc.HS.pShaderBytecode = nullptr; pso_desc.HS.BytecodeLength = 0; }
         inline void ResetGS() { pso_desc.GS.pShaderBytecode = nullptr; pso_desc.GS.BytecodeLength = 0; }
         inline void SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& desc)
-        { pso_desc.InputLayout.pInputElementDescs = &desc[0]; pso_desc.InputLayout.NumElements = static_cast<UINT>(desc.size()); }
+        {
+            pso_desc.InputLayout.pInputElementDescs = &desc[0]; pso_desc.InputLayout.NumElements = static_cast<UINT>(desc.size());
+        }
         inline void SetRSFillMode(D3D12_FILL_MODE mode = D3D12_FILL_MODE_SOLID) { pso_desc.RasterizerState.FillMode = mode; }
         inline void SetRSCullMode(D3D12_CULL_MODE mode = D3D12_CULL_MODE_BACK) { pso_desc.RasterizerState.CullMode = mode; }
 
@@ -440,12 +458,30 @@ namespace Dx12
         static std::shared_ptr<MeshDx12> CreateFromRehenzMesh(std::shared_ptr<Rehenz::Mesh> mesh);
     };
 
+    class MaterialDx12
+    {
+    public:
+        XMFLOAT4 ambient;
+        XMFLOAT4 diffuse;
+        XMFLOAT4 specular;
+        XMFLOAT4 emissive;
+        float power;
+
+        MaterialDx12();
+        MaterialDx12(DirectX::XMFLOAT4 color);
+        ~MaterialDx12();
+
+        static DirectX::XMFLOAT4 white, black, red, green, blue, yellow, orange;
+    };
+
     class ObjectDx12
     {
     public:
     public:
         UINT cb_slot;
         Rehenz::Transform transform;
+        MaterialDx12 material;
+
         std::shared_ptr<MeshDx12> mesh;
 
         ObjectDx12(UINT _cb_slot, std::shared_ptr<MeshDx12> _mesh);

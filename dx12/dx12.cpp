@@ -43,9 +43,9 @@ namespace Dx12
     ComPtr<ID3DBlob> UtilDx12::LoadShaderFile(const std::wstring& filename)
     {
         HRESULT hr = S_OK;
-        
+
         ComPtr<ID3DBlob> shader_blob;
-        
+
         // open file
         std::ifstream fin(filename, std::ios::binary);
 #ifdef _DEBUG
@@ -341,15 +341,15 @@ namespace Dx12
         p->sr.bottom = window->GetHeight();
 
         // create root sig
-        D3D12_DESCRIPTOR_RANGE dr1 = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
-        D3D12_DESCRIPTOR_RANGE dr2 = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
-        D3D12_DESCRIPTOR_RANGE dr3 = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2);
-        D3D12_ROOT_PARAMETER rp[3];
-        rp[0] = UtilDx12::GetRootParameterDT(1, &dr1);
-        rp[1] = UtilDx12::GetRootParameterDT(1, &dr2);
-        rp[2] = UtilDx12::GetRootParameterDT(1, &dr3);
+        // 0 CBV : b0
+        // 1 DT  : (b1 b2)
+        D3D12_DESCRIPTOR_RANGE dr1[1];
+        dr1[0] = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 2, 1); // b1 b2
+        D3D12_ROOT_PARAMETER rp[2];
+        rp[0] = UtilDx12::GetRootParameterCBV(0); // b0
+        rp[1] = UtilDx12::GetRootParameterDT(_countof(dr1), dr1);
         D3D12_ROOT_SIGNATURE_DESC rs_desc;
-        rs_desc.NumParameters = 3;
+        rs_desc.NumParameters = _countof(rp);
         rs_desc.pParameters = rp;
         rs_desc.NumStaticSamplers = 0;
         rs_desc.pStaticSamplers = nullptr;
@@ -630,7 +630,7 @@ namespace Dx12
             }
         }
     }
-    
+
     FrameResourceDx12::FrameResourceDx12()
     {
         fence_v = 0;
@@ -687,6 +687,16 @@ namespace Dx12
             D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = cbuffer->GetCbvDesc(i);
             device->CreateConstantBufferView(&cbv_desc, GetCbv(start_slot_in_heap + i));
         }
+    }
+
+    void FrameResourceDx12::SetRootParameterObj(ID3D12GraphicsCommandList6* cmd_list, UINT i)
+    {
+        cmd_list->SetGraphicsRootConstantBufferView(rp_obj_index, cb_obj->cbuffer->GetGPUVirtualAddress() + static_cast<UINT64>(i) * cb_obj->cbuffer_size);
+    }
+
+    void FrameResourceDx12::SetRootParameterFrame(ID3D12GraphicsCommandList6* cmd_list)
+    {
+        cmd_list->SetGraphicsRootDescriptorTable(rp_frame_index, GetCbvGpu(cb_frame_start_slot_in_heap));
     }
 
     CBufferBaseDx12::CBufferBaseDx12(UINT _count, UINT _struct_size)
@@ -1068,6 +1078,27 @@ namespace Dx12
         return p;
     }
 
+    MaterialDx12::MaterialDx12() : MaterialDx12(white)
+    {
+    }
+
+    MaterialDx12::MaterialDx12(DirectX::XMFLOAT4 color)
+        : ambient(color), diffuse(color), specular(color), emissive(0, 0, 0, 0), power(5)
+    {
+    }
+
+    MaterialDx12::~MaterialDx12()
+    {
+    }
+
+    XMFLOAT4 MaterialDx12::white(XMFLOAT4(1, 1, 1, 1));
+    XMFLOAT4 MaterialDx12::black(XMFLOAT4(0, 0, 0, 1));
+    XMFLOAT4 MaterialDx12::red(XMFLOAT4(1, 0, 0, 1));
+    XMFLOAT4 MaterialDx12::green(XMFLOAT4(0, 1, 0, 1));
+    XMFLOAT4 MaterialDx12::blue(XMFLOAT4(0, 0, 1, 1));
+    XMFLOAT4 MaterialDx12::yellow(XMFLOAT4(0.91f, 0.88f, 0.34f, 1));
+    XMFLOAT4 MaterialDx12::orange(XMFLOAT4(1, 0.5f, 0.14f, 1));
+
     ObjectDx12::ObjectDx12(UINT _cb_slot, std::shared_ptr<MeshDx12> _mesh)
         : cb_slot(_cb_slot), mesh(_mesh)
     {
@@ -1089,11 +1120,16 @@ namespace Dx12
         CBObj cb_struct;
         XMMATRIX world = ToXmMatrix(transform.GetTransformMatrix());
         dxm::XMStoreFloat4x4(&cb_struct.world, dxm::XMMatrixTranspose(world));
+        cb_struct.ambient = material.ambient;
+        cb_struct.diffuse = material.diffuse;
+        cb_struct.specular = material.specular;
+        cb_struct.emissive = material.emissive;
+        cb_struct.power = material.power;
         if (!frc->cb_obj->CopyData(cb_slot, cb_struct))
             return false;
 
         // set cbuffer
-        cmd_list->SetGraphicsRootDescriptorTable(0, frc->GetObjCbvGpu(cb_slot));
+        frc->SetRootParameterObj(cmd_list, cb_slot);
 
         // draw
         if (!mesh->ib)

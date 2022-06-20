@@ -202,10 +202,9 @@ bool draw(DeviceDx12* device)
 
 	if (!frc.cb_frame->CopyData(0, cb_frame))
 		return false;
-	device->cmd_list->SetGraphicsRootDescriptorTable(1, frc.GetFrameCbvGpu());
 	if (!frc.cb_light->CopyData(0, cb_light))
 		return false;
-	device->cmd_list->SetGraphicsRootDescriptorTable(2, frc.GetLightCbvGpu());
+	frc.SetRootParameterFrame(device->cmd_list.Get());
 
 	// set pso and draw objects
 
