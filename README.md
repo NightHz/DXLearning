@@ -54,11 +54,11 @@ dx12 被完全地重新设计， dx11 中为了过渡还保留了一些旧的东
    3. 创建命令列表 `ID3D12CommandQueue` `ID3D12CommandAllocator` `ID3D12GraphicsCommandList`
    4. 创建交换链 `IDXGISwapChain` ，其中包含了用于渲染的屏幕资源
 2. 创建基础资源
-   1. 创建描述符堆 `ID3D12DescriptorHeap` ，分别用于渲染目标 `RTV` 、深度模板缓存 `DSV` 、常量缓存等 `CBV,SRV,UAV`
-   2. 创建 `RTV` 、深度模板资源与 `DSV` 、常量缓存与 `CBV`
+   1. 创建描述符堆 `ID3D12DescriptorHeap` ，分别用于渲染目标 RTV 、深度模板缓存 DSV 、常量缓存等 CBV,SRV,UAV
+   2. 创建 RTV 、深度模板资源与 DSV 、常量缓存与 CBV
    3. 存储视口 `D3D12_VIEWPORT` 、裁切矩阵
 3. 初始化
-   1. 创建根签名 `ID3D12RootSignature`
+   1. 创建根签名 `ID3D12RootSignature` ，我们通过它绑定资源到渲染流水线上
    2. 创建流水线状态对象（PSO） `ID3D12PipelineState` ，我们通过它绑定输入布局、着色器等信息
    3. 创建用于渲染的更多资源，包括顶点缓存、索引缓存
 
@@ -79,13 +79,13 @@ dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/
 2. 布局阶段
    1. 设置其它描述符堆 `SetDescriptorHeaps` 并 `Map` cbuffer
    2. 设置根签名 `SetGraphicsRootSignature`
-   3. 向 cbuffer 写入数据并设置全局根参数 `SetGraphicsRootDescriptorTable`
+   3. 向全局 cbuffer 写入数据并设置到流水线 `SetGraphicsRootDescriptorTable`
    4. 设置 PSO `SetPipelineState`
 3. 绘制阶段
    1. 设置图元拓扑 `IASetPrimitiveTopology`
    2. 设置顶点缓存 `IASetVertexBuffers`
    3. 设置索引缓存 `IASetIndexBuffer`
-   4. 向 cbuffer 写入数据并设置物品根参数 `SetGraphicsRootDescriptorTable`
+   4. 向物品 cbuffer 写入数据并设置到流水线 `SetGraphicsRootDescriptorTable`
    5. 绘制 `DrawInstanced` 或 `DrawIndexedInstanced`
 4. 结束阶段
    1. `Unmap` cbuffer
@@ -114,6 +114,23 @@ dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/
 
 ![](img/dx12_02scene_wireframe.png)
 
+
+### 根签名
+
+在现代的可编程管线中，绝大多数资源都是要绑定到 shader 上，由 shader 来决定如何使用的，我们使用根签名定义这些资源如何映射到着色器的输入寄存器。
+
+在 dx12 的命令列表的函数接口中，会发现只有两个特例。第一个是顶点缓存和索引缓存资源，这俩的描述符直接设置到 IA 阶段，但需要在 PSO 中设置对应的输入布局。第二个是 RTV 和 DSV ，虽然需要存储在相应的堆上，但却是直接设置到 OM 阶段。
+
+说回根签名，根签名的官方文档在[这里](https://docs.microsoft.com/en-us/windows/win32/direct3d12/root-signatures)。根签名包含一系列的根参数，根参数的类型有三种
+
+1. 描述符表 DT ：引用描述符堆中的一块连续范围。例如我们可以通过 DT 将描述符堆上连续的 5 个描述符分别映射到 `(b0,b1,b2,s0,u2)` 。由于 DT 描述的为连续范围，因此有必要安排好描述符堆中的位置排布。
+2. 描述符 CBV,SRV,UAV ：不需要存储它到堆上，直接绑定资源到管线上，但只接受一维的缓冲区资源。通过 `SetGraphicsRoot*View` 直接设置资源位置。
+3. 常量 Constant
+
+根参数最大为 64 DWORD ，其中描述符表占用 1 DWORD ，描述符占用 2 DWORD ，常量每 32 bit 占用 1 DWORD 。性能上常量优于描述符优于描述符表，但根参数在根签名位置越靠后，性能越差，因此应使用较小的根签名，同时应将变更频率高的放在前面。
+
+
+我们创建的资源，会在描述符堆上创建相应的描述符，然后通过根签名映射到输入寄存器，最后被 PSO 上设置的 shader 所使用；每一个环节都需要考虑它们的匹配情况。
 
 
 
