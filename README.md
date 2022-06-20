@@ -110,6 +110,13 @@ dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/
 **PSO - 物件列表**：设置 PSO 到物件列表的字典，可最小化切换 PSO 的次数，同时也支持单一物件在多个 PSO 下重复渲染，以实现一些复杂效果。
 
 
+### 2 线框场景
+
+![](img/dx12_02scene_wireframe.png)
+
+
+
+
 
 
 ## Direct3D 11 <sup>[docs](https://docs.microsoft.com/en-us/windows/win32/direct3d11/atoc-dx-graphics-direct3d-11)</sup>
