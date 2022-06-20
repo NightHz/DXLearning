@@ -108,9 +108,11 @@ bool init(DeviceDx12* device)
 	pso_creator.SetInputLayout(*il_lib["pos+color"]);
 	pso_creator.SetVS(shader_lib["vs_transform"].Get());
 	pso_creator.SetPS(shader_lib["ps_color"].Get());
-	pso_lib["pso1"] = pso_creator.CreatePSO(device->device.Get());
+	pso_creator.SetRSFillMode(D3D12_FILL_MODE_WIREFRAME);
+	pso_creator.SetRSCullMode(D3D12_CULL_MODE_NONE);
+	pso_lib["default_pso"] = pso_creator.CreatePSO(device->device.Get());
 	pso_creator.SetInputLayout(*il_lib["rehenz"]);
-	pso_lib["pso2"] = pso_creator.CreatePSO(device->device.Get());
+	pso_lib["rehenz_pso"] = pso_creator.CreatePSO(device->device.Get());
 	for (auto& p : pso_lib)
 	{
 		if (!p.second)
@@ -139,15 +141,15 @@ bool init(DeviceDx12* device)
 	// init objs
 	UINT cb_slot = 0;
 	auto cube = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube"]);
-	cube->transform.pos = Rehenz::Vector(0, -2, 0);
+	cube->transform.pos = Rehenz::Vector(0, -2.5f, 0);
 	cube->transform.scale = Rehenz::Vector(1.2f, 0.5f, 1.2f);
 	obj_lib["cube"] = cube;
-	pso_objs["pso1"].push_back("cube");
+	pso_objs["default_pso"].push_back("cube");
 	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
 	ground->transform.pos = Rehenz::Vector(0, -3.5f, 0);
 	ground->transform.scale = Rehenz::Vector(20, 1, 20);
 	obj_lib["ground"] = ground;
-	pso_objs["pso2"].push_back("ground");
+	pso_objs["rehenz_pso"].push_back("ground");
 	for (float z = -6; z <= 6; z += 3)
 	{
 		std::string id = std::to_string(z) + "Left";
@@ -155,24 +157,24 @@ bool init(DeviceDx12* device)
 		pillar->transform.pos = Rehenz::Vector(-6, -1, z);
 		pillar->transform.scale = Rehenz::Vector(0.8f, 4, 0.8f);
 		obj_lib["pillar" + id] = pillar;
-		pso_objs["pso2"].push_back("pillar" + id);
+		pso_objs["rehenz_pso"].push_back("pillar" + id);
 		auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
 		sphere->transform.pos = Rehenz::Vector(-6, 1.8f, z);
 		sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
 		obj_lib["sphere" + id] = sphere;
-		pso_objs["pso2"].push_back("sphere" + id);
+		pso_objs["rehenz_pso"].push_back("sphere" + id);
 
 		id = std::to_string(z) + "Right";
 		pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"]);
 		pillar->transform.pos = Rehenz::Vector(6, -1, z);
 		pillar->transform.scale = Rehenz::Vector(0.8f, 4, 0.8f);
 		obj_lib["pillar" + id] = pillar;
-		pso_objs["pso2"].push_back("pillar" + id);
+		pso_objs["rehenz_pso"].push_back("pillar" + id);
 		sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
 		sphere->transform.pos = Rehenz::Vector(6, 1.8f, z);
 		sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
 		obj_lib["sphere" + id] = sphere;
-		pso_objs["pso2"].push_back("sphere" + id);
+		pso_objs["rehenz_pso"].push_back("sphere" + id);
 	}
 
 	// init camera

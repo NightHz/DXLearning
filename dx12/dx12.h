@@ -401,6 +401,8 @@ namespace Dx12
         inline void ResetGS() { pso_desc.GS.pShaderBytecode = nullptr; pso_desc.GS.BytecodeLength = 0; }
         inline void SetInputLayout(const std::vector<D3D12_INPUT_ELEMENT_DESC>& desc)
         { pso_desc.InputLayout.pInputElementDescs = &desc[0]; pso_desc.InputLayout.NumElements = static_cast<UINT>(desc.size()); }
+        inline void SetRSFillMode(D3D12_FILL_MODE mode = D3D12_FILL_MODE_SOLID) { pso_desc.RasterizerState.FillMode = mode; }
+        inline void SetRSCullMode(D3D12_CULL_MODE mode = D3D12_CULL_MODE_BACK) { pso_desc.RasterizerState.CullMode = mode; }
 
         ComPtr<ID3D12PipelineState> CreatePSO(ID3D12Device8* device);
     };
