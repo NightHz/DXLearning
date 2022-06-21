@@ -1,6 +1,7 @@
 cbuffer CBObj : register(b0)
 {
     matrix world;
+    matrix inv_world;
     float4 ambient;
     float4 diffuse;
     float4 specular;
@@ -10,6 +11,7 @@ cbuffer CBObj : register(b0)
 cbuffer CBFrame : register(b1)
 {
     matrix view;
+    matrix inv_view;
     matrix proj;
     matrix view_proj;
     float3 eye_pos;

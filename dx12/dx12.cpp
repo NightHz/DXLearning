@@ -1120,6 +1120,8 @@ namespace Dx12
         CBObj cb_struct;
         XMMATRIX world = ToXmMatrix(transform.GetTransformMatrix());
         dxm::XMStoreFloat4x4(&cb_struct.world, dxm::XMMatrixTranspose(world));
+        XMMATRIX inv_world = ToXmMatrix(transform.GetInverseTransformMatrix());
+        dxm::XMStoreFloat4x4(&cb_struct.inv_world, dxm::XMMatrixTranspose(inv_world));
         cb_struct.ambient = material.ambient;
         cb_struct.diffuse = material.diffuse;
         cb_struct.specular = material.specular;

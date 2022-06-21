@@ -50,8 +50,8 @@ void update(DeviceDx12* device, float dt)
 	}
 	if (KeyIsDown('R'))
 	{
-		camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
-		camera_trans.axes = Rehenz::AircraftAxes(0.4f, -0.3f, 0);
+		camera_trans.pos = Rehenz::Vector(-4, 3.5f, -10, 0);
+		camera_trans.axes = Rehenz::AircraftAxes(0.44f, 0.4f, 0);
 	}
 
 	// control object
@@ -66,8 +66,10 @@ void update(DeviceDx12* device, float dt)
 
 	// update cbuffer struct
 	XMMATRIX view = ToXmMatrix(camera_trans.GetInverseTransformMatrix());
+	XMMATRIX inv_view = ToXmMatrix(camera_trans.GetTransformMatrix());
 	XMMATRIX proj = ToXmMatrix(camera_proj.GetTransformMatrix());
 	dxm::XMStoreFloat4x4(&cb_frame.view, dxm::XMMatrixTranspose(view));
+	dxm::XMStoreFloat4x4(&cb_frame.inv_view, dxm::XMMatrixTranspose(inv_view));
 	dxm::XMStoreFloat4x4(&cb_frame.proj, dxm::XMMatrixTranspose(proj));
 	dxm::XMStoreFloat4x4(&cb_frame.view_proj, dxm::XMMatrixTranspose(view * proj));
 	dxm::XMStoreFloat3(&cb_frame.eye_pos, ToXmVector(camera_trans.pos));
@@ -140,11 +142,11 @@ bool init(DeviceDx12* device)
 
 	// init objs
 	UINT cb_slot = 0;
-	auto cube = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube"]);
+	auto cube = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
 	cube->transform.pos = Rehenz::Vector(0, -2.5f, 0);
 	cube->transform.scale = Rehenz::Vector(1.2f, 0.5f, 1.2f);
 	obj_lib["cube"] = cube;
-	pso_objs["default_pso"].push_back("cube");
+	pso_objs["rehenz_pso"].push_back("cube");
 	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
 	ground->transform.pos = Rehenz::Vector(0, -3.5f, 0);
 	ground->transform.scale = Rehenz::Vector(20, 1, 20);
@@ -152,29 +154,20 @@ bool init(DeviceDx12* device)
 	pso_objs["rehenz_pso"].push_back("ground");
 	for (float z = -6; z <= 6; z += 3)
 	{
-		std::string id = std::to_string(z) + "Left";
-		auto pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"]);
-		pillar->transform.pos = Rehenz::Vector(-6, -1, z);
-		pillar->transform.scale = Rehenz::Vector(0.8f, 4, 0.8f);
-		obj_lib["pillar" + id] = pillar;
-		pso_objs["rehenz_pso"].push_back("pillar" + id);
-		auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
-		sphere->transform.pos = Rehenz::Vector(-6, 1.8f, z);
-		sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
-		obj_lib["sphere" + id] = sphere;
-		pso_objs["rehenz_pso"].push_back("sphere" + id);
-
-		id = std::to_string(z) + "Right";
-		pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"]);
-		pillar->transform.pos = Rehenz::Vector(6, -1, z);
-		pillar->transform.scale = Rehenz::Vector(0.8f, 4, 0.8f);
-		obj_lib["pillar" + id] = pillar;
-		pso_objs["rehenz_pso"].push_back("pillar" + id);
-		sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
-		sphere->transform.pos = Rehenz::Vector(6, 1.8f, z);
-		sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
-		obj_lib["sphere" + id] = sphere;
-		pso_objs["rehenz_pso"].push_back("sphere" + id);
+		for (float x = -6; x <= 6; x += 12)
+		{
+			std::string id = std::to_string(z) + (x < 6 ? "Left" : "Right");
+			auto pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"]);
+			pillar->transform.pos = Rehenz::Vector(x, -1, z);
+			pillar->transform.scale = Rehenz::Vector(0.8f, 4, 0.8f);
+			obj_lib["pillar" + id] = pillar;
+			pso_objs["rehenz_pso"].push_back("pillar" + id);
+			auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
+			sphere->transform.pos = Rehenz::Vector(x, 1.8f, z);
+			sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
+			obj_lib["sphere" + id] = sphere;
+			pso_objs["rehenz_pso"].push_back("sphere" + id);
+		}
 	}
 
 	// init camera

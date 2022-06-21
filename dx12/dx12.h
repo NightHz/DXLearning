@@ -57,6 +57,7 @@ namespace Dx12
     struct CBObj // b0
     {
         XMFLOAT4X4 world;
+        XMFLOAT4X4 inv_world;
         XMFLOAT4 ambient;
         XMFLOAT4 diffuse;
         XMFLOAT4 specular;
@@ -67,6 +68,7 @@ namespace Dx12
     struct CBFrame // b1
     {
         XMFLOAT4X4 view;
+        XMFLOAT4X4 inv_view;
         XMFLOAT4X4 proj;
         XMFLOAT4X4 view_proj;
         XMFLOAT3 eye_pos;
