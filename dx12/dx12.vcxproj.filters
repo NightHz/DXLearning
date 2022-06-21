@@ -101,5 +101,8 @@
     <FxCompile Include="dx12_ps_color.hlsl">
       <Filter>shader</Filter>
     </FxCompile>
+    <FxCompile Include="dx12_vs_light.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

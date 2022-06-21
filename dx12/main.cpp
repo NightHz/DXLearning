@@ -97,6 +97,7 @@ bool init(DeviceDx12* device)
 
 	// init shader
 	shader_lib["vs_transform"] = UtilDx12::CompileShaderFile(L"dx12_vs_transform.hlsl", "vs");
+	shader_lib["vs_light"] = UtilDx12::CompileShaderFile(L"dx12_vs_light.hlsl", "vs");
 	shader_lib["ps_color"] = UtilDx12::CompileShaderFile(L"dx12_ps_color.hlsl", "ps");
 	for (auto& p : shader_lib)
 	{
@@ -110,10 +111,12 @@ bool init(DeviceDx12* device)
 	pso_creator.SetInputLayout(*il_lib["pos+color"]);
 	pso_creator.SetVS(shader_lib["vs_transform"].Get());
 	pso_creator.SetPS(shader_lib["ps_color"].Get());
-	pso_creator.SetRSFillMode(D3D12_FILL_MODE_WIREFRAME);
-	pso_creator.SetRSCullMode(D3D12_CULL_MODE_NONE);
+	//pso_creator.SetRSFillMode(D3D12_FILL_MODE_WIREFRAME);
+	//pso_creator.SetRSCullMode(D3D12_CULL_MODE_NONE);
 	pso_lib["default_pso"] = pso_creator.CreatePSO(device->device.Get());
 	pso_creator.SetInputLayout(*il_lib["rehenz"]);
+	pso_creator.SetVS(shader_lib["vs_light"].Get());
+	pso_creator.SetPS(shader_lib["ps_color"].Get());
 	pso_lib["rehenz_pso"] = pso_creator.CreatePSO(device->device.Get());
 	for (auto& p : pso_lib)
 	{
@@ -123,11 +126,11 @@ bool init(DeviceDx12* device)
 
 	// init meshs
 	mesh_lib["cube"] = MeshDx12::CreateCube();
-	mesh_lib["cube2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateCubeMeshColorful());
-	mesh_lib["sphere"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMesh());
-	mesh_lib["sphere2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMeshD());
-	mesh_lib["cone"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0));
-	mesh_lib["frustum"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh());
+	mesh_lib["cube2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateCubeMeshColorful(100));
+	mesh_lib["sphere"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMesh(50));
+	mesh_lib["sphere2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMeshD(20));
+	mesh_lib["cone"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0, 50));
+	mesh_lib["frustum"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0.5f, 50));
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
@@ -145,11 +148,13 @@ bool init(DeviceDx12* device)
 	auto cube = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
 	cube->transform.pos = Rehenz::Vector(0, -2.5f, 0);
 	cube->transform.scale = Rehenz::Vector(1.2f, 0.5f, 1.2f);
+	cube->material = MaterialDx12::green;
 	obj_lib["cube"] = cube;
 	pso_objs["rehenz_pso"].push_back("cube");
 	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
 	ground->transform.pos = Rehenz::Vector(0, -4, 0);
 	ground->transform.scale = Rehenz::Vector(10, 1, 10);
+	ground->material = XMFLOAT4(0.2f, 0.2f, 0.2f, 1);
 	obj_lib["ground"] = ground;
 	pso_objs["rehenz_pso"].push_back("ground");
 	for (float z = -6; z <= 6; z += 3)
@@ -160,21 +165,45 @@ bool init(DeviceDx12* device)
 			auto pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"]);
 			pillar->transform.pos = Rehenz::Vector(x, -1, z);
 			pillar->transform.scale = Rehenz::Vector(0.8f, 2, 0.8f);
+			pillar->material = MaterialDx12::yellow;
 			obj_lib["pillar" + id] = pillar;
 			pso_objs["rehenz_pso"].push_back("pillar" + id);
 			auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
 			sphere->transform.pos = Rehenz::Vector(x, 1.8f, z);
 			sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
+			sphere->material = MaterialDx12::orange;
 			obj_lib["sphere" + id] = sphere;
 			pso_objs["rehenz_pso"].push_back("sphere" + id);
 		}
 	}
+	auto point_light = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere2"]);
+	point_light->transform.pos = Rehenz::Vector(3, -2, 0);
+	point_light->transform.scale = Rehenz::Vector(0.13f, 0.13f, 0.13f);
+	point_light->material = MaterialDx12::black;
+	point_light->material.emissive = MaterialDx12::white;
+	obj_lib["point_light"] = point_light;
+	pso_objs["rehenz_pso"].push_back("point_light");
 
 	// init camera
 	camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
 	camera_trans.axes = Rehenz::AircraftAxes(0.4f, -0.3f, 0);
 	camera_proj.z_far = 100;
 	camera_proj.aspect = device->vp.Width / device->vp.Height;
+
+	// init light
+	cb_light.dl_enable = true;
+	cb_light.dl_specular_enable = true;
+	cb_light.dl_dir = XMFLOAT4(0, -1, 0.15f, 0);
+	cb_light.dl_ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1);
+	cb_light.dl_diffuse = XMFLOAT4(0.8f, 0.8f, 0.8f, 1);
+	cb_light.dl_specular = XMFLOAT4(1, 1, 1, 1);
+	cb_light.pl_enable = true;
+	cb_light.pl_specular_enable = true;
+	cb_light.pl_range = 3;
+	cb_light.pl_pos = XMFLOAT4(point_light->transform.pos.x, point_light->transform.pos.y, point_light->transform.pos.z, 1);
+	cb_light.pl_ambient = XMFLOAT4(0, 0, 0, 1);
+	cb_light.pl_diffuse = XMFLOAT4(0.5f, 0.5f, 0.5f, 1);
+	cb_light.pl_specular = XMFLOAT4(0.5f, 0.5f, 0.5f, 1);
 
 	return true;
 }

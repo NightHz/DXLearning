@@ -1083,7 +1083,7 @@ namespace Dx12
     }
 
     MaterialDx12::MaterialDx12(DirectX::XMFLOAT4 color)
-        : ambient(color), diffuse(color), specular(color), emissive(0, 0, 0, 0), power(5)
+        : ambient(color), diffuse(color), specular(color), emissive(0, 0, 0, 0), power(10)
     {
     }
 
