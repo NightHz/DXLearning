@@ -26,6 +26,10 @@ namespace Rehenz
 			return v0.c;
 	};
 
+	Vertex::Vertex() : p(0, 0, 0), n(0, 0, 0), c(1, 1, 1), uv(0, 0), uv2(0, 0), coef(1)
+	{
+	}
+
 	Vertex::Vertex(Point _p) : p(_p), n(0, 0, 0), c(1, 1, 1), uv(0, 0), uv2(0, 0), coef(1)
 	{
 	}
@@ -133,8 +137,10 @@ namespace Rehenz
 
 
 
-	std::shared_ptr<Mesh> CreateCubeMesh(const std::vector<Color>& colors)
+	std::shared_ptr<Mesh> CreateCubeMesh(const std::vector<Color>& colors, int smooth)
 	{
+		smooth = Clamp(smooth, 1, 200);
+
 		std::vector<Vertex> vertices;
 		std::vector<int> triangles;
 
@@ -145,51 +151,81 @@ namespace Rehenz
 			else
 				return colors[i % colors.size()];
 		};
+		auto SmoothFace = [&vertices, &triangles, smooth]()
+		{
+			size_t base_vi = vertices.size() - 4;
+			Vertex v0 = vertices[base_vi + 0];
+			Vertex v1 = vertices[base_vi + 1];
+			Vertex v2 = vertices[base_vi + 2];
+			Vertex v3 = vertices[base_vi + 3];
+			vertices.resize(base_vi);
+			// add vertices
+			for (int y = 0; y <= smooth; y++)
+			{
+				Vertex v02 = VertexLerp(v0, v2, static_cast<float>(y) / smooth);
+				Vertex v12 = VertexLerp(v1, v2, static_cast<float>(y) / smooth);
+				Vertex v13 = VertexLerp(v1, v3, static_cast<float>(y) / smooth);
+				for (int x = 0; x < smooth - y; x++) // v0-v2-v1
+					vertices.push_back(VertexLerp(v02, v12, static_cast<float>(x) / (smooth - y)));
+				vertices.push_back(v12); // v1-v2
+				for (int x = 1; x <= y; x++) // v1-v2-v3
+					vertices.push_back(VertexLerp(v12, v13, static_cast<float>(x) / y));
+			}
+			// add triangles
+			for (int y = 0; y < smooth; y++)
+			{
+				for (int x = 0; x < smooth; x++)
+				{
+					int i0 = static_cast<int>(base_vi) + y * (smooth + 1) + x;
+					int i1 = i0 + 1;
+					int i2 = i0 + smooth + 1;
+					int i3 = i2 + 1;
+					triangles.push_back(i0); triangles.push_back(i2); triangles.push_back(i1);
+					triangles.push_back(i2); triangles.push_back(i3); triangles.push_back(i1);
+				}
+			}
+		};
+
 		// front
-		vertices.push_back(Vertex(Point(-0.5f, -0.5f, -0.5f), Vector(0, 0, -1), GetColor(0), UV(0, 1), UV(0.25f, 0.5f)));
-		vertices.push_back(Vertex(Point(0.5f, -0.5f, -0.5f), Vector(0, 0, -1), GetColor(1), UV(1, 1), UV(0.5f, 0.5f)));
-		vertices.push_back(Vertex(Point(-0.5f, 0.5f, -0.5f), Vector(0, 0, -1), GetColor(2), UV(0, 0), UV(0.25f, 0.25f)));
-		vertices.push_back(Vertex(Point(0.5f, 0.5f, -0.5f), Vector(0, 0, -1), GetColor(3), UV(1, 0), UV(0.5f, 0.25f)));
-		triangles.push_back(0); triangles.push_back(2); triangles.push_back(1);
-		triangles.push_back(2); triangles.push_back(3); triangles.push_back(1);
+		vertices.push_back(Vertex(Point(-1, -1, -1), Vector(0, 0, -1), GetColor(0), UV(0, 1), UV(0.25f, 0.5f)));
+		vertices.push_back(Vertex(Point(1, -1, -1), Vector(0, 0, -1), GetColor(1), UV(1, 1), UV(0.5f, 0.5f)));
+		vertices.push_back(Vertex(Point(-1, 1, -1), Vector(0, 0, -1), GetColor(2), UV(0, 0), UV(0.25f, 0.25f)));
+		vertices.push_back(Vertex(Point(1, 1, -1), Vector(0, 0, -1), GetColor(3), UV(1, 0), UV(0.5f, 0.25f)));
+		SmoothFace();
 		// down
-		vertices.push_back(Vertex(Point(-0.5f, -0.5f, 0.5f), Vector(0, -1, 0), GetColor(4), UV(0, 1), UV(0.25f, 0.75f)));
-		vertices.push_back(Vertex(Point(0.5f, -0.5f, 0.5f), Vector(0, -1, 0), GetColor(5), UV(1, 1), UV(0.5f, 0.75f)));
-		vertices.push_back(Vertex(Point(-0.5f, -0.5f, -0.5f), Vector(0, -1, 0), GetColor(0), UV(0, 0), UV(0.25f, 0.5f)));
-		vertices.push_back(Vertex(Point(0.5f, -0.5f, -0.5f), Vector(0, -1, 0), GetColor(1), UV(1, 0), UV(0.5f, 0.5f)));
-		triangles.push_back(4); triangles.push_back(6); triangles.push_back(5);
-		triangles.push_back(6); triangles.push_back(7); triangles.push_back(5);
+		vertices.push_back(Vertex(Point(-1, -1, 1), Vector(0, -1, 0), GetColor(4), UV(0, 1), UV(0.25f, 0.75f)));
+		vertices.push_back(Vertex(Point(1, -1, 1), Vector(0, -1, 0), GetColor(5), UV(1, 1), UV(0.5f, 0.75f)));
+		vertices.push_back(Vertex(Point(-1, -1, -1), Vector(0, -1, 0), GetColor(0), UV(0, 0), UV(0.25f, 0.5f)));
+		vertices.push_back(Vertex(Point(1, -1, -1), Vector(0, -1, 0), GetColor(1), UV(1, 0), UV(0.5f, 0.5f)));
+		SmoothFace();
 		// up
-		vertices.push_back(Vertex(Point(-0.5f, 0.5f, -0.5f), Vector(0, 1, 0), GetColor(2), UV(0, 1), UV(0.25f, 0.25f)));
-		vertices.push_back(Vertex(Point(0.5f, 0.5f, -0.5f), Vector(0, 1, 0), GetColor(3), UV(1, 1), UV(0.5f, 0.25f)));
-		vertices.push_back(Vertex(Point(-0.5f, 0.5f, 0.5f), Vector(0, 1, 0), GetColor(6), UV(0, 0), UV(0.25f, 0)));
-		vertices.push_back(Vertex(Point(0.5f, 0.5f, 0.5f), Vector(0, 1, 0), GetColor(7), UV(1, 0), UV(0.5f, 0)));
-		triangles.push_back(8); triangles.push_back(10); triangles.push_back(9);
-		triangles.push_back(10); triangles.push_back(11); triangles.push_back(9);
+		vertices.push_back(Vertex(Point(-1, 1, -1), Vector(0, 1, 0), GetColor(2), UV(0, 1), UV(0.25f, 0.25f)));
+		vertices.push_back(Vertex(Point(1, 1, -1), Vector(0, 1, 0), GetColor(3), UV(1, 1), UV(0.5f, 0.25f)));
+		vertices.push_back(Vertex(Point(-1, 1, 1), Vector(0, 1, 0), GetColor(6), UV(0, 0), UV(0.25f, 0)));
+		vertices.push_back(Vertex(Point(1, 1, 1), Vector(0, 1, 0), GetColor(7), UV(1, 0), UV(0.5f, 0)));
+		SmoothFace();
 		// back
-		vertices.push_back(Vertex(Point(-0.5f, 0.5f, 0.5f), Vector(0, 0, 1), GetColor(6), UV(0, 1), UV(0.25f, 1)));
-		vertices.push_back(Vertex(Point(0.5f, 0.5f, 0.5f), Vector(0, 0, 1), GetColor(7), UV(1, 1), UV(0.5f, 1)));
-		vertices.push_back(Vertex(Point(-0.5f, -0.5f, 0.5f), Vector(0, 0, 1), GetColor(4), UV(0, 0), UV(0.25f, 0.75f)));
-		vertices.push_back(Vertex(Point(0.5f, -0.5f, 0.5f), Vector(0, 0, 1), GetColor(5), UV(1, 0), UV(0.5f, 0.75f)));
-		triangles.push_back(12); triangles.push_back(14); triangles.push_back(13);
-		triangles.push_back(14); triangles.push_back(15); triangles.push_back(13);
+		vertices.push_back(Vertex(Point(-1, 1, 1), Vector(0, 0, 1), GetColor(6), UV(0, 1), UV(0.25f, 1)));
+		vertices.push_back(Vertex(Point(1, 1, 1), Vector(0, 0, 1), GetColor(7), UV(1, 1), UV(0.5f, 1)));
+		vertices.push_back(Vertex(Point(-1, -1, 1), Vector(0, 0, 1), GetColor(4), UV(0, 0), UV(0.25f, 0.75f)));
+		vertices.push_back(Vertex(Point(1, -1, 1), Vector(0, 0, 1), GetColor(5), UV(1, 0), UV(0.5f, 0.75f)));
+		SmoothFace();
 		// left
-		vertices.push_back(Vertex(Point(-0.5f, -0.5f, 0.5f), Vector(-1, 0, 0), GetColor(4), UV(0, 1), UV(0, 0.5f)));
-		vertices.push_back(Vertex(Point(-0.5f, -0.5f, -0.5f), Vector(-1, 0, 0), GetColor(0), UV(1, 1), UV(0.25f, 0.5f)));
-		vertices.push_back(Vertex(Point(-0.5f, 0.5f, 0.5f), Vector(-1, 0, 0), GetColor(6), UV(0, 0), UV(0, 0.25f)));
-		vertices.push_back(Vertex(Point(-0.5f, 0.5f, -0.5f), Vector(-1, 0, 0), GetColor(2), UV(1, 0), UV(0.25f, 0.25f)));
-		triangles.push_back(16); triangles.push_back(18); triangles.push_back(17);
-		triangles.push_back(18); triangles.push_back(19); triangles.push_back(17);
+		vertices.push_back(Vertex(Point(-1, -1, 1), Vector(-1, 0, 0), GetColor(4), UV(0, 1), UV(0, 0.5f)));
+		vertices.push_back(Vertex(Point(-1, -1, -1), Vector(-1, 0, 0), GetColor(0), UV(1, 1), UV(0.25f, 0.5f)));
+		vertices.push_back(Vertex(Point(-1, 1, 1), Vector(-1, 0, 0), GetColor(6), UV(0, 0), UV(0, 0.25f)));
+		vertices.push_back(Vertex(Point(-1, 1, -1), Vector(-1, 0, 0), GetColor(2), UV(1, 0), UV(0.25f, 0.25f)));
+		SmoothFace();
 		// right
-		vertices.push_back(Vertex(Point(0.5f, -0.5f, -0.5f), Vector(1, 0, 0), GetColor(1), UV(0, 1), UV(0.5f, 0.5f)));
-		vertices.push_back(Vertex(Point(0.5f, -0.5f, 0.5f), Vector(1, 0, 0), GetColor(5), UV(1, 1), UV(0.75f, 0.5f)));
-		vertices.push_back(Vertex(Point(0.5f, 0.5f, -0.5f), Vector(1, 0, 0), GetColor(3), UV(0, 0), UV(0.5f, 0.25f)));
-		vertices.push_back(Vertex(Point(0.5f, 0.5f, 0.5f), Vector(1, 0, 0), GetColor(7), UV(1, 0), UV(0.75f, 0.25f)));
-		triangles.push_back(20); triangles.push_back(22); triangles.push_back(21);
-		triangles.push_back(22); triangles.push_back(23); triangles.push_back(21);
+		vertices.push_back(Vertex(Point(1, -1, -1), Vector(1, 0, 0), GetColor(1), UV(0, 1), UV(0.5f, 0.5f)));
+		vertices.push_back(Vertex(Point(1, -1, 1), Vector(1, 0, 0), GetColor(5), UV(1, 1), UV(0.75f, 0.5f)));
+		vertices.push_back(Vertex(Point(1, 1, -1), Vector(1, 0, 0), GetColor(3), UV(0, 0), UV(0.5f, 0.25f)));
+		vertices.push_back(Vertex(Point(1, 1, 1), Vector(1, 0, 0), GetColor(7), UV(1, 0), UV(0.75f, 0.25f)));
+		SmoothFace();
 
 		return std::make_shared<Mesh>(std::move(vertices), std::move(triangles));
 	}
+
 	std::shared_ptr<Mesh> CreateSphereMesh(int smooth)
 	{
 		smooth = Clamp(smooth, 2, 200);
@@ -582,65 +618,147 @@ namespace Rehenz
 
 	std::shared_ptr<Mesh> CreateFrustumMesh(float top_radius, int smooth)
 	{
-		smooth = Clamp(smooth, 3, 200);
+		top_radius = Clamp(top_radius, 0.0f, 1.0f);
+		smooth = Clamp(smooth, 2, 200);
+		int yn = smooth, xn = 2 * smooth;
+		int brn = yn, trn = Max(1, static_cast<int>(yn * top_radius));
 
 		std::vector<Vertex> vertices;
 		std::vector<int> triangles;
+		int base_vi, i0, i1, i2, i3;
 
-		// add top disc
+		// add top disc (1+xn*trn vertices)
 		if (top_radius > 0)
 		{
-			vertices.emplace_back(Point(0, 0.5f, 0), Vector(0, 1, 0));
-			for (int i = 0; i < smooth; i++)
+			base_vi = static_cast<int>(vertices.size());
+			vertices.emplace_back(Point(0, 1, 0), Vector(0, 1, 0));
+			for (int x = 0; x < xn; x++)
 			{
-				float theta = pi_mul2 * i / smooth;
-				vertices.emplace_back(Point(top_radius * cosf(theta), 0.5f, top_radius * sinf(theta)), Vector(0, 1, 0));
+				float theta = pi_mul2 * x / xn;
+				float costheta = cosf(theta);
+				float sintheta = sinf(theta);
+				for (int r = 1; r <= trn; r++)
+				{
+					float radius = top_radius * r / trn;
+					vertices.emplace_back(Point(radius * costheta, 1, radius * sintheta), Vector(0, 1, 0));
+				}
 			}
-			for (int i = 1; i < smooth; i++)
+			for (int x = 0; x < xn - 1; x++)
 			{
-				triangles.push_back(0); triangles.push_back(i + 1); triangles.push_back(i);
+				i0 = base_vi + 0;
+				i1 = base_vi + 1 + x * trn;
+				i2 = i1 + trn;
+				triangles.push_back(i0); triangles.push_back(i2); triangles.push_back(i1);
 			}
-			triangles.push_back(0); triangles.push_back(1); triangles.push_back(smooth);
+			i0 = base_vi + 0;
+			i1 = base_vi + 1 + (xn - 1) * trn;
+			i2 = base_vi + 1 + 0 * trn;
+			triangles.push_back(i0); triangles.push_back(i2); triangles.push_back(i1);
+			for (int r = 2; r <= trn; r++)
+			{
+				for (int x = 0; x < xn - 1; x++)
+				{
+					i0 = base_vi + 1 + x * trn + r - 2;
+					i1 = i0 + trn;
+					i2 = i0 + 1;
+					i3 = i2 + trn;
+					triangles.push_back(i0); triangles.push_back(i1); triangles.push_back(i2);
+					triangles.push_back(i2); triangles.push_back(i1); triangles.push_back(i3);
+				}
+				i0 = base_vi + 1 + (xn - 1) * trn + r - 2;
+				i1 = base_vi + 1 + 0 * trn + r - 2;
+				i2 = i0 + 1;
+				i3 = i1 + 1;
+				triangles.push_back(i0); triangles.push_back(i1); triangles.push_back(i2);
+				triangles.push_back(i2); triangles.push_back(i1); triangles.push_back(i3);
+			}
 		}
 
-		// add bottom disc
-		int v_o = static_cast<int>(vertices.size());
-		vertices.emplace_back(Point(0, -0.5f, 0), Vector(0, -1, 0));
-		for (int i = 0; i < smooth; i++)
+		// add bottom disc (1+xn*brn vertices)
+		base_vi = static_cast<int>(vertices.size());
+		vertices.emplace_back(Point(0, -1, 0), Vector(0, -1, 0));
+		for (int x = 0; x < xn; x++)
 		{
-			float theta = pi_mul2 * (i + 0.5f) / smooth;
-			vertices.emplace_back(Point(cosf(theta), -0.5f, sinf(theta)), Vector(0, -1, 0));
+			float theta = pi_mul2 * x / xn;
+			float costheta = cosf(theta);
+			float sintheta = sinf(theta);
+			for (int r = 1; r <= brn; r++)
+			{
+				float radius = 1.0f * r / brn;
+				vertices.emplace_back(Point(radius * costheta, -1, radius * sintheta), Vector(0, -1, 0));
+			}
 		}
-		for (int i = 1; i < smooth; i++)
+		for (int x = 0; x < xn - 1; x++)
 		{
-			triangles.push_back(v_o); triangles.push_back(v_o + i); triangles.push_back(v_o + i + 1);
+			i0 = base_vi + 0;
+			i1 = base_vi + 1 + x * brn;
+			i2 = i1 + brn;
+			triangles.push_back(i0); triangles.push_back(i1); triangles.push_back(i2);
 		}
-		triangles.push_back(v_o); triangles.push_back(v_o + smooth); triangles.push_back(v_o + 1);
+		i0 = base_vi + 0;
+		i1 = base_vi + 1 + (xn - 1) * brn;
+		i2 = base_vi + 1 + 0 * brn;
+		triangles.push_back(i0); triangles.push_back(i1); triangles.push_back(i2);
+		for (int r = 2; r <= brn; r++)
+		{
+			for (int x = 0; x < xn - 1; x++)
+			{
+				i0 = base_vi + 1 + x * brn + r - 2;
+				i1 = i0 + brn;
+				i2 = i0 + 1;
+				i3 = i2 + brn;
+				triangles.push_back(i0); triangles.push_back(i2); triangles.push_back(i1);
+				triangles.push_back(i1); triangles.push_back(i2); triangles.push_back(i3);
+			}
+			i0 = base_vi + 1 + (xn - 1) * brn + r - 2;
+			i1 = base_vi + 1 + 0 * brn + r - 2;
+			i2 = i0 + 1;
+			i3 = i1 + 1;
+			triangles.push_back(i0); triangles.push_back(i2); triangles.push_back(i1);
+			triangles.push_back(i1); triangles.push_back(i2); triangles.push_back(i3);
+		}
 
-		// add side face
-		Vector normal(1, 1 - top_radius, 0);
+		// add side face (xn*yn vertices)
+		Vector normal(2, 1 - top_radius, 0);
 		normal = VectorNormalize(normal);
-		v_o = static_cast<int>(vertices.size());
-		for (int i = 0; i < smooth; i++)
+		base_vi = static_cast<int>(vertices.size());
+		for (int x = 0; x < xn; x++)
 		{
-			float theta = pi_mul2 * i / smooth;
-			vertices.emplace_back(Point(top_radius * cosf(theta), 0.5f, top_radius * sinf(theta)),
-				Vector(normal.x * cosf(theta), normal.y, normal.x * sinf(theta)));
+			float theta = pi_mul2 * x / xn;
+			float costheta = cosf(theta);
+			float sintheta = sinf(theta);
+			Vector normal2(normal.x * costheta, normal.y, normal.x * sintheta);
+			for (int y = 0; y <= yn; y++)
+			{
+				float t = static_cast<float>(y) / yn;
+				float radius = Lerp(top_radius, 1.0f, t);
+				vertices.emplace_back(Point(radius * costheta, 1 - 2 * t, radius * sintheta), normal2);
+			}
 		}
-		int v_o2 = static_cast<int>(vertices.size());
-		for (int i = 0; i < smooth; i++)
+		for (int y = 0; y < yn; y++)
 		{
-			float theta = pi_mul2 * (i + 0.5f) / smooth;
-			vertices.emplace_back(Point(cosf(theta), -0.5f, sinf(theta)),
-				Vector(normal.x * cosf(theta), normal.y, normal.x * sinf(theta)));
+			for (int x = 0; x < xn - 1; x++)
+			{
+				i0 = base_vi + x * (yn + 1) + y;
+				i1 = i0 + (yn + 1);
+				i2 = i0 + 1;
+				i3 = i2 + (yn + 1);
+				if (y != 0 || top_radius != 0)
+				{
+					triangles.push_back(i0); triangles.push_back(i1); triangles.push_back(i2);
+				}
+				triangles.push_back(i2); triangles.push_back(i1); triangles.push_back(i3);
+			}
+			i0 = base_vi + (xn - 1) * (yn + 1) + y;
+			i1 = base_vi + 0 * (yn + 1) + y;
+			i2 = i0 + 1;
+			i3 = i1 + 1;
+			if (y != 0 || top_radius != 0)
+			{
+				triangles.push_back(i0); triangles.push_back(i1); triangles.push_back(i2);
+			}
+			triangles.push_back(i2); triangles.push_back(i1); triangles.push_back(i3);
 		}
-		for (int i = 1; i < smooth; i++)
-		{
-			triangles.push_back(v_o + i - 1); triangles.push_back(v_o + i); triangles.push_back(v_o2 + i - 1);
-			triangles.push_back(v_o + i); triangles.push_back(v_o2 + i); triangles.push_back(v_o2 + i - 1);
-		}
-		triangles.push_back(v_o + smooth - 1); triangles.push_back(v_o); triangles.push_back(v_o2 + smooth - 1);
-		triangles.push_back(v_o); triangles.push_back(v_o2); triangles.push_back(v_o2 + smooth - 1);
 
 		return std::make_shared<Mesh>(std::move(vertices), std::move(triangles));
 	}

@@ -148,8 +148,8 @@ bool init(DeviceDx12* device)
 	obj_lib["cube"] = cube;
 	pso_objs["rehenz_pso"].push_back("cube");
 	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
-	ground->transform.pos = Rehenz::Vector(0, -3.5f, 0);
-	ground->transform.scale = Rehenz::Vector(20, 1, 20);
+	ground->transform.pos = Rehenz::Vector(0, -4, 0);
+	ground->transform.scale = Rehenz::Vector(10, 1, 10);
 	obj_lib["ground"] = ground;
 	pso_objs["rehenz_pso"].push_back("ground");
 	for (float z = -6; z <= 6; z += 3)
@@ -159,7 +159,7 @@ bool init(DeviceDx12* device)
 			std::string id = std::to_string(z) + (x < 6 ? "Left" : "Right");
 			auto pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"]);
 			pillar->transform.pos = Rehenz::Vector(x, -1, z);
-			pillar->transform.scale = Rehenz::Vector(0.8f, 4, 0.8f);
+			pillar->transform.scale = Rehenz::Vector(0.8f, 2, 0.8f);
 			obj_lib["pillar" + id] = pillar;
 			pso_objs["rehenz_pso"].push_back("pillar" + id);
 			auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);

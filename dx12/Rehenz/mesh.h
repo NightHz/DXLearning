@@ -48,6 +48,7 @@ namespace Rehenz
 		// when multiply by 1/w to standardize p, save 1/w
 		float coef;
 
+		Vertex();
 		Vertex(Point _p);
 		explicit Vertex(Point _p, Vector _n, Color _c = Color(1, 1, 1), UV _uv = UV(0, 0), UV _uv2 = UV(0, 0), float _coef = 1);
 		explicit Vertex(Point _p, Color _c, UV _uv = UV(0, 0), UV _uv2 = UV(0, 0), float _coef = 1);
@@ -91,19 +92,19 @@ namespace Rehenz
 	};
 
 	// create cube mesh which includes pos, normal, color, uv, uv2 info
-	// pos   : unit cube, and (0,0,0) is center point
+	// pos   : 2x2x2 cube, and (0,0,0) is center point
 	// normal: face normal
 	// color : use colors fill, and default is white
 	// uv    : each faces map to the whole texture
 	// uv2   : expanded faces map to the texture
-	std::shared_ptr<Mesh> CreateCubeMesh(const std::vector<Color>& colors = std::vector<Color>());
+	std::shared_ptr<Mesh> CreateCubeMesh(const std::vector<Color>& colors = std::vector<Color>(), int smooth = 2);
 
 	// create a colorful cube mesh based function CreateCubeMesh
-	inline std::shared_ptr<Mesh> CreateCubeMeshColorful()
+	inline std::shared_ptr<Mesh> CreateCubeMeshColorful(int smooth = 2)
 	{
 		const std::vector<Color> colors{ Color(0, 0, 0), Color(1, 0, 0), Color(0, 1, 0), Color(1, 1, 0),
 										 Color(0, 0, 1), Color(1, 0, 1), Color(0, 1, 1), Color(1, 1, 1) };
-		return CreateCubeMesh(colors);
+		return CreateCubeMesh(colors, smooth);
 	}
 
 	// create sphere mesh which includes pos, normal info
@@ -122,9 +123,9 @@ namespace Rehenz
 	std::shared_ptr<Mesh> CreateMeshFromObjFile(const std::string& filename);
 
 	// create frustum mesh which includes pos, normal info
-	// pos   : height = 1, bottom radius = 1, (0,0,0) is center point
+	// pos   : height = 2, bottom radius = 1, (0,0,0) is center point
 	// normal: 
-	std::shared_ptr<Mesh> CreateFrustumMesh(float top_radius = 0.5f, int smooth = 20);
+	std::shared_ptr<Mesh> CreateFrustumMesh(float top_radius = 0.5f, int smooth = 10);
 
 	class Texture
 	{
