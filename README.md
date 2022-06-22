@@ -133,6 +133,10 @@ dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/
 我们创建的资源，会在描述符堆上创建相应的描述符，然后通过根签名映射到输入寄存器，最后被 PSO 上设置的 shader 所使用；每一个环节都需要考虑它们的匹配情况。
 
 
+### 3 光照
+
+![](img/dx12_03light_better.png)
+
 
 
 
