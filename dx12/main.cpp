@@ -64,6 +64,16 @@ void update(DeviceDx12* device, float dt)
 	if (KeyIsDown('U')) obj->transform.axes.roll -= obj_rotate_angle;
 	else if (KeyIsDown('O')) obj->transform.axes.roll += obj_rotate_angle;
 
+	// control light
+	if (KeyIsDown('1')) cb_light.lights[0].type = light_type_directional;
+	else if (KeyIsDown('2')) cb_light.lights[0].type = 0;
+	if (KeyIsDown('3')) cb_light.lights[1].type = light_type_point;
+	else if (KeyIsDown('4')) cb_light.lights[1].type = 0;
+	if (KeyIsDown('5')) cb_light.lights[2].type = light_type_spot;
+	else if (KeyIsDown('6')) cb_light.lights[2].type = 0;
+	dxm::XMStoreFloat3(&cb_light.lights[2].direction, ToXmVector(camera_trans.GetFront()));
+	dxm::XMStoreFloat3(&cb_light.lights[2].position, ToXmVector(camera_trans.pos - Rehenz::Vector(0, 0.5f, 0)));
+
 	// update cbuffer struct
 	XMMATRIX view = ToXmMatrix(camera_trans.GetInverseTransformMatrix());
 	XMMATRIX inv_view = ToXmMatrix(camera_trans.GetTransformMatrix());
@@ -155,6 +165,7 @@ bool init(DeviceDx12* device)
 	ground->transform.pos = Rehenz::Vector(0, -4, 0);
 	ground->transform.scale = Rehenz::Vector(10, 1, 10);
 	ground->material = XMFLOAT4(0.2f, 0.2f, 0.2f, 1);
+	ground->material.roughness = 0.9f;
 	obj_lib["ground"] = ground;
 	pso_objs["rehenz_pso"].push_back("ground");
 	for (float z = -6; z <= 6; z += 3)
@@ -180,7 +191,7 @@ bool init(DeviceDx12* device)
 	point_light->transform.pos = Rehenz::Vector(3, -2, 0);
 	point_light->transform.scale = Rehenz::Vector(0.13f, 0.13f, 0.13f);
 	point_light->material = MaterialDx12::black;
-	point_light->material.emissive = MaterialDx12::white;
+	point_light->material.emissive = XMFLOAT3(1, 1, 1);
 	obj_lib["point_light"] = point_light;
 	pso_objs["rehenz_pso"].push_back("point_light");
 
@@ -191,19 +202,24 @@ bool init(DeviceDx12* device)
 	camera_proj.aspect = device->vp.Width / device->vp.Height;
 
 	// init light
-	cb_light.dl_enable = true;
-	cb_light.dl_specular_enable = true;
-	cb_light.dl_dir = XMFLOAT4(0, -1, 0.15f, 0);
-	cb_light.dl_ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1);
-	cb_light.dl_diffuse = XMFLOAT4(0.8f, 0.8f, 0.8f, 1);
-	cb_light.dl_specular = XMFLOAT4(1, 1, 1, 1);
-	cb_light.pl_enable = true;
-	cb_light.pl_specular_enable = true;
-	cb_light.pl_range = 3;
-	cb_light.pl_pos = XMFLOAT4(point_light->transform.pos.x, point_light->transform.pos.y, point_light->transform.pos.z, 1);
-	cb_light.pl_ambient = XMFLOAT4(0, 0, 0, 1);
-	cb_light.pl_diffuse = XMFLOAT4(0.5f, 0.5f, 0.5f, 1);
-	cb_light.pl_specular = XMFLOAT4(0.5f, 0.5f, 0.5f, 1);
+	::memset(&cb_light, 0, sizeof(cb_light));
+	cb_light.light_enable = 1;
+	cb_light.light_ambient = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	cb_light.lights[0].type = light_type_directional;
+	cb_light.lights[0].intensity = XMFLOAT3(0.8f, 0.8f, 0.8f);
+	cb_light.lights[0].direction = XMFLOAT3(0, -1, 0.15f);
+	cb_light.lights[1].type = light_type_point;
+	cb_light.lights[1].intensity = XMFLOAT3(0.5f, 0.5f, 0.5f);
+	cb_light.lights[1].position = XMFLOAT3(point_light->transform.pos.x, point_light->transform.pos.y, point_light->transform.pos.z);
+	cb_light.lights[1].falloff_begin = 3;
+	cb_light.lights[1].falloff_end = 6;
+	cb_light.lights[2].type = 0;
+	cb_light.lights[2].intensity = XMFLOAT3(0.8f, 0.8f, 0.8f);
+	dxm::XMStoreFloat3(&cb_light.lights[2].direction, ToXmVector(camera_trans.GetFront()));
+	dxm::XMStoreFloat3(&cb_light.lights[2].position, ToXmVector(camera_trans.pos - Rehenz::Vector(0, 0.5f, 0)));
+	cb_light.lights[2].falloff_begin = 5;
+	cb_light.lights[2].falloff_end = 15;
+	cb_light.lights[2].spot_divergence = 0.9f;
 
 	return true;
 }

@@ -105,4 +105,12 @@
       <Filter>shader</Filter>
     </FxCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="blinn_phong.hlsli">
+      <Filter>shader</Filter>
+    </None>
+    <None Include="registers.hlsli">
+      <Filter>shader</Filter>
+    </None>
+  </ItemGroup>
 </Project>

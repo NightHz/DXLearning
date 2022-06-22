@@ -84,10 +84,16 @@ namespace Dx12
 #ifdef _DEBUG
         flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #endif
-        hr = D3DCompileFromFile(filename.c_str(), nullptr, nullptr, "main", (shader_type + "_5_1").c_str(),
-            flags, 0, shader_blob.GetAddressOf(), nullptr);
+        ComPtr<ID3DBlob> error_blob;
+        hr = D3DCompileFromFile(filename.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main", (shader_type + "_5_1").c_str(),
+            flags, 0, shader_blob.GetAddressOf(), error_blob.GetAddressOf());
         if (FAILED(hr))
+        {
+#ifdef _DEBUG
+            OutputDebugString(static_cast<char*>(error_blob->GetBufferPointer()));
+#endif
             return nullptr;
+        }
 
         return shader_blob;
     }
@@ -1083,8 +1089,12 @@ namespace Dx12
     }
 
     MaterialDx12::MaterialDx12(DirectX::XMFLOAT4 color)
-        : ambient(color), diffuse(color), specular(color), emissive(0, 0, 0, 0), power(10)
     {
+        diffuse_albedo = XMFLOAT3(color.x, color.y, color.z);
+        alpha = color.w;
+        fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
+        roughness = 0.5f;
+        emissive = XMFLOAT3(0, 0, 0);
     }
 
     MaterialDx12::~MaterialDx12()
@@ -1122,11 +1132,11 @@ namespace Dx12
         dxm::XMStoreFloat4x4(&cb_struct.world, dxm::XMMatrixTranspose(world));
         XMMATRIX inv_world = ToXmMatrix(transform.GetInverseTransformMatrix());
         dxm::XMStoreFloat4x4(&cb_struct.inv_world, dxm::XMMatrixTranspose(inv_world));
-        cb_struct.ambient = material.ambient;
-        cb_struct.diffuse = material.diffuse;
-        cb_struct.specular = material.specular;
-        cb_struct.emissive = material.emissive;
-        cb_struct.power = material.power;
+        cb_struct.mat.diffuse_albedo = material.diffuse_albedo;
+        cb_struct.mat.alpha = material.alpha;
+        cb_struct.mat.fresnel_r0 = material.fresnel_r0;
+        cb_struct.mat.roughness = material.roughness;
+        cb_struct.mat.emissive = material.emissive;
         if (!frc->cb_obj->CopyData(cb_slot, cb_struct))
             return false;
 

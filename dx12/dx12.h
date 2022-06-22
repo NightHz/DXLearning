@@ -54,16 +54,20 @@ namespace Dx12
 
 
     // cbuffer struct
+    struct MaterialForCB
+    {
+        XMFLOAT3 diffuse_albedo;
+        float alpha;
+        XMFLOAT3 fresnel_r0; // reflect percent when theta = 0
+        float roughness;
+        XMFLOAT3 emissive;
+        float _pad1;
+    };
     struct CBObj // b0
     {
         XMFLOAT4X4 world;
         XMFLOAT4X4 inv_world;
-        XMFLOAT4 ambient;
-        XMFLOAT4 diffuse;
-        XMFLOAT4 specular;
-        XMFLOAT4 emissive;
-        float power;
-        float _pad1[3];
+        MaterialForCB mat;
     };
     struct CBFrame // b1
     {
@@ -79,27 +83,25 @@ namespace Dx12
         float time;
         float deltatime;
     };
+    const float light_type_directional = 1;
+    const float light_type_point = 2;
+    const float light_type_spot = 3;
+    struct LightForCB
+    {
+        float type; // 0: disable  1: directional light  2: point light  3: spot light
+        XMFLOAT3 intensity;
+        XMFLOAT3 direction; // for directional light and spot light
+        float falloff_begin; // for point light and spot light
+        float falloff_end; // for point light and spot light
+        XMFLOAT3 position; // for point light and spot light
+        float spot_divergence; // for spot light
+        XMFLOAT3 _pad1;
+    };
     struct CBLight // b2
     {
-        bool dl_enable;
-        char _pad1[3];
-        bool dl_specular_enable;
-        char _pad2[3];
-        float _pad3[2];
-        XMFLOAT4 dl_dir;
-        XMFLOAT4 dl_ambient;
-        XMFLOAT4 dl_diffuse;
-        XMFLOAT4 dl_specular;
-        bool pl_enable;
-        char _pad4[3];
-        bool pl_specular_enable;
-        char _pad5[3];
-        float pl_range;
-        float _pad6;
-        XMFLOAT4 pl_pos;
-        XMFLOAT4 pl_ambient;
-        XMFLOAT4 pl_diffuse;
-        XMFLOAT4 pl_specular;
+        float light_enable; // 0: disable  1: enable
+        XMFLOAT3 light_ambient;
+        LightForCB lights[16];
     };
 
 
@@ -460,15 +462,9 @@ namespace Dx12
         static std::shared_ptr<MeshDx12> CreateFromRehenzMesh(std::shared_ptr<Rehenz::Mesh> mesh);
     };
 
-    class MaterialDx12
+    class MaterialDx12 : public MaterialForCB
     {
     public:
-        XMFLOAT4 ambient;
-        XMFLOAT4 diffuse;
-        XMFLOAT4 specular;
-        XMFLOAT4 emissive;
-        float power;
-
         MaterialDx12();
         MaterialDx12(DirectX::XMFLOAT4 color);
         ~MaterialDx12();
