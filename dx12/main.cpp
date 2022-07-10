@@ -17,6 +17,7 @@ base_library<ComPtr<ID3D12PipelineState>> pso_lib;
 base_library<std::shared_ptr<std::vector<D3D12_INPUT_ELEMENT_DESC>>> il_lib;
 base_library<ComPtr<ID3DBlob>> shader_lib;
 base_library<std::shared_ptr<MeshDx12>> mesh_lib;
+base_library<std::shared_ptr<MaterialDx12>> mat_lib;
 base_library<std::shared_ptr<ObjectDx12>> obj_lib;
 
 Rehenz::Transform camera_trans;
@@ -153,19 +154,37 @@ bool init(DeviceDx12* device)
 		device->device.Get(), device->cmd_list.Get()))
 		return false;
 
+	// init mats
+	auto mat_grass = std::make_shared<MaterialDx12>();
+	mat_grass->diffuse_albedo = XMFLOAT3(0.2f, 0.6f, 0.2f);
+	mat_grass->alpha = 1.0f;
+	mat_grass->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
+	mat_grass->roughness = 0.125f;
+	mat_lib["grass"] = mat_grass;
+	auto mat_water = std::make_shared<MaterialDx12>();
+	mat_water->diffuse_albedo = XMFLOAT3(0, 0.2f, 0.6f);
+	mat_water->alpha = 1.0f;
+	mat_water->fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	mat_water->roughness = 0;
+	mat_lib["water"] = mat_water;
+	auto mat_light = std::make_shared<MaterialDx12>();
+	mat_light->diffuse_albedo = XMFLOAT3(0, 0, 0);
+	mat_light->alpha = 1.0f;
+	mat_light->fresnel_r0 = XMFLOAT3(0, 0, 0);
+	mat_light->roughness = 0;
+	mat_light->emissive = XMFLOAT3(1, 1, 1);
+	mat_lib["light"] = mat_light;
+
 	// init objs
 	UINT cb_slot = 0;
-	auto cube = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
+	auto cube = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["grass"]);
 	cube->transform.pos = Rehenz::Vector(0, -2.5f, 0);
 	cube->transform.scale = Rehenz::Vector(1.2f, 0.5f, 1.2f);
-	cube->material = MaterialDx12::green;
 	obj_lib["cube"] = cube;
 	pso_objs["rehenz_pso"].push_back("cube");
-	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"]);
+	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["water"]);
 	ground->transform.pos = Rehenz::Vector(0, -4, 0);
 	ground->transform.scale = Rehenz::Vector(10, 1, 10);
-	ground->material = XMFLOAT4(0.2f, 0.2f, 0.2f, 1);
-	ground->material.roughness = 0.9f;
 	obj_lib["ground"] = ground;
 	pso_objs["rehenz_pso"].push_back("ground");
 	for (float z = -6; z <= 6; z += 3)
@@ -173,25 +192,21 @@ bool init(DeviceDx12* device)
 		for (float x = -6; x <= 6; x += 12)
 		{
 			std::string id = std::to_string(z) + (x < 6 ? "Left" : "Right");
-			auto pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"]);
+			auto pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"], mat_lib["grass"]);
 			pillar->transform.pos = Rehenz::Vector(x, -1, z);
 			pillar->transform.scale = Rehenz::Vector(0.8f, 2, 0.8f);
-			pillar->material = MaterialDx12::yellow;
 			obj_lib["pillar" + id] = pillar;
 			pso_objs["rehenz_pso"].push_back("pillar" + id);
-			auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"]);
+			auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"], mat_lib["grass"]);
 			sphere->transform.pos = Rehenz::Vector(x, 1.8f, z);
 			sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
-			sphere->material = MaterialDx12::orange;
 			obj_lib["sphere" + id] = sphere;
 			pso_objs["rehenz_pso"].push_back("sphere" + id);
 		}
 	}
-	auto point_light = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere2"]);
+	auto point_light = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere2"], mat_lib["light"]);
 	point_light->transform.pos = Rehenz::Vector(3, -2, 0);
 	point_light->transform.scale = Rehenz::Vector(0.13f, 0.13f, 0.13f);
-	point_light->material = MaterialDx12::black;
-	point_light->material.emissive = XMFLOAT3(1, 1, 1);
 	obj_lib["point_light"] = point_light;
 	pso_objs["rehenz_pso"].push_back("point_light");
 
@@ -265,6 +280,7 @@ void clean()
 	il_lib.clear();
 	shader_lib.clear();
 	mesh_lib.clear();
+	mat_lib.clear();
 	obj_lib.clear();
 }
 

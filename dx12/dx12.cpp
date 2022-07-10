@@ -1109,8 +1109,8 @@ namespace Dx12
     XMFLOAT4 MaterialDx12::yellow(XMFLOAT4(0.91f, 0.88f, 0.34f, 1));
     XMFLOAT4 MaterialDx12::orange(XMFLOAT4(1, 0.5f, 0.14f, 1));
 
-    ObjectDx12::ObjectDx12(UINT _cb_slot, std::shared_ptr<MeshDx12> _mesh)
-        : cb_slot(_cb_slot), mesh(_mesh)
+    ObjectDx12::ObjectDx12(UINT _cb_slot, std::shared_ptr<MeshDx12> _mesh, std::shared_ptr<MaterialDx12> _mat)
+        : cb_slot(_cb_slot), mesh(_mesh), material(_mat)
     {
     }
 
@@ -1132,11 +1132,11 @@ namespace Dx12
         dxm::XMStoreFloat4x4(&cb_struct.world, dxm::XMMatrixTranspose(world));
         XMMATRIX inv_world = ToXmMatrix(transform.GetInverseTransformMatrix());
         dxm::XMStoreFloat4x4(&cb_struct.inv_world, dxm::XMMatrixTranspose(inv_world));
-        cb_struct.mat.diffuse_albedo = material.diffuse_albedo;
-        cb_struct.mat.alpha = material.alpha;
-        cb_struct.mat.fresnel_r0 = material.fresnel_r0;
-        cb_struct.mat.roughness = material.roughness;
-        cb_struct.mat.emissive = material.emissive;
+        cb_struct.mat.diffuse_albedo = material->diffuse_albedo;
+        cb_struct.mat.alpha = material->alpha;
+        cb_struct.mat.fresnel_r0 = material->fresnel_r0;
+        cb_struct.mat.roughness = material->roughness;
+        cb_struct.mat.emissive = material->emissive;
         if (!frc->cb_obj->CopyData(cb_slot, cb_struct))
             return false;
 

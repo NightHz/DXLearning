@@ -478,11 +478,11 @@ namespace Dx12
     public:
         UINT cb_slot;
         Rehenz::Transform transform;
-        MaterialDx12 material;
 
         std::shared_ptr<MeshDx12> mesh;
+        std::shared_ptr<MaterialDx12> material;
 
-        ObjectDx12(UINT _cb_slot, std::shared_ptr<MeshDx12> _mesh);
+        ObjectDx12(UINT _cb_slot, std::shared_ptr<MeshDx12> _mesh, std::shared_ptr<MaterialDx12> _mat);
         ObjectDx12(const ObjectDx12&) = delete;
         ObjectDx12& operator=(const ObjectDx12&) = delete;
         ~ObjectDx12();
