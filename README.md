@@ -137,6 +137,7 @@ dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/
 
 ![](img/dx12_03light_better.png)
 
+![](img/dx12_03light_with_ps.png)
 
 
 

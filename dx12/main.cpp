@@ -180,12 +180,24 @@ bool init(DeviceDx12* device)
 	mat_light->roughness = 0;
 	mat_light->emissive = XMFLOAT3(1, 1, 1);
 	mat_lib["light"] = mat_light;
+	auto mat_orange = std::make_shared<MaterialDx12>();
+	mat_orange->diffuse_albedo = XMFLOAT3(1, 0.5f, 0.14f);
+	mat_orange->alpha = 1.0f;
+	mat_orange->fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	mat_orange->roughness = 0.08f;
+	mat_lib["orange"] = mat_orange;
+	auto mat_yellow = std::make_shared<MaterialDx12>();
+	mat_yellow->diffuse_albedo = XMFLOAT3(0.91f, 0.88f, 0.34f);
+	mat_yellow->alpha = 1.0f;
+	mat_yellow->fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	mat_yellow->roughness = 0.08f;
+	mat_lib["yellow"] = mat_yellow;
 
 	// init objs
 	UINT cb_slot = 0;
 	auto cube = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["grass"]);
-	cube->transform.pos = Rehenz::Vector(0, -2.5f, 0);
-	cube->transform.scale = Rehenz::Vector(1.2f, 0.5f, 1.2f);
+	cube->transform.pos = Rehenz::Vector(0, -2.7f, 0);
+	cube->transform.scale = Rehenz::Vector(2.2f, 0.3f, 2.2f);
 	obj_lib["cube"] = cube;
 	pso_objs["pslight"].push_back("cube");
 	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["water"]);
@@ -198,16 +210,16 @@ bool init(DeviceDx12* device)
 		for (float x = -6; x <= 6; x += 12)
 		{
 			std::string id = std::to_string(z) + (x < 6 ? "Left" : "Right");
-			auto pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"], mat_lib["grass"]);
+			auto pillar = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["frustum"], mat_lib["yellow"]);
 			pillar->transform.pos = Rehenz::Vector(x, -1, z);
 			pillar->transform.scale = Rehenz::Vector(0.8f, 2, 0.8f);
 			obj_lib["pillar" + id] = pillar;
 			pso_objs["pslight"].push_back("pillar" + id);
-			auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"], mat_lib["grass"]);
+			auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"], mat_lib["orange"]);
 			sphere->transform.pos = Rehenz::Vector(x, 1.8f, z);
 			sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
 			obj_lib["sphere" + id] = sphere;
-			pso_objs["vslight"].push_back("sphere" + id);
+			pso_objs["pslight"].push_back("sphere" + id);
 		}
 	}
 	auto point_light = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere2"], mat_lib["light"]);
