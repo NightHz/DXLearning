@@ -108,8 +108,10 @@ bool init(DeviceDx12* device)
 
 	// init shader
 	shader_lib["vs_transform"] = UtilDx12::CompileShaderFile(L"dx12_vs_transform.hlsl", "vs");
+	shader_lib["vs_transform4"] = UtilDx12::CompileShaderFile(L"dx12_vs_transform4.hlsl", "vs");
 	shader_lib["vs_light"] = UtilDx12::CompileShaderFile(L"dx12_vs_light.hlsl", "vs");
 	shader_lib["ps_color"] = UtilDx12::CompileShaderFile(L"dx12_ps_color.hlsl", "ps");
+	shader_lib["ps_light"] = UtilDx12::CompileShaderFile(L"dx12_ps_light.hlsl", "ps");
 	for (auto& p : shader_lib)
 	{
 		if (!p.second)
@@ -128,7 +130,11 @@ bool init(DeviceDx12* device)
 	pso_creator.SetInputLayout(*il_lib["rehenz"]);
 	pso_creator.SetVS(shader_lib["vs_light"].Get());
 	pso_creator.SetPS(shader_lib["ps_color"].Get());
-	pso_lib["rehenz_pso"] = pso_creator.CreatePSO(device->device.Get());
+	pso_lib["vslight"] = pso_creator.CreatePSO(device->device.Get());
+	pso_creator.SetInputLayout(*il_lib["rehenz"]);
+	pso_creator.SetVS(shader_lib["vs_transform4"].Get());
+	pso_creator.SetPS(shader_lib["ps_light"].Get());
+	pso_lib["pslight"] = pso_creator.CreatePSO(device->device.Get());
 	for (auto& p : pso_lib)
 	{
 		if (!p.second)
@@ -137,11 +143,11 @@ bool init(DeviceDx12* device)
 
 	// init meshs
 	mesh_lib["cube"] = MeshDx12::CreateCube();
-	mesh_lib["cube2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateCubeMeshColorful(100));
+	mesh_lib["cube2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateCubeMeshColorful());
 	mesh_lib["sphere"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMesh(50));
-	mesh_lib["sphere2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMeshD(20));
-	mesh_lib["cone"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0, 50));
-	mesh_lib["frustum"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0.5f, 50));
+	mesh_lib["sphere2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMeshD());
+	mesh_lib["cone"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0));
+	mesh_lib["frustum"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh());
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
@@ -181,12 +187,12 @@ bool init(DeviceDx12* device)
 	cube->transform.pos = Rehenz::Vector(0, -2.5f, 0);
 	cube->transform.scale = Rehenz::Vector(1.2f, 0.5f, 1.2f);
 	obj_lib["cube"] = cube;
-	pso_objs["rehenz_pso"].push_back("cube");
+	pso_objs["pslight"].push_back("cube");
 	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["water"]);
 	ground->transform.pos = Rehenz::Vector(0, -4, 0);
 	ground->transform.scale = Rehenz::Vector(10, 1, 10);
 	obj_lib["ground"] = ground;
-	pso_objs["rehenz_pso"].push_back("ground");
+	pso_objs["pslight"].push_back("ground");
 	for (float z = -6; z <= 6; z += 3)
 	{
 		for (float x = -6; x <= 6; x += 12)
@@ -196,19 +202,19 @@ bool init(DeviceDx12* device)
 			pillar->transform.pos = Rehenz::Vector(x, -1, z);
 			pillar->transform.scale = Rehenz::Vector(0.8f, 2, 0.8f);
 			obj_lib["pillar" + id] = pillar;
-			pso_objs["rehenz_pso"].push_back("pillar" + id);
+			pso_objs["pslight"].push_back("pillar" + id);
 			auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"], mat_lib["grass"]);
 			sphere->transform.pos = Rehenz::Vector(x, 1.8f, z);
 			sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
 			obj_lib["sphere" + id] = sphere;
-			pso_objs["rehenz_pso"].push_back("sphere" + id);
+			pso_objs["vslight"].push_back("sphere" + id);
 		}
 	}
 	auto point_light = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere2"], mat_lib["light"]);
 	point_light->transform.pos = Rehenz::Vector(3, -2, 0);
 	point_light->transform.scale = Rehenz::Vector(0.13f, 0.13f, 0.13f);
 	obj_lib["point_light"] = point_light;
-	pso_objs["rehenz_pso"].push_back("point_light");
+	pso_objs["vslight"].push_back("point_light");
 
 	// init camera
 	camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
