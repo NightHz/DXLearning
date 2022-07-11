@@ -24,15 +24,17 @@ float3 BlinnPhong(float3 light_intensity, float3 to_light, float3 normal, float3
 	float3 V = to_eye;
 	float3 H = normalize(L + V); // half vector
 
-	float s = saturate(dot(L, N)); // dot of to_light and normal
-	float3 r = SchlickFresnel(mat.fresnel_r0, s); // specular reflect percent
-	float m = (1 - saturate(mat.roughness)) * 256 + 0.01f; // specular power
-	float f = (0.125f * m + 1) * pow(saturate(dot(H, N)), m); // specular factor
+	float si = saturate(dot(L, N)); // dot of to_light and normal
+	float sh = saturate(dot(L, H));
+	float sih = saturate(dot(H, N));
+	float3 r = SchlickFresnel(mat.fresnel_r0, sh); // specular reflect percent
+	float m = max((1 - saturate(mat.roughness)) * 256, 0.01f); // specular power
+	float f = (0.125f * m + 1) * pow(sih, m); // specular factor
 
 	float3 specular_albedo = r * f;
 	//specular_albedo = specular_albedo / (specular_albedo + 1);
-	float3 diffuse = s * light_intensity * mat.diffuse_albedo;
-	float3 specular = s * light_intensity * specular_albedo;
+	float3 diffuse = si * light_intensity * mat.diffuse_albedo;
+	float3 specular = si * light_intensity * specular_albedo;
 
 	return diffuse + specular;
 }

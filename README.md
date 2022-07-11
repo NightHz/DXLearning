@@ -135,9 +135,25 @@ dx12 的**渲染管线**可以[在这](https://docs.microsoft.com/en-us/windows/
 
 ### 3 光照
 
-![](img/dx12_03light_better.png)
+我们用漫反射反照度 $A_D$ 、透明度、菲涅尔反射比 $R_F(0)$ 、粗糙度 $R$ 、自发光描述一个材质。光照包含环境光、光源漫反射、光源镜面反射。对每一顶点/像素计算出光照强度 $I$ 、入射反向量 $L$ 、法线 $N$ 、视线反向量 $V$ 、微观法线 $H$ 。
 
-![](img/dx12_03light_with_ps.png)
+$$
+\begin{align}
+   \text{color} &= \text{ambient} + \sum_{\text{light}} (\text{diffuse} + \text{specular}) + \text{emissive} \\
+   \text{ambient} &= I \cdot A_D \\
+   \text{diffuse} &= \cos \theta_i \cdot I \cdot A_D \\
+   \text{specular} &= \cos \theta_i \cdot I \cdot R_F(\theta_h) \cdot F_S \\
+   R_F(\theta_h) &= R_F(0) + (1 - R_F(0)) \cdot (1-\cos\theta_h)^5 \\
+   m &= (1 - R) \cdot 256 \\
+   F_S &= \frac{m+8}{8} \cos^m \theta_{ih}
+\end{align}
+$$
+
+$\theta_i$ 为宏观入射角， $\theta_h$ 为微观入射角， $F_S$ 为镜面反射基于粗糙度的反射因子， $\theta_{ih}$ 为微平面与宏观表面的夹角。
+
+|基于顶点|基于像素|
+|:-:|:-:|
+|![](img/dx12_03light_better.png)|![](img/dx12_03light_with_ps.png)|
 
 
 
