@@ -227,6 +227,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="blinn_phong.hlsli" />
+    <None Include="structs.hlsli" />
     <None Include="registers.hlsli" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

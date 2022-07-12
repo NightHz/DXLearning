@@ -1,7 +1,7 @@
 #ifndef _BLINN_PHONG_HLSLH_
 #define _BLINN_PHONG_HLSLH_
 
-#include "registers.hlsli"
+#include "structs.hlsli"
 
 float CalcAttenuation(float x, float falloff_begin, float falloff_end)
 {

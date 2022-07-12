@@ -118,5 +118,8 @@
     <None Include="registers.hlsli">
       <Filter>shader</Filter>
     </None>
+    <None Include="structs.hlsli">
+      <Filter>shader</Filter>
+    </None>
   </ItemGroup>
 </Project>
