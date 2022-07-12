@@ -114,6 +114,7 @@ namespace Dx12
     class PipelineStateCreatorDx12;
     class MeshDx12;
     class MaterialDx12;
+    class TextureDx12;
     class ObjectDx12;
 
 
@@ -147,6 +148,23 @@ namespace Dx12
             rc_desc.SampleDesc.Count = 1;
             rc_desc.SampleDesc.Quality = 0;
             rc_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+            rc_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+            return rc_desc;
+        }
+
+        inline static D3D12_RESOURCE_DESC GetTexture2DRcDesc(UINT width, UINT height, UINT16 mip_levels, DXGI_FORMAT format)
+        {
+            D3D12_RESOURCE_DESC rc_desc;
+            rc_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+            rc_desc.Alignment = 0;
+            rc_desc.Width = width;
+            rc_desc.Height = height;
+            rc_desc.DepthOrArraySize = 1;
+            rc_desc.MipLevels = mip_levels;
+            rc_desc.Format = format;
+            rc_desc.SampleDesc.Count = 1;
+            rc_desc.SampleDesc.Quality = 0;
+            rc_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
             rc_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
             return rc_desc;
         }
@@ -196,6 +214,11 @@ namespace Dx12
         static bool CreateDefaultBuffer(ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list, const void* data, UINT64 size,
             ComPtr<ID3D12Resource2>& buffer, ComPtr<ID3D12Resource2>& uploader);
 
+        inline static UINT Align(UINT size, UINT aligned)
+        {
+            return (size + aligned - 1) / aligned * aligned;
+        }
+
         inline static UINT AlignCBuffer(UINT size)
         {
             return (size + 255) & ~255; // (size+255)/256*256
@@ -227,9 +250,11 @@ namespace Dx12
         ComPtr<IDXGISwapChain4> sc;
 
         // descriptor heap
-        UINT rtv_size, dsv_size;
+        UINT rtv_size, dsv_size, srv_size;
         ComPtr<ID3D12DescriptorHeap> rtv_heap;
         ComPtr<ID3D12DescriptorHeap> dsv_heap;
+        static const int srv_heap_size = 200;
+        ComPtr<ID3D12DescriptorHeap> srv_heap; // also cbv heap and uav heap
 
         // view buffer
         std::vector<ComPtr<ID3D12Resource2>> rtv_buffers;
@@ -263,6 +288,12 @@ namespace Dx12
             dh.ptr += dsv_size * static_cast<unsigned long long>(i);
             return dh;
         };
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetSrv(UINT i)
+        {
+            auto dh = srv_heap->GetCPUDescriptorHandleForHeapStart();
+            dh.ptr += srv_size * static_cast<unsigned long long>(i);
+            return dh;
+        };
         inline D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRtv() { return GetRtv(sc->GetCurrentBackBufferIndex()); }
         inline ID3D12Resource2* GetCurrentRtvBuffer() { return rtv_buffers[sc->GetCurrentBackBufferIndex()].Get(); }
 
@@ -279,6 +310,8 @@ namespace Dx12
         DeviceDx12(const DeviceDx12&) = delete;
         DeviceDx12& operator=(const DeviceDx12&) = delete;
         ~DeviceDx12();
+
+        void CreateSrvInHeap(ID3D12Resource2* rc, const D3D12_SHADER_RESOURCE_VIEW_DESC& srv_desc, UINT slot_in_heap);
 
         // reset command list & queue
         bool ResetCmd();
@@ -470,6 +503,34 @@ namespace Dx12
         ~MaterialDx12();
 
         static DirectX::XMFLOAT4 white, black, red, green, blue, yellow, orange;
+    };
+
+    class TextureDx12
+    {
+    public:
+        UINT srv_slot;
+
+        ComPtr<ID3DBlob> rc_blob;
+        DXGI_FORMAT format;
+        UINT pixel_size;
+        UINT width;
+        UINT height;
+
+        ComPtr<ID3D12Resource2> rc, rc_uploader;
+
+    private:
+        TextureDx12();
+    public:
+        TextureDx12(const TextureDx12&) = delete;
+        TextureDx12& operator=(const TextureDx12&) = delete;
+        ~TextureDx12();
+
+        bool UploadToGpu(ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list);
+        void CreateSrv(DeviceDx12* device, UINT _srv_slot);
+
+        void FreeUploader();
+
+        static std::shared_ptr<TextureDx12> CreateTexturePlaid(UINT color1 = 0xffffffff, UINT color2 = 0xfff0c154, UINT unit_pixel = 16, UINT n = 4);
     };
 
     class ObjectDx12

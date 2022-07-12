@@ -147,6 +147,11 @@ namespace Dx12
     {
     }
 
+    void DeviceDx12::CreateSrvInHeap(ID3D12Resource2* rc, const D3D12_SHADER_RESOURCE_VIEW_DESC& srv_desc, UINT slot_in_heap)
+    {
+        device->CreateShaderResourceView(rc, &srv_desc, GetSrv(slot_in_heap));
+    }
+
     bool DeviceDx12::ResetCmd()
     {
         HRESULT hr = S_OK;
@@ -282,6 +287,7 @@ namespace Dx12
         // create descriptor heap
         p->rtv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         p->dsv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+        p->srv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         D3D12_DESCRIPTOR_HEAP_DESC dh_desc;
         dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
@@ -295,6 +301,13 @@ namespace Dx12
         dh_desc.NumDescriptors = 1;
         dh_desc.NodeMask = 0;
         hr = p->device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(p->dsv_heap.GetAddressOf()));
+        if (FAILED(hr))
+            return nullptr;
+        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        dh_desc.NumDescriptors = srv_heap_size;
+        dh_desc.NodeMask = 0;
+        hr = p->device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(p->srv_heap.GetAddressOf()));
         if (FAILED(hr))
             return nullptr;
 
@@ -1108,6 +1121,133 @@ namespace Dx12
     XMFLOAT4 MaterialDx12::blue(XMFLOAT4(0, 0, 1, 1));
     XMFLOAT4 MaterialDx12::yellow(XMFLOAT4(0.91f, 0.88f, 0.34f, 1));
     XMFLOAT4 MaterialDx12::orange(XMFLOAT4(1, 0.5f, 0.14f, 1));
+
+    TextureDx12::TextureDx12()
+    {
+        srv_slot = 0;
+        format = DXGI_FORMAT_UNKNOWN;
+        pixel_size = 0;
+        width = 0;
+        height = 0;
+    }
+
+    TextureDx12::~TextureDx12()
+    {
+    }
+
+    bool TextureDx12::UploadToGpu(ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list)
+    {
+        HRESULT hr = S_OK;
+
+        // compute row pitch
+        UINT blob_pitch = width * pixel_size;
+        UINT uploader_pitch = UtilDx12::Align(blob_pitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+
+        // create uploader
+        D3D12_RESOURCE_DESC rc_desc;
+        D3D12_HEAP_PROPERTIES heap_prop;
+        rc_desc = UtilDx12::GetBufferRcDesc(static_cast<UINT64>(uploader_pitch) * height);
+        heap_prop = UtilDx12::GetHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
+        hr = device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(rc_uploader.GetAddressOf()));
+        if (FAILED(hr))
+            return false;
+
+        // map data to uploader
+        void* data;
+        hr = rc_uploader->Map(0, nullptr, &data);
+        if (FAILED(hr))
+            return false;
+        for (UINT y = 0; y < height; y++)
+        {
+            void* dest = static_cast<BYTE*>(data) + y * static_cast<UINT64>(uploader_pitch);
+            void* src = static_cast<BYTE*>(rc_blob->GetBufferPointer()) + y * static_cast<UINT64>(blob_pitch);
+            memcpy(dest, src, blob_pitch);
+        }
+        rc_uploader->Unmap(0, nullptr);
+
+        // create resource
+        rc_desc = UtilDx12::GetTexture2DRcDesc(width, height, 1, format);
+        heap_prop = UtilDx12::GetHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+        hr = device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(rc.GetAddressOf()));
+        if (FAILED(hr))
+            return false;
+
+        // copy data
+        D3D12_TEXTURE_COPY_LOCATION tex_copy_dest, tex_copy_src;
+        tex_copy_dest.pResource = rc.Get();
+        tex_copy_dest.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        tex_copy_dest.SubresourceIndex = 0;
+        tex_copy_src.pResource = rc_uploader.Get();
+        tex_copy_src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        tex_copy_src.PlacedFootprint.Offset = 0;
+        tex_copy_src.PlacedFootprint.Footprint.Format = format;
+        tex_copy_src.PlacedFootprint.Footprint.Width = width;
+        tex_copy_src.PlacedFootprint.Footprint.Height = height;
+        tex_copy_src.PlacedFootprint.Footprint.Depth = 1;
+        tex_copy_src.PlacedFootprint.Footprint.RowPitch = blob_pitch;
+        cmd_list->CopyTextureRegion(&tex_copy_dest, 0, 0, 0, &tex_copy_src, nullptr);
+        auto rc_barr = UtilDx12::GetTransitionStruct(rc.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
+        cmd_list->ResourceBarrier(1, &rc_barr);
+
+        return true;
+    }
+
+    void TextureDx12::CreateSrv(DeviceDx12* device, UINT _srv_slot)
+    {
+        srv_slot = _srv_slot;
+        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc;
+        srv_desc.Format = format;
+        srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srv_desc.Texture2D.MostDetailedMip = 0;
+        srv_desc.Texture2D.MipLevels = rc->GetDesc().MipLevels;
+        srv_desc.Texture2D.PlaneSlice = 0;
+        srv_desc.Texture2D.ResourceMinLODClamp = 0;
+        device->CreateSrvInHeap(rc.Get(), srv_desc, srv_slot);
+    }
+
+    void TextureDx12::FreeUploader()
+    {
+        rc_uploader = nullptr;
+    }
+
+    std::shared_ptr<TextureDx12> TextureDx12::CreateTexturePlaid(UINT color1, UINT color2, UINT unit_pixel, UINT n)
+    {
+        HRESULT hr = S_OK;
+
+        std::shared_ptr<TextureDx12> p(new TextureDx12());
+
+        // generate texture
+        unit_pixel = max(unit_pixel, 1);
+        n = max(n, 1);
+        int width = unit_pixel * 2 * n;
+        int size = width * width;
+        std::vector<UINT> plaid(size);
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < width; y++)
+            {
+                int i = y * width + x;
+                int j = x / unit_pixel + y / unit_pixel;
+                plaid[i] = (j % 2 == 0 ? color1 : color2);
+            }
+        }
+
+        // create blob
+        UINT blob_size = size * sizeof(UINT);
+        hr = D3DCreateBlob(blob_size, p->rc_blob.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+        ::memcpy(p->rc_blob->GetBufferPointer(), &plaid[0], blob_size);
+
+        // set parameters
+        p->format = DXGI_FORMAT_R8G8B8A8_UINT;
+        p->pixel_size = sizeof(UINT);
+        p->width = width;
+        p->height = width;
+
+        return p;
+    }
 
     ObjectDx12::ObjectDx12(UINT _cb_slot, std::shared_ptr<MeshDx12> _mesh, std::shared_ptr<MaterialDx12> _mat)
         : cb_slot(_cb_slot), mesh(_mesh), material(_mat)
