@@ -2,6 +2,7 @@
 #include "dx12.h"
 #include "Rehenz/input.h"
 #include <unordered_map>
+#include <timeapi.h>
 
 using std::cout;
 using std::wcout;
@@ -356,6 +357,14 @@ int main()
 	// print device info
 	device->PrintSupportInfo(cout);
 
+	// create second fps counter to count draw fps
+	auto fps_counter2 = std::make_shared<Rehenz::FpsCounter>(timeGetTime);
+	auto updateFps = [&window, &fps_counter2](Rehenz::uint fps)
+	{
+		window->SetTitle(window->title_base + TEXT(" fps:") + ToString(fps) + TEXT(" draw fps:") + ToString(fps_counter2->GetLastFps()));
+	};
+	window->fps_counter.UpdateFpsCallback = updateFps;
+
 	// init
 	if (!device->ResetCmd())
 		return 1;
@@ -378,12 +387,16 @@ int main()
 		update(device.get(), window->fps_counter.GetLastDeltatime() / 1000.0f);
 
 		// draw
-		if (!device->ReadyPresent())
-			return 1;
-		if (!draw(device.get()))
-			return 1;
-		if (!device->Present())
-			return 1;
+		if (device->CheckCurrentCmdState())
+		{
+			if (!device->ReadyPresent())
+				return 1;
+			if (!draw(device.get()))
+				return 1;
+			if (!device->Present())
+				return 1;
+			fps_counter2->Present();
+		}
 		window->Present();
 
 		// msg

@@ -301,9 +301,6 @@ namespace Dx12
         inline void NextFrame() { current_frame_i = (current_frame_i + 1) % frame_rc_count; }
         inline FrameResourceDx12& GetCurrentFrameResource() { return frame_rcs[current_frame_i]; }
 
-        // flush command queue
-        bool FlushCmdQueue();
-
     private:
         DeviceDx12();
     public:
@@ -313,17 +310,23 @@ namespace Dx12
 
         void CreateSrvInHeap(ID3D12Resource2* rc, const D3D12_SHADER_RESOURCE_VIEW_DESC& srv_desc, UINT slot_in_heap);
 
-        // reset command list & queue
+        // check current command list can / not can be reset
+        bool CheckCurrentCmdState();
+        // reset command list & queue based current frame resource
         bool ResetCmd();
         // execute command
         bool FinishCmd();
+        // flush current command queue
+        bool FlushCurrentCmdQueue();
+        // flush command queue
+        bool FlushCmdQueue();
 
         // create device
         static std::shared_ptr<DeviceDx12> CreateDevice(Rehenz::SimpleWindow* window);
 
-        // ready present
+        // ready present with current frame resource
         bool ReadyPresent();
-        // present
+        // present and next frame
         bool Present();
 
         // check & print feature

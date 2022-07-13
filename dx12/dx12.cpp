@@ -152,13 +152,19 @@ namespace Dx12
         device->CreateShaderResourceView(rc, &srv_desc, GetSrv(slot_in_heap));
     }
 
+    bool DeviceDx12::CheckCurrentCmdState()
+    {
+        return GetCurrentFrameResource().fence_v <= fence->GetCompletedValue();
+    }
+
     bool DeviceDx12::ResetCmd()
     {
         HRESULT hr = S_OK;
 
-        // wait gpu if current frame resource is being used
         auto& frc = GetCurrentFrameResource();
-        if (!UtilDx12::WaitFenceValue(fence.Get(), frc.fence_v))
+
+        // wait gpu if current frame resource is being used
+        if (!FlushCurrentCmdQueue())
             return false;
 
         // reset command queue
@@ -194,6 +200,13 @@ namespace Dx12
             return false;
         //OutputDebugString((std::string() + "CPU mark " + std::to_string(frc.fence_v) + ".\n").c_str());
 
+        return true;
+    }
+
+    bool DeviceDx12::FlushCurrentCmdQueue()
+    {
+        if (!UtilDx12::WaitFenceValue(fence.Get(), GetCurrentFrameResource().fence_v))
+            return false;
         return true;
     }
 
@@ -390,9 +403,6 @@ namespace Dx12
 
     bool DeviceDx12::ReadyPresent()
     {
-        // next frame
-        NextFrame();
-
         // reset command
         if (!ResetCmd())
             return false;
@@ -458,6 +468,9 @@ namespace Dx12
         hr = sc->Present(0, 0);
         if (FAILED(hr))
             return false;
+
+        // next frame
+        NextFrame();
 
         return true;
     }
