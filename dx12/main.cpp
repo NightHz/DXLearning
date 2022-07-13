@@ -202,7 +202,6 @@ bool init(DeviceDx12* device)
 	mat_lib["white"] = mat_white;
 
 	// init texs
-	UINT srv_slot = 0;
 	tex_lib["plaid"] = TextureDx12::CreateTexturePlaid();
 	for (auto& p : tex_lib)
 	{
@@ -213,7 +212,6 @@ bool init(DeviceDx12* device)
 	{
 		if (!p.second->UploadToGpu(device->device.Get(), device->cmd_list.Get()))
 			return false;
-		p.second->CreateSrv(device, srv_slot++);
 	}
 
 	// init objs
@@ -306,7 +304,7 @@ bool draw(DeviceDx12* device)
 		return false;
 	if (!frc.cb_light->CopyData(0, cb_light))
 		return false;
-	frc.SetRootParameterFrame(device->cmd_list.Get());
+	device->SetRootParameter1(frc.cb_frame_dh_slot);
 
 	// set pso and draw objects
 
@@ -315,7 +313,7 @@ bool draw(DeviceDx12* device)
 		device->cmd_list->SetPipelineState(pso_lib[pair.first].Get());
 		for (auto& obj_name : pair.second)
 		{
-			if (!obj_lib[obj_name]->Draw(device->cmd_list.Get(), &frc))
+			if (!obj_lib[obj_name]->Draw(device))
 				return false;
 		}
 	}

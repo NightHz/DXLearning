@@ -135,21 +135,19 @@ namespace Dx12
     DeviceDx12::DeviceDx12()
     {
         current_fence_v = 0;
-        format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        sc_format = DXGI_FORMAT_UNKNOWN;
         sc_buffer_count = 0;
         rtv_size = 0;
         dsv_size = 0;
+        cbv_size = 0;
+        cbv_heap_i = 0;
         ZeroMemory(&vp, sizeof(vp));
         ZeroMemory(&sr, sizeof(sr));
+        current_frame_i = 0;
     }
 
     DeviceDx12::~DeviceDx12()
     {
-    }
-
-    void DeviceDx12::CreateSrvInHeap(ID3D12Resource2* rc, const D3D12_SHADER_RESOURCE_VIEW_DESC& srv_desc, UINT slot_in_heap)
-    {
-        device->CreateShaderResourceView(rc, &srv_desc, GetSrv(slot_in_heap));
     }
 
     bool DeviceDx12::CheckCurrentCmdState()
@@ -208,6 +206,16 @@ namespace Dx12
         if (!UtilDx12::WaitFenceValue(fence.Get(), GetCurrentFrameResource().fence_v))
             return false;
         return true;
+    }
+
+    void DeviceDx12::SetRootParameter0(D3D12_GPU_VIRTUAL_ADDRESS gpu_loc)
+    {
+        cmd_list->SetGraphicsRootConstantBufferView(0, gpu_loc);
+    }
+
+    void DeviceDx12::SetRootParameter1(UINT dh_slot)
+    {
+        cmd_list->SetGraphicsRootDescriptorTable(1, GetCbvGpu(dh_slot));
     }
 
     std::shared_ptr<DeviceDx12> DeviceDx12::CreateDevice(Rehenz::SimpleWindow* window)
@@ -271,14 +279,14 @@ namespace Dx12
             return nullptr;
 
         // create swap chain
-        p->format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        p->sc_format = DXGI_FORMAT_R8G8B8A8_UNORM;
         p->sc_buffer_count = 2;
         DXGI_SWAP_CHAIN_DESC sc_desc;
         sc_desc.BufferDesc.Width = window->GetWidth();
         sc_desc.BufferDesc.Height = window->GetHeight();
         sc_desc.BufferDesc.RefreshRate.Numerator = 60;
         sc_desc.BufferDesc.RefreshRate.Denominator = 1;
-        sc_desc.BufferDesc.Format = p->format;
+        sc_desc.BufferDesc.Format = p->sc_format;
         sc_desc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
         sc_desc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
         sc_desc.SampleDesc.Count = 1;
@@ -300,7 +308,7 @@ namespace Dx12
         // create descriptor heap
         p->rtv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         p->dsv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-        p->srv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        p->cbv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         D3D12_DESCRIPTOR_HEAP_DESC dh_desc;
         dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
@@ -318,13 +326,14 @@ namespace Dx12
             return nullptr;
         dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        dh_desc.NumDescriptors = srv_heap_size;
+        dh_desc.NumDescriptors = cbv_heap_size;
         dh_desc.NodeMask = 0;
-        hr = p->device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(p->srv_heap.GetAddressOf()));
+        hr = p->device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(p->cbv_heap.GetAddressOf()));
         if (FAILED(hr))
             return nullptr;
+        p->cbv_heap_i = 0;
 
-        // create render target view
+        // get render target buffer and create render target view
         p->rtv_buffers.resize(p->sc_buffer_count);
         for (UINT i = 0; i < p->sc_buffer_count; i++)
         {
@@ -334,7 +343,7 @@ namespace Dx12
             p->device->CreateRenderTargetView(p->rtv_buffers[i].Get(), nullptr, p->GetRtv(i));
         }
 
-        // create depth stencil view
+        // create depth stencil buffer
         D3D12_RESOURCE_DESC rc_desc;
         rc_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
         rc_desc.Alignment = 0;
@@ -356,7 +365,13 @@ namespace Dx12
         hr = p->device->CreateCommittedResource(&heap_prop, D3D12_HEAP_FLAG_NONE, &rc_desc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clear_val, IID_PPV_ARGS(p->dsv_buffer.GetAddressOf()));
         if (FAILED(hr))
             return nullptr;
+
+        // create depth stencil view
         p->device->CreateDepthStencilView(p->dsv_buffer.Get(), nullptr, p->GetDsv(0));
+
+        // create cbv for frame resource
+        for (int i = 0; i < p->frame_rc_count; i++)
+            p->frame_rcs[i].CreateCbv(p.get());
 
         // set viewport
         p->vp.TopLeftX = 0;
@@ -427,11 +442,11 @@ namespace Dx12
         cmd_list->OMSetRenderTargets(1, &rtv, true, &dsv);
 
         // set heaps
-        auto& frc = GetCurrentFrameResource();
-        ID3D12DescriptorHeap* dhs[]{ frc.cbv_heap.Get() };
+        ID3D12DescriptorHeap* dhs[]{ cbv_heap.Get() };
         cmd_list->SetDescriptorHeaps(_countof(dhs), dhs);
 
         // map cbuffer
+        auto& frc = GetCurrentFrameResource();
         if (!frc.cb_obj->Map())
             return false;
         if (!frc.cb_frame->Map())
@@ -505,7 +520,7 @@ namespace Dx12
         HRESULT hr = S_OK;
 
         D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS levels;
-        levels.Format = format;
+        levels.Format = sc_format;
         levels.SampleCount = 4;
         levels.Flags = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
         hr = device->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &levels, sizeof(levels));
@@ -666,7 +681,7 @@ namespace Dx12
     FrameResourceDx12::FrameResourceDx12()
     {
         fence_v = 0;
-        cbv_size = 0;
+        cb_frame_dh_slot = 0;
     }
 
     FrameResourceDx12::~FrameResourceDx12()
@@ -682,17 +697,6 @@ namespace Dx12
         if (FAILED(hr))
             return false;
 
-        // create cbv heap
-        cbv_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        D3D12_DESCRIPTOR_HEAP_DESC dh_desc;
-        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        dh_desc.NumDescriptors = cbv_count;
-        dh_desc.NodeMask = 0;
-        hr = device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(cbv_heap.GetAddressOf()));
-        if (FAILED(hr))
-            return false;
-
         // create cbuffer
         cb_obj = std::make_shared<CBufferDx12<CBObj>>(obj_max_count);
         if (!cb_obj->Create(device))
@@ -704,31 +708,16 @@ namespace Dx12
         if (!cb_light->Create(device))
             return false;
 
-        // create cbv in heap
-        CreateContinuousCbvInHeap(device, cb_obj.get(), cb_obj_start_slot_in_heap, obj_max_count);
-        CreateContinuousCbvInHeap(device, cb_frame.get(), cb_frame_start_slot_in_heap, 1);
-        CreateContinuousCbvInHeap(device, cb_light.get(), cb_light_start_slot_in_heap, 1);
-
         return true;
     }
 
-    void FrameResourceDx12::CreateContinuousCbvInHeap(ID3D12Device8* device, CBufferBaseDx12* cbuffer, UINT start_slot_in_heap, UINT count)
+    void FrameResourceDx12::CreateCbv(DeviceDx12* device)
     {
-        for (UINT i = 0; i < count; i++)
-        {
-            D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = cbuffer->GetCbvDesc(i);
-            device->CreateConstantBufferView(&cbv_desc, GetCbv(start_slot_in_heap + i));
-        }
-    }
-
-    void FrameResourceDx12::SetRootParameterObj(ID3D12GraphicsCommandList6* cmd_list, UINT i)
-    {
-        cmd_list->SetGraphicsRootConstantBufferView(rp_obj_index, cb_obj->cbuffer->GetGPUVirtualAddress() + static_cast<UINT64>(i) * cb_obj->cbuffer_size);
-    }
-
-    void FrameResourceDx12::SetRootParameterFrame(ID3D12GraphicsCommandList6* cmd_list)
-    {
-        cmd_list->SetGraphicsRootDescriptorTable(rp_frame_index, GetCbvGpu(cb_frame_start_slot_in_heap));
+        cb_frame_dh_slot = device->GetCbvSlot(2);
+        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = cb_frame->GetCbvDesc(0);
+        device->device->CreateConstantBufferView(&cbv_desc, device->GetCbv(cb_frame_dh_slot));
+        cbv_desc = cb_light->GetCbvDesc(0);
+        device->device->CreateConstantBufferView(&cbv_desc, device->GetCbv(cb_frame_dh_slot + 1));
     }
 
     CBufferBaseDx12::CBufferBaseDx12(UINT _count, UINT _struct_size)
@@ -1137,7 +1126,7 @@ namespace Dx12
 
     TextureDx12::TextureDx12()
     {
-        srv_slot = 0;
+        dh_slot = 0;
         format = DXGI_FORMAT_UNKNOWN;
         pixel_size = 0;
         width = 0;
@@ -1205,9 +1194,8 @@ namespace Dx12
         return true;
     }
 
-    void TextureDx12::CreateSrv(DeviceDx12* device, UINT _srv_slot)
+    void TextureDx12::CreateSrv(UINT _dh_slot, DeviceDx12* device)
     {
-        srv_slot = _srv_slot;
         D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc;
         srv_desc.Format = format;
         srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -1216,7 +1204,8 @@ namespace Dx12
         srv_desc.Texture2D.MipLevels = rc->GetDesc().MipLevels;
         srv_desc.Texture2D.PlaneSlice = 0;
         srv_desc.Texture2D.ResourceMinLODClamp = 0;
-        device->CreateSrvInHeap(rc.Get(), srv_desc, srv_slot);
+        dh_slot = _dh_slot;
+        device->device->CreateShaderResourceView(rc.Get(), &srv_desc, device->GetCbv(dh_slot));
     }
 
     void TextureDx12::FreeUploader()
@@ -1271,8 +1260,11 @@ namespace Dx12
     {
     }
 
-    bool ObjectDx12::Draw(ID3D12GraphicsCommandList6* cmd_list, FrameResourceDx12* frc)
+    bool ObjectDx12::Draw(DeviceDx12* device)
     {
+        auto cmd_list = device->cmd_list.Get();
+        auto frc = &device->GetCurrentFrameResource();
+
         // IA
         cmd_list->IASetPrimitiveTopology(mesh->topology);
         cmd_list->IASetVertexBuffers(0, 1, &mesh->vbv);
@@ -1294,7 +1286,7 @@ namespace Dx12
             return false;
 
         // set cbuffer
-        frc->SetRootParameterObj(cmd_list, cb_slot);
+        device->SetRootParameter0(frc->GetCBObjGpuLocation(cb_slot));
 
         // draw
         if (!mesh->ib)

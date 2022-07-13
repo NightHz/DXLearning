@@ -245,18 +245,19 @@ namespace Dx12
         ComPtr<ID3D12GraphicsCommandList6> cmd_list;
 
         // swap chain
-        DXGI_FORMAT format;
+        DXGI_FORMAT sc_format;
         UINT sc_buffer_count;
         ComPtr<IDXGISwapChain4> sc;
 
         // descriptor heap
-        UINT rtv_size, dsv_size, srv_size;
+        UINT rtv_size, dsv_size, cbv_size;
         ComPtr<ID3D12DescriptorHeap> rtv_heap;
         ComPtr<ID3D12DescriptorHeap> dsv_heap;
-        static const int srv_heap_size = 200;
-        ComPtr<ID3D12DescriptorHeap> srv_heap; // also cbv heap and uav heap
+        static const int cbv_heap_size = 200;
+        ComPtr<ID3D12DescriptorHeap> cbv_heap; // also srv heap and uav heap
+        int cbv_heap_i;
 
-        // view buffer
+        // render target buffer
         std::vector<ComPtr<ID3D12Resource2>> rtv_buffers;
         ComPtr<ID3D12Resource2> dsv_buffer;
 
@@ -275,40 +276,12 @@ namespace Dx12
         ComPtr<ID3D12RootSignature> root_sig;
 
 
-        // get descriptor & view buffer
-        inline D3D12_CPU_DESCRIPTOR_HANDLE GetRtv(UINT i)
-        {
-            auto dh = rtv_heap->GetCPUDescriptorHandleForHeapStart();
-            dh.ptr += rtv_size * static_cast<unsigned long long>(i);
-            return dh;
-        };
-        inline D3D12_CPU_DESCRIPTOR_HANDLE GetDsv(UINT i)
-        {
-            auto dh = dsv_heap->GetCPUDescriptorHandleForHeapStart();
-            dh.ptr += dsv_size * static_cast<unsigned long long>(i);
-            return dh;
-        };
-        inline D3D12_CPU_DESCRIPTOR_HANDLE GetSrv(UINT i)
-        {
-            auto dh = srv_heap->GetCPUDescriptorHandleForHeapStart();
-            dh.ptr += srv_size * static_cast<unsigned long long>(i);
-            return dh;
-        };
-        inline D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRtv() { return GetRtv(sc->GetCurrentBackBufferIndex()); }
-        inline ID3D12Resource2* GetCurrentRtvBuffer() { return rtv_buffers[sc->GetCurrentBackBufferIndex()].Get(); }
-
-        // get frame resource & switch to next frame
-        inline void NextFrame() { current_frame_i = (current_frame_i + 1) % frame_rc_count; }
-        inline FrameResourceDx12& GetCurrentFrameResource() { return frame_rcs[current_frame_i]; }
-
     private:
         DeviceDx12();
     public:
         DeviceDx12(const DeviceDx12&) = delete;
         DeviceDx12& operator=(const DeviceDx12&) = delete;
         ~DeviceDx12();
-
-        void CreateSrvInHeap(ID3D12Resource2* rc, const D3D12_SHADER_RESOURCE_VIEW_DESC& srv_desc, UINT slot_in_heap);
 
         // check current command list can / not can be reset
         bool CheckCurrentCmdState();
@@ -321,6 +294,35 @@ namespace Dx12
         // flush command queue
         bool FlushCmdQueue();
 
+        // get rtv descriptor
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetRtv(UINT i);
+        // get current rtv descriptor
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRtv() { return GetRtv(sc->GetCurrentBackBufferIndex()); }
+        // get dsv descriptor
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetDsv(UINT i);
+        // get cbv / srv / uav descriptor
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetCbv(UINT i);
+        // get cbv / srv / uav gpu descriptor
+        inline D3D12_GPU_DESCRIPTOR_HANDLE GetCbvGpu(UINT i);
+        // get continuous empty cbv slots, return first slot
+        inline UINT GetCbvSlot(UINT count = 1) { UINT slot = cbv_heap_i; cbv_heap_i += count; return slot; }
+
+        // get current render target buffer
+        inline ID3D12Resource2* GetCurrentRtvBuffer() { return rtv_buffers[sc->GetCurrentBackBufferIndex()].Get(); }
+        // get depth stencil buffer
+        inline ID3D12Resource2* GetDsvBuffer() { return dsv_buffer.Get(); }
+
+        // switch to next frame
+        inline void NextFrame() { current_frame_i = (current_frame_i + 1) % frame_rc_count; }
+        // get current frame resource
+        inline FrameResourceDx12& GetCurrentFrameResource() { return frame_rcs[current_frame_i]; }
+
+        // set root parameter 0 : CBV : b0
+        void SetRootParameter0(D3D12_GPU_VIRTUAL_ADDRESS gpu_loc);
+        // set root parameter 1 : DT  : (b1 b2)
+        void SetRootParameter1(UINT dh_slot);
+
+
         // create device
         static std::shared_ptr<DeviceDx12> CreateDevice(Rehenz::SimpleWindow* window);
 
@@ -328,6 +330,7 @@ namespace Dx12
         bool ReadyPresent();
         // present and next frame
         bool Present();
+
 
         // check & print feature
         D3D_FEATURE_LEVEL CheckMaxFeatureLevel();
@@ -340,33 +343,42 @@ namespace Dx12
         static void PrintAdapterOutputDisplayInfo(std::wostream& out);
     };
 
+    inline D3D12_CPU_DESCRIPTOR_HANDLE DeviceDx12::GetRtv(UINT i)
+    {
+        auto dh = rtv_heap->GetCPUDescriptorHandleForHeapStart();
+        dh.ptr += rtv_size * static_cast<SIZE_T>(i);
+        return dh;
+    };
+    inline D3D12_CPU_DESCRIPTOR_HANDLE DeviceDx12::GetDsv(UINT i)
+    {
+        auto dh = dsv_heap->GetCPUDescriptorHandleForHeapStart();
+        dh.ptr += dsv_size * static_cast<SIZE_T>(i);
+        return dh;
+    };
+    inline D3D12_CPU_DESCRIPTOR_HANDLE DeviceDx12::GetCbv(UINT i)
+    {
+        auto dh = cbv_heap->GetCPUDescriptorHandleForHeapStart();
+        dh.ptr += cbv_size * static_cast<SIZE_T>(i);
+        return dh;
+    };
+    inline D3D12_GPU_DESCRIPTOR_HANDLE DeviceDx12::GetCbvGpu(UINT i)
+    {
+        auto dh = cbv_heap->GetGPUDescriptorHandleForHeapStart();
+        dh.ptr += cbv_size * static_cast<UINT64>(i);
+        return dh;
+    };
+
     class FrameResourceDx12
     {
     public:
         UINT64 fence_v;
         ComPtr<ID3D12CommandAllocator> cmd_alloc;
 
-        UINT cbv_size;
-        static const int cbv_count = 200;
-        ComPtr<ID3D12DescriptorHeap> cbv_heap; // also srv heap and uav heap
-
         static const int obj_max_count = 80;
         std::shared_ptr<CBufferDx12<CBObj>> cb_obj;
+        UINT cb_frame_dh_slot;
         std::shared_ptr<CBufferDx12<CBFrame>> cb_frame;
         std::shared_ptr<CBufferDx12<CBLight>> cb_light;
-
-        inline D3D12_CPU_DESCRIPTOR_HANDLE GetCbv(UINT i)
-        {
-            auto dh = cbv_heap->GetCPUDescriptorHandleForHeapStart();
-            dh.ptr += cbv_size * static_cast<SIZE_T>(i);
-            return dh;
-        };
-        inline D3D12_GPU_DESCRIPTOR_HANDLE GetCbvGpu(UINT i)
-        {
-            auto dh = cbv_heap->GetGPUDescriptorHandleForHeapStart();
-            dh.ptr += cbv_size * static_cast<UINT64>(i);
-            return dh;
-        };
 
     public:
         FrameResourceDx12();
@@ -375,20 +387,10 @@ namespace Dx12
         ~FrameResourceDx12();
 
         bool Create(ID3D12Device8* device);
+        void CreateCbv(DeviceDx12* device);
 
-        void CreateContinuousCbvInHeap(ID3D12Device8* device, CBufferBaseDx12* cbuffer, UINT start_slot_in_heap, UINT count);
-
-        // cbv_heap       -->  root_sig
-        // 0    cb_frame  -->  1 DT
-        // 1    cb_light
-        // 2-81 cb_obj    -->  0 CBV
-        static const int cb_frame_start_slot_in_heap = 0;
-        static const int cb_light_start_slot_in_heap = 1;
-        static const int cb_obj_start_slot_in_heap = 2;
-        static const int rp_obj_index = 0;
-        static const int rp_frame_index = 1;
-        void SetRootParameterObj(ID3D12GraphicsCommandList6* cmd_list, UINT i);
-        void SetRootParameterFrame(ID3D12GraphicsCommandList6* cmd_list);
+        inline D3D12_GPU_VIRTUAL_ADDRESS GetCBObjGpuLocation(UINT cb_slot);
+        inline UINT GetCBFrameDHSlot() { return cb_frame_dh_slot; }
     };
 
     class CBufferBaseDx12
@@ -400,14 +402,6 @@ namespace Dx12
         ComPtr<ID3D12Resource2> cbuffer;
         BYTE* data;
 
-        inline D3D12_CONSTANT_BUFFER_VIEW_DESC GetCbvDesc(UINT slot)
-        {
-            D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc;
-            cbv_desc.BufferLocation = cbuffer->GetGPUVirtualAddress() + slot * static_cast<UINT64>(cbuffer_size);
-            cbv_desc.SizeInBytes = cbuffer_size;
-            return cbv_desc;
-        }
-
     public:
         CBufferBaseDx12(UINT _count, UINT _struct_size);
         CBufferBaseDx12(const CBufferBaseDx12&) = delete;
@@ -415,6 +409,18 @@ namespace Dx12
         ~CBufferBaseDx12();
 
         bool Create(ID3D12Device8* device);
+
+        inline D3D12_GPU_VIRTUAL_ADDRESS GetCbGpuLocation(UINT cb_slot)
+        {
+            return cbuffer->GetGPUVirtualAddress() + cb_slot * static_cast<UINT64>(cbuffer_size);
+        }
+        inline D3D12_CONSTANT_BUFFER_VIEW_DESC GetCbvDesc(UINT cb_slot)
+        {
+            D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc;
+            cbv_desc.BufferLocation = GetCbGpuLocation(cb_slot);
+            cbv_desc.SizeInBytes = cbuffer_size;
+            return cbv_desc;
+        }
 
         bool Map();
         void Unmap();
@@ -436,6 +442,8 @@ namespace Dx12
             return CBufferBaseDx12::CopyData(slot, &cb_struct);
         }
     };
+
+    inline D3D12_GPU_VIRTUAL_ADDRESS FrameResourceDx12::GetCBObjGpuLocation(UINT cb_slot) { return cb_obj->GetCbGpuLocation(cb_slot); }
 
     class PipelineStateCreatorDx12
     {
@@ -511,7 +519,7 @@ namespace Dx12
     class TextureDx12
     {
     public:
-        UINT srv_slot;
+        UINT dh_slot;
 
         ComPtr<ID3DBlob> rc_blob;
         DXGI_FORMAT format;
@@ -529,7 +537,7 @@ namespace Dx12
         ~TextureDx12();
 
         bool UploadToGpu(ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list);
-        void CreateSrv(DeviceDx12* device, UINT _srv_slot);
+        void CreateSrv(UINT _dh_slot, DeviceDx12* device);
 
         void FreeUploader();
 
@@ -551,6 +559,6 @@ namespace Dx12
         ObjectDx12& operator=(const ObjectDx12&) = delete;
         ~ObjectDx12();
 
-        bool Draw(ID3D12GraphicsCommandList6* cmd_list, FrameResourceDx12* frc);
+        bool Draw(DeviceDx12* device);
     };
 }
