@@ -9,6 +9,7 @@ struct Material
     float roughness;
     float3 emissive;
     float _pad1;
+    matrix tex_tf;
 };
 
 struct Light

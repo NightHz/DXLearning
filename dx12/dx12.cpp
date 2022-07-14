@@ -1307,11 +1307,15 @@ namespace Dx12
         dxm::XMStoreFloat4x4(&cb_struct.world, dxm::XMMatrixTranspose(world));
         XMMATRIX inv_world = ToXmMatrix(transform.GetInverseTransformMatrix());
         dxm::XMStoreFloat4x4(&cb_struct.inv_world, dxm::XMMatrixTranspose(inv_world));
+        XMMATRIX uv_tf = ToXmMatrix(uv_transform.GetTransformMatrix());
+        dxm::XMStoreFloat4x4(&cb_struct.uv_tf, dxm::XMMatrixTranspose(uv_tf));
         cb_struct.mat.diffuse_albedo = material->diffuse_albedo;
         cb_struct.mat.alpha = material->alpha;
         cb_struct.mat.fresnel_r0 = material->fresnel_r0;
         cb_struct.mat.roughness = material->roughness;
         cb_struct.mat.emissive = material->emissive;
+        XMMATRIX tex_tf = ToXmMatrix(material->tex_transform.GetTransformMatrix());
+        dxm::XMStoreFloat4x4(&cb_struct.mat.tex_tf, dxm::XMMatrixTranspose(tex_tf));
         if (!frc->cb_obj->CopyData(cb_slot, cb_struct))
             return false;
 

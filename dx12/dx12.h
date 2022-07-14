@@ -62,11 +62,13 @@ namespace Dx12
         float roughness;
         XMFLOAT3 emissive;
         float _pad1;
+        XMFLOAT4X4 tex_tf;
     };
     struct CBObj // b0
     {
         XMFLOAT4X4 world;
         XMFLOAT4X4 inv_world;
+        XMFLOAT4X4 uv_tf;
         MaterialForCB mat;
     };
     struct CBFrame // b1
@@ -554,6 +556,8 @@ namespace Dx12
         int tex_dh_slot;
         int sampler_dh_slot;
 
+        Rehenz::Transform tex_transform;
+
         MaterialDx12();
         MaterialDx12(DirectX::XMFLOAT4 color);
         ~MaterialDx12();
@@ -595,6 +599,7 @@ namespace Dx12
     public:
         UINT cb_slot;
         Rehenz::Transform transform;
+        Rehenz::Transform uv_transform;
 
         std::shared_ptr<MeshDx12> mesh;
         std::shared_ptr<MaterialDx12> material;

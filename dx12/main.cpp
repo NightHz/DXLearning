@@ -101,6 +101,10 @@ void update(DeviceDx12* device, float dt)
 	cb_frame.screen_size = XMFLOAT2(device->vp.Width, device->vp.Height);
 	cb_frame.time = t;
 	cb_frame.deltatime = dt;
+
+	// update dynamic material
+	mat_lib["box"]->tex_transform.pos = Rehenz::Vector(-0.5f, -0.5f, 0) * Rehenz::GetMatrixRz(t * 1.0f);
+	mat_lib["box"]->tex_transform.axes.roll = t * 1.0f;
 }
 
 bool init(DeviceDx12* device)

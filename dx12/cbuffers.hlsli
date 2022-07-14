@@ -7,6 +7,7 @@ cbuffer CBObj : register(b0)
 {
     matrix world;
     matrix inv_world;
+    matrix uv_tf;
     Material mat;
 };
 cbuffer CBFrame : register(b1)

@@ -26,6 +26,6 @@ VSOutput main(VSInput input)
     float3x3 normal_world = { inv_world[0].xyz, inv_world[1].xyz, inv_world[2].xyz };
     output.normW = normalize(mul(normal_world, input.normL));
     output.color = input.color;
-    output.uv = input.uv;
+    output.uv = mul(float4(input.uv, 0, 1), uv_tf).xy;
     return output;
 }
