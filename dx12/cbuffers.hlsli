@@ -1,5 +1,5 @@
-#ifndef _REGISTERS_HLSLH_
-#define _REGISTERS_HLSLH_
+#ifndef _CBUFFERS_HLSLH_
+#define _CBUFFERS_HLSLH_
 
 #include "structs.hlsli"
 

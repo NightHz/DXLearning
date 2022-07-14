@@ -1,8 +1,8 @@
-#include "registers.hlsli"
+#include "cbuffers.hlsli"
+#include "samplers.hlsli"
 #include "blinn_phong.hlsli"
 
 Texture2D diffuse_albedo_map : register(t0);
-SamplerState samp : register(s0);
 
 struct PSInput
 {
@@ -19,7 +19,7 @@ float4 main(PSInput input) : SV_TARGET
     float3 to_eye = normalize(eye_pos - input.posW);
 
     Material mat0 = mat;
-    float4 tex_diffuse_albedo = diffuse_albedo_map.Sample(samp, input.uv);
+    float4 tex_diffuse_albedo = diffuse_albedo_map.Sample(samp_linear_wrap, input.uv);
     mat0.diffuse_albedo *= tex_diffuse_albedo.xyz;
     mat0.alpha *= tex_diffuse_albedo.w;
 

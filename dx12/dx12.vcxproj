@@ -233,8 +233,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="blinn_phong.hlsli" />
+    <None Include="samplers.hlsli" />
     <None Include="structs.hlsli" />
-    <None Include="registers.hlsli" />
+    <None Include="cbuffers.hlsli" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

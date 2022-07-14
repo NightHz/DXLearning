@@ -1,4 +1,4 @@
-#include "registers.hlsli"
+#include "cbuffers.hlsli"
 
 struct VSInput
 {

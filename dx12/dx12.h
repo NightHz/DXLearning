@@ -350,7 +350,7 @@ namespace Dx12
         void SetRootParameter1(UINT dh_slot);
         // set root parameter 2 : DT  : (t0 t1)
         void SetRootParameter2(UINT dh_slot);
-        // set root parameter 3 : DT  : (s0)
+        // set root parameter 3 : DT  : (s0 s1 s2 s3 s4 s5)
         void SetRootParameter3(UINT dh_slot);
 
 

@@ -411,13 +411,13 @@ namespace Dx12
         // 0 CBV : b0
         // 1 DT  : (b1 b2)
         // 2 DT  : (t0 t1)
-        // 3 DT  : (s0)
+        // 3 DT  : (s0 s1 s2 s3 s4 s5)
         D3D12_DESCRIPTOR_RANGE dr1[1];
         dr1[0] = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 2, 1); // b1 b2
         D3D12_DESCRIPTOR_RANGE dr2[1];
         dr2[0] = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0); // t0 t1
         D3D12_DESCRIPTOR_RANGE dr3[1];
-        dr3[0] = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0); // s0
+        dr3[0] = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 6, 0); // s0 s1 s2 s3 s4 s5
         D3D12_ROOT_PARAMETER rp[4];
         rp[0] = UtilDx12::GetRootParameterCBV(0); // b0
         rp[1] = UtilDx12::GetRootParameterDT(_countof(dr1), dr1);

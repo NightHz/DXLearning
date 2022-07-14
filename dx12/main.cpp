@@ -183,12 +183,19 @@ bool init(DeviceDx12* device)
 
 	// init samplers
 	D3D12_SAMPLER_DESC sampler_desc;
-	sampler_slots["default"] = device->GetSamplerSlot();
+	sampler_slots["default"] = device->GetSamplerSlot(6);
+	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_MIN_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
+	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 0));
+	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_MIN_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 1));
 	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_MIN_MAG_MIP_LINEAR, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
-	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"]));
-	sampler_slots["anisotropic"] = device->GetSamplerSlot();
+	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 2));
+	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_MIN_MAG_MIP_LINEAR, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 3));
 	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_ANISOTROPIC, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
-	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["anisotropic"]));
+	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 4));
+	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_ANISOTROPIC, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 5));
 
 	// init mats
 	auto mat_grass = std::make_shared<MaterialDx12>();
@@ -225,7 +232,6 @@ bool init(DeviceDx12* device)
 	auto mat_box = std::make_shared<MaterialDx12>();
 	mat_box->tex_dh_slot = device->GetCbvSlot();
 	tex_lib["plaid"]->CreateSrv(mat_box->tex_dh_slot, device);
-	mat_box->sampler_dh_slot = sampler_slots["default"];
 	mat_box->diffuse_albedo = XMFLOAT3(1, 1, 1);
 	mat_box->alpha = 1.0f;
 	mat_box->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
@@ -316,7 +322,7 @@ bool draw(DeviceDx12* device)
 {
 	auto& frc = device->GetCurrentFrameResource();
 
-	// set cbuffer
+	// set root parameters
 
 	if (!frc.cb_frame->CopyData(0, cb_frame))
 		return false;
@@ -331,6 +337,7 @@ bool draw(DeviceDx12* device)
 		device->cmd_list->SetPipelineState(pso_lib[pair.first].Get());
 		for (auto& obj_name : pair.second)
 		{
+			device->SetRootParameter3(sampler_slots["default"]);
 			if (!obj_lib[obj_name]->Draw(device))
 				return false;
 		}
