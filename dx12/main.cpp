@@ -57,6 +57,16 @@ void update(DeviceDx12* device, float dt)
 		camera_trans.pos = Rehenz::Vector(-4, 3.5f, -10, 0);
 		camera_trans.axes = Rehenz::AircraftAxes(0.44f, 0.4f, 0);
 	}
+	else if (KeyIsDown('T'))
+	{
+		camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
+		camera_trans.axes = Rehenz::AircraftAxes(0.4f, -0.3f, 0);
+	}
+	else if (KeyIsDown('Y'))
+	{
+		camera_trans.pos = Rehenz::Vector(5.82f, -1.08f, -2.78f, 0);
+		camera_trans.axes = Rehenz::AircraftAxes(0.23f, -0.80f, 0);
+	}
 
 	// control object
 	float obj_rotate_angle = 3 * dt;
@@ -71,8 +81,8 @@ void update(DeviceDx12* device, float dt)
 	// control light
 	if (KeyIsDown('1')) cb_light.lights[0].type = light_type_directional;
 	else if (KeyIsDown('2')) cb_light.lights[0].type = 0;
-	if (KeyIsDown('3')) cb_light.lights[1].type = light_type_point;
-	else if (KeyIsDown('4')) cb_light.lights[1].type = 0;
+	if (KeyIsDown('3')) cb_light.lights[1].type = light_type_point, mat_lib["light"]->emissive = XMFLOAT3(1, 1, 1);
+	else if (KeyIsDown('4')) cb_light.lights[1].type = 0, mat_lib["light"]->emissive = XMFLOAT3(0, 0, 0);
 	if (KeyIsDown('5')) cb_light.lights[2].type = light_type_spot;
 	else if (KeyIsDown('6')) cb_light.lights[2].type = 0;
 	dxm::XMStoreFloat3(&cb_light.lights[2].direction, ToXmVector(camera_trans.GetFront()));
@@ -116,6 +126,7 @@ bool init(DeviceDx12* device)
 	shader_lib["ps_color"] = UtilDx12::CompileShaderFile(L"dx12_ps_color.hlsl", "ps");
 	shader_lib["ps_light"] = UtilDx12::CompileShaderFile(L"dx12_ps_light.hlsl", "ps");
 	shader_lib["ps_light_tex1"] = UtilDx12::CompileShaderFile(L"dx12_ps_light_tex1.hlsl", "ps");
+	shader_lib["ps_mat"] = UtilDx12::CompileShaderFile(L"dx12_ps_mat.hlsl", "ps");
 	for (auto& p : shader_lib)
 	{
 		if (!p.second)
@@ -143,6 +154,10 @@ bool init(DeviceDx12* device)
 	pso_creator.SetVS(shader_lib["vs_transform4"].Get());
 	pso_creator.SetPS(shader_lib["ps_light_tex1"].Get());
 	pso_lib["pslight_tex1"] = pso_creator.CreatePSO(device->device.Get());
+	pso_creator.SetInputLayout(*il_lib["rehenz"]);
+	pso_creator.SetVS(shader_lib["vs_transform"].Get());
+	pso_creator.SetPS(shader_lib["ps_mat"].Get());
+	pso_lib["matcolor"] = pso_creator.CreatePSO(device->device.Get());
 	for (auto& p : pso_lib)
 	{
 		if (!p.second)
@@ -152,10 +167,10 @@ bool init(DeviceDx12* device)
 	// init meshs
 	mesh_lib["cube"] = MeshDx12::CreateCube();
 	mesh_lib["cube2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateCubeMeshColorful());
-	mesh_lib["sphere"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMesh(50));
+	mesh_lib["sphere"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMesh());
 	mesh_lib["sphere2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMeshD());
 	mesh_lib["cone"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0));
-	mesh_lib["frustum"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh());
+	mesh_lib["frustum"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0.36f));
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
@@ -240,12 +255,12 @@ bool init(DeviceDx12* device)
 
 	// init objs
 	UINT cb_slot = 0;
-	auto cube = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["grass"]);
-	cube->transform.pos = Rehenz::Vector(0, -2.7f, 0);
-	cube->transform.scale = Rehenz::Vector(2.2f, 0.3f, 2.2f);
+	auto cube = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["orange"]);
+	cube->transform.pos = Rehenz::Vector(0, -2.2f, 0);
+	cube->transform.scale = Rehenz::Vector(2.2f, 0.8f, 2.2f);
 	obj_lib["cube"] = cube;
 	pso_objs["pslight"].push_back("cube");
-	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["water"]);
+	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["grass"]);
 	ground->transform.pos = Rehenz::Vector(0, -4, 0);
 	ground->transform.scale = Rehenz::Vector(10, 1, 10);
 	obj_lib["ground"] = ground;
@@ -261,7 +276,7 @@ bool init(DeviceDx12* device)
 			obj_lib["pillar" + id] = pillar;
 			pso_objs["pslight"].push_back("pillar" + id);
 			auto sphere = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["sphere"], mat_lib["orange"]);
-			sphere->transform.pos = Rehenz::Vector(x, 1.8f, z);
+			sphere->transform.pos = Rehenz::Vector(x, 1.6f, z);
 			sphere->transform.scale = Rehenz::Vector(0.8f, 0.8f, 0.8f);
 			obj_lib["sphere" + id] = sphere;
 			pso_objs["pslight"].push_back("sphere" + id);
@@ -271,7 +286,7 @@ bool init(DeviceDx12* device)
 	point_light->transform.pos = Rehenz::Vector(3, -2, 0);
 	point_light->transform.scale = Rehenz::Vector(0.13f, 0.13f, 0.13f);
 	obj_lib["point_light"] = point_light;
-	pso_objs["vslight"].push_back("point_light");
+	pso_objs["matcolor"].push_back("point_light");
 	auto box = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["box"]);
 	box->transform.pos = Rehenz::Vector(3.5f, -2.5f, 2.5f);
 	box->transform.axes = Rehenz::AircraftAxes(0, -0.2f, 0);
