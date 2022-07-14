@@ -20,6 +20,7 @@ base_library<ComPtr<ID3DBlob>> shader_lib;
 base_library<std::shared_ptr<MeshDx12>> mesh_lib;
 base_library<std::shared_ptr<MaterialDx12>> mat_lib;
 base_library<std::shared_ptr<TextureDx12>> tex_lib;
+base_library<UINT> sampler_slots;
 base_library<std::shared_ptr<ObjectDx12>> obj_lib;
 
 Rehenz::Transform camera_trans;
@@ -114,6 +115,7 @@ bool init(DeviceDx12* device)
 	shader_lib["vs_light"] = UtilDx12::CompileShaderFile(L"dx12_vs_light.hlsl", "vs");
 	shader_lib["ps_color"] = UtilDx12::CompileShaderFile(L"dx12_ps_color.hlsl", "ps");
 	shader_lib["ps_light"] = UtilDx12::CompileShaderFile(L"dx12_ps_light.hlsl", "ps");
+	shader_lib["ps_light_tex1"] = UtilDx12::CompileShaderFile(L"dx12_ps_light_tex1.hlsl", "ps");
 	for (auto& p : shader_lib)
 	{
 		if (!p.second)
@@ -137,6 +139,10 @@ bool init(DeviceDx12* device)
 	pso_creator.SetVS(shader_lib["vs_transform4"].Get());
 	pso_creator.SetPS(shader_lib["ps_light"].Get());
 	pso_lib["pslight"] = pso_creator.CreatePSO(device->device.Get());
+	pso_creator.SetInputLayout(*il_lib["rehenz"]);
+	pso_creator.SetVS(shader_lib["vs_transform4"].Get());
+	pso_creator.SetPS(shader_lib["ps_light_tex1"].Get());
+	pso_lib["pslight_tex1"] = pso_creator.CreatePSO(device->device.Get());
 	for (auto& p : pso_lib)
 	{
 		if (!p.second)
@@ -161,6 +167,28 @@ bool init(DeviceDx12* device)
 		std::vector<MeshDx12*>{ mesh_lib["cube2"].get(), mesh_lib["sphere"].get(), mesh_lib["sphere2"].get(), mesh_lib["cone"].get(), mesh_lib["frustum"].get() },
 		device->device.Get(), device->cmd_list.Get()))
 		return false;
+
+	// init texs
+	tex_lib["plaid"] = TextureDx12::CreateTexturePlaid();
+	for (auto& p : tex_lib)
+	{
+		if (!p.second)
+			return false;
+	}
+	for (auto& p : tex_lib)
+	{
+		if (!p.second->UploadToGpu(device->device.Get(), device->cmd_list.Get()))
+			return false;
+	}
+
+	// init samplers
+	D3D12_SAMPLER_DESC sampler_desc;
+	sampler_slots["default"] = device->GetSamplerSlot();
+	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_MIN_MAG_MIP_LINEAR, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
+	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"]));
+	sampler_slots["anisotropic"] = device->GetSamplerSlot();
+	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_ANISOTROPIC, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
+	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["anisotropic"]));
 
 	// init mats
 	auto mat_grass = std::make_shared<MaterialDx12>();
@@ -194,25 +222,15 @@ bool init(DeviceDx12* device)
 	mat_yellow->fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
 	mat_yellow->roughness = 0.08f;
 	mat_lib["yellow"] = mat_yellow;
-	auto mat_white = std::make_shared<MaterialDx12>();
-	mat_white->diffuse_albedo = XMFLOAT3(1, 1, 1);
-	mat_white->alpha = 1.0f;
-	mat_white->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
-	mat_white->roughness = 0.1f;
-	mat_lib["white"] = mat_white;
-
-	// init texs
-	tex_lib["plaid"] = TextureDx12::CreateTexturePlaid();
-	for (auto& p : tex_lib)
-	{
-		if (!p.second)
-			return false;
-	}
-	for (auto& p : tex_lib)
-	{
-		if (!p.second->UploadToGpu(device->device.Get(), device->cmd_list.Get()))
-			return false;
-	}
+	auto mat_box = std::make_shared<MaterialDx12>();
+	mat_box->tex_dh_slot = device->GetCbvSlot();
+	tex_lib["plaid"]->CreateSrv(mat_box->tex_dh_slot, device);
+	mat_box->sampler_dh_slot = sampler_slots["default"];
+	mat_box->diffuse_albedo = XMFLOAT3(1, 1, 1);
+	mat_box->alpha = 1.0f;
+	mat_box->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
+	mat_box->roughness = 0.1f;
+	mat_lib["box"] = mat_box;
 
 	// init objs
 	UINT cb_slot = 0;
@@ -248,12 +266,12 @@ bool init(DeviceDx12* device)
 	point_light->transform.scale = Rehenz::Vector(0.13f, 0.13f, 0.13f);
 	obj_lib["point_light"] = point_light;
 	pso_objs["vslight"].push_back("point_light");
-	auto box = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["white"]);
+	auto box = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["box"]);
 	box->transform.pos = Rehenz::Vector(3.5f, -2.5f, 2.5f);
 	box->transform.axes = Rehenz::AircraftAxes(0, -0.2f, 0);
 	box->transform.scale = Rehenz::Vector(0.5f, 0.5f, 0.5f);
 	obj_lib["box"] = box;
-	pso_objs["pslight"].push_back("box");
+	pso_objs["pslight_tex1"].push_back("box");
 
 	// init camera
 	camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
@@ -328,6 +346,8 @@ void clean()
 	shader_lib.clear();
 	mesh_lib.clear();
 	mat_lib.clear();
+	tex_lib.clear();
+	sampler_slots.clear();
 	obj_lib.clear();
 }
 

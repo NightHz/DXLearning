@@ -140,7 +140,9 @@ namespace Dx12
         rtv_size = 0;
         dsv_size = 0;
         cbv_size = 0;
+        sampler_size = 0;
         cbv_heap_i = 0;
+        sampler_heap_i = 0;
         ZeroMemory(&vp, sizeof(vp));
         ZeroMemory(&sr, sizeof(sr));
         current_frame_i = 0;
@@ -216,6 +218,16 @@ namespace Dx12
     void DeviceDx12::SetRootParameter1(UINT dh_slot)
     {
         cmd_list->SetGraphicsRootDescriptorTable(1, GetCbvGpu(dh_slot));
+    }
+
+    void DeviceDx12::SetRootParameter2(UINT dh_slot)
+    {
+        cmd_list->SetGraphicsRootDescriptorTable(2, GetCbvGpu(dh_slot));
+    }
+
+    void DeviceDx12::SetRootParameter3(UINT dh_slot)
+    {
+        cmd_list->SetGraphicsRootDescriptorTable(3, GetSamplerGpu(dh_slot));
     }
 
     std::shared_ptr<DeviceDx12> DeviceDx12::CreateDevice(Rehenz::SimpleWindow* window)
@@ -309,6 +321,7 @@ namespace Dx12
         p->rtv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         p->dsv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
         p->cbv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        p->sampler_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
         D3D12_DESCRIPTOR_HEAP_DESC dh_desc;
         dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
@@ -332,6 +345,13 @@ namespace Dx12
         if (FAILED(hr))
             return nullptr;
         p->cbv_heap_i = 0;
+        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        dh_desc.NumDescriptors = sampler_heap_size;
+        dh_desc.NodeMask = 0;
+        hr = p->device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(p->sampler_heap.GetAddressOf()));
+        if (FAILED(hr))
+            return nullptr;
 
         // get render target buffer and create render target view
         p->rtv_buffers.resize(p->sc_buffer_count);
@@ -355,7 +375,7 @@ namespace Dx12
         rc_desc.SampleDesc.Count = 1;
         rc_desc.SampleDesc.Quality = 0;
         rc_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-        rc_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+        rc_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
         D3D12_HEAP_PROPERTIES heap_prop;
         heap_prop = UtilDx12::GetHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
         D3D12_CLEAR_VALUE clear_val;
@@ -390,11 +410,19 @@ namespace Dx12
         // create root sig
         // 0 CBV : b0
         // 1 DT  : (b1 b2)
+        // 2 DT  : (t0 t1)
+        // 3 DT  : (s0)
         D3D12_DESCRIPTOR_RANGE dr1[1];
         dr1[0] = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 2, 1); // b1 b2
-        D3D12_ROOT_PARAMETER rp[2];
+        D3D12_DESCRIPTOR_RANGE dr2[1];
+        dr2[0] = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0); // t0 t1
+        D3D12_DESCRIPTOR_RANGE dr3[1];
+        dr3[0] = UtilDx12::GetDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0); // s0
+        D3D12_ROOT_PARAMETER rp[4];
         rp[0] = UtilDx12::GetRootParameterCBV(0); // b0
         rp[1] = UtilDx12::GetRootParameterDT(_countof(dr1), dr1);
+        rp[2] = UtilDx12::GetRootParameterDT(_countof(dr2), dr2);
+        rp[3] = UtilDx12::GetRootParameterDT(_countof(dr3), dr3);
         D3D12_ROOT_SIGNATURE_DESC rs_desc;
         rs_desc.NumParameters = _countof(rp);
         rs_desc.pParameters = rp;
@@ -442,7 +470,7 @@ namespace Dx12
         cmd_list->OMSetRenderTargets(1, &rtv, true, &dsv);
 
         // set heaps
-        ID3D12DescriptorHeap* dhs[]{ cbv_heap.Get() };
+        ID3D12DescriptorHeap* dhs[]{ cbv_heap.Get(), sampler_heap.Get() };
         cmd_list->SetDescriptorHeaps(_countof(dhs), dhs);
 
         // map cbuffer
@@ -1105,6 +1133,8 @@ namespace Dx12
 
     MaterialDx12::MaterialDx12(DirectX::XMFLOAT4 color)
     {
+        tex_dh_slot = -1;
+        sampler_dh_slot = -1;
         diffuse_albedo = XMFLOAT3(color.x, color.y, color.z);
         alpha = color.w;
         fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
@@ -1126,7 +1156,7 @@ namespace Dx12
 
     TextureDx12::TextureDx12()
     {
-        dh_slot = 0;
+        dh_slot = -1;
         format = DXGI_FORMAT_UNKNOWN;
         pixel_size = 0;
         width = 0;
@@ -1243,7 +1273,7 @@ namespace Dx12
         ::memcpy(p->rc_blob->GetBufferPointer(), &plaid[0], blob_size);
 
         // set parameters
-        p->format = DXGI_FORMAT_R8G8B8A8_UINT;
+        p->format = DXGI_FORMAT_R8G8B8A8_UNORM;
         p->pixel_size = sizeof(UINT);
         p->width = width;
         p->height = width;
@@ -1287,6 +1317,14 @@ namespace Dx12
 
         // set cbuffer
         device->SetRootParameter0(frc->GetCBObjGpuLocation(cb_slot));
+
+        // set texture
+        if (material->tex_dh_slot >= 0)
+            device->SetRootParameter2(material->tex_dh_slot);
+
+        // set sampler
+        if (material->sampler_dh_slot >= 0)
+            device->SetRootParameter3(material->sampler_dh_slot);
 
         // draw
         if (!mesh->ib)

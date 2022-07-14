@@ -211,6 +211,24 @@ namespace Dx12
             return rp;
         }
 
+        inline static D3D12_SAMPLER_DESC GetSamplerDesc(D3D12_FILTER filter, D3D12_TEXTURE_ADDRESS_MODE address,
+            UINT anisotropy = 1, const std::vector<float> border_color = { 0,0,0,1 })
+        {
+            D3D12_SAMPLER_DESC samp_desc;
+            samp_desc.Filter = filter;
+            samp_desc.AddressU = samp_desc.AddressV = samp_desc.AddressW = address;
+            samp_desc.MipLODBias = 0;
+            samp_desc.MaxAnisotropy = anisotropy;
+            samp_desc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+            samp_desc.BorderColor[0] = border_color[0];
+            samp_desc.BorderColor[1] = border_color[1];
+            samp_desc.BorderColor[2] = border_color[2];
+            samp_desc.BorderColor[3] = border_color[3];
+            samp_desc.MinLOD = 0;
+            samp_desc.MaxLOD = D3D12_FLOAT32_MAX;
+            return samp_desc;
+        }
+
         static bool CreateDefaultBuffer(ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list, const void* data, UINT64 size,
             ComPtr<ID3D12Resource2>& buffer, ComPtr<ID3D12Resource2>& uploader);
 
@@ -250,12 +268,15 @@ namespace Dx12
         ComPtr<IDXGISwapChain4> sc;
 
         // descriptor heap
-        UINT rtv_size, dsv_size, cbv_size;
+        UINT rtv_size, dsv_size, cbv_size, sampler_size;
         ComPtr<ID3D12DescriptorHeap> rtv_heap;
         ComPtr<ID3D12DescriptorHeap> dsv_heap;
         static const int cbv_heap_size = 200;
         ComPtr<ID3D12DescriptorHeap> cbv_heap; // also srv heap and uav heap
         int cbv_heap_i;
+        static const int sampler_heap_size = 20;
+        ComPtr<ID3D12DescriptorHeap> sampler_heap;
+        int sampler_heap_i;
 
         // render target buffer
         std::vector<ComPtr<ID3D12Resource2>> rtv_buffers;
@@ -306,6 +327,12 @@ namespace Dx12
         inline D3D12_GPU_DESCRIPTOR_HANDLE GetCbvGpu(UINT i);
         // get continuous empty cbv slots, return first slot
         inline UINT GetCbvSlot(UINT count = 1) { UINT slot = cbv_heap_i; cbv_heap_i += count; return slot; }
+        // get sampler descriptor
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetSampler(UINT i);
+        // get sampler gpu descriptor
+        inline D3D12_GPU_DESCRIPTOR_HANDLE GetSamplerGpu(UINT i);
+        // get continuous empty sampler slots, return first slot
+        inline UINT GetSamplerSlot(UINT count = 1) { UINT slot = sampler_heap_i; sampler_heap_i += count; return slot; }
 
         // get current render target buffer
         inline ID3D12Resource2* GetCurrentRtvBuffer() { return rtv_buffers[sc->GetCurrentBackBufferIndex()].Get(); }
@@ -321,6 +348,10 @@ namespace Dx12
         void SetRootParameter0(D3D12_GPU_VIRTUAL_ADDRESS gpu_loc);
         // set root parameter 1 : DT  : (b1 b2)
         void SetRootParameter1(UINT dh_slot);
+        // set root parameter 2 : DT  : (t0 t1)
+        void SetRootParameter2(UINT dh_slot);
+        // set root parameter 3 : DT  : (s0)
+        void SetRootParameter3(UINT dh_slot);
 
 
         // create device
@@ -367,6 +398,18 @@ namespace Dx12
         dh.ptr += cbv_size * static_cast<UINT64>(i);
         return dh;
     };
+    inline D3D12_CPU_DESCRIPTOR_HANDLE DeviceDx12::GetSampler(UINT i)
+    {
+        auto dh = sampler_heap->GetCPUDescriptorHandleForHeapStart();
+        dh.ptr += sampler_size * static_cast<SIZE_T>(i);
+        return dh;
+    };
+    inline D3D12_GPU_DESCRIPTOR_HANDLE DeviceDx12::GetSamplerGpu(UINT i)
+    {
+        auto dh = sampler_heap->GetGPUDescriptorHandleForHeapStart();
+        dh.ptr += sampler_size * static_cast<UINT64>(i);
+        return dh;
+    };
 
     class FrameResourceDx12
     {
@@ -390,7 +433,6 @@ namespace Dx12
         void CreateCbv(DeviceDx12* device);
 
         inline D3D12_GPU_VIRTUAL_ADDRESS GetCBObjGpuLocation(UINT cb_slot);
-        inline UINT GetCBFrameDHSlot() { return cb_frame_dh_slot; }
     };
 
     class CBufferBaseDx12
@@ -509,6 +551,9 @@ namespace Dx12
     class MaterialDx12 : public MaterialForCB
     {
     public:
+        int tex_dh_slot;
+        int sampler_dh_slot;
+
         MaterialDx12();
         MaterialDx12(DirectX::XMFLOAT4 color);
         ~MaterialDx12();
@@ -519,7 +564,7 @@ namespace Dx12
     class TextureDx12
     {
     public:
-        UINT dh_slot;
+        int dh_slot;
 
         ComPtr<ID3DBlob> rc_blob;
         DXGI_FORMAT format;
@@ -541,7 +586,7 @@ namespace Dx12
 
         void FreeUploader();
 
-        static std::shared_ptr<TextureDx12> CreateTexturePlaid(UINT color1 = 0xffffffff, UINT color2 = 0xfff0c154, UINT unit_pixel = 16, UINT n = 4);
+        static std::shared_ptr<TextureDx12> CreateTexturePlaid(UINT color1 = 0xffffffff, UINT color2 = 0xffe8a200, UINT unit_pixel = 16, UINT n = 4);
     };
 
     class ObjectDx12
