@@ -156,6 +156,12 @@ $\theta_i$ 为宏观入射角， $\theta_h$ 为微观入射角， $F_S$ 为镜�
 |![](img/dx12_03light_better.png)|![](img/dx12_03light_with_ps.png)|
 
 
+### 4 贴图
+
+使用贴图为不同的像素提供不同的材质、法线等信息。除了贴图，还需要指定采样器，采样器定义了过滤方式与寻址模式。
+
+![](img/dx12_04texture.png)
+
 
 ## Direct3D 11 <sup>[docs](https://docs.microsoft.com/en-us/windows/win32/direct3d11/atoc-dx-graphics-direct3d-11)</sup>
 
