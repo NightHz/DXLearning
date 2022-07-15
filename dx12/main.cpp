@@ -175,6 +175,8 @@ bool init(DeviceDx12* device)
 	mesh_lib["sphere2"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateSphereMeshD());
 	mesh_lib["cone"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0));
 	mesh_lib["frustum"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0.36f));
+	mesh_lib["grid"] = MeshDx12::CreateGrid(1, 1);
+	mesh_lib["grid_smooth"] = MeshDx12::CreateGrid(100, 100);
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
@@ -183,7 +185,8 @@ bool init(DeviceDx12* device)
 	if (!mesh_lib["cube"]->UploadToGpu(device->device.Get(), device->cmd_list.Get()))
 		return false;
 	if (!MeshDx12::MergeUploadToGpu(
-		std::vector<MeshDx12*>{ mesh_lib["cube2"].get(), mesh_lib["sphere"].get(), mesh_lib["sphere2"].get(), mesh_lib["cone"].get(), mesh_lib["frustum"].get() },
+		std::vector<MeshDx12*>{ mesh_lib["cube2"].get(), mesh_lib["sphere"].get(), mesh_lib["sphere2"].get(), mesh_lib["cone"].get(), mesh_lib["frustum"].get(),
+		mesh_lib["grid"].get(), mesh_lib["grid_smooth"].get()},
 		device->device.Get(), device->cmd_list.Get()))
 		return false;
 
@@ -264,8 +267,8 @@ bool init(DeviceDx12* device)
 	cube->transform.scale = Rehenz::Vector(2.2f, 0.8f, 2.2f);
 	obj_lib["cube"] = cube;
 	pso_objs["pslight"].push_back("cube");
-	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["grass"]);
-	ground->transform.pos = Rehenz::Vector(0, -4, 0);
+	auto ground = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["grid"], mat_lib["grass"]);
+	ground->transform.pos = Rehenz::Vector(0, -3, 0);
 	ground->transform.scale = Rehenz::Vector(10, 1, 10);
 	obj_lib["ground"] = ground;
 	pso_objs["pslight"].push_back("ground");
