@@ -248,6 +248,9 @@ namespace Dx12
         // shader_type : vs hs ds gs ps cs
         static ComPtr<ID3DBlob> CompileShaderFile(const std::wstring& filename, const std::string& shader_type);
 
+        // output format must be DXGI_FORMAT_R8G8B8A8_UNORM
+        static ComPtr<ID3DBlob> LoadImageFile(const std::wstring& filename, UINT& width, UINT& height, DXGI_FORMAT& format);
+
         // forbid value > current fense value
         static bool WaitFenceValue(ID3D12Fence1* fence, UINT64 value);
     };
@@ -591,7 +594,9 @@ namespace Dx12
 
         void FreeUploader();
 
+        // color1/color2 format : ABGR = (R,G,B,A)(byte)
         static std::shared_ptr<TextureDx12> CreateTexturePlaid(UINT color1 = 0xffffffff, UINT color2 = 0xffe8a200, UINT unit_pixel = 16, UINT n = 4);
+        static std::shared_ptr<TextureDx12> CreateTextureFromFile(const std::wstring& filename);
     };
 
     class ObjectDx12

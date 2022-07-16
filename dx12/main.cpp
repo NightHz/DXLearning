@@ -103,8 +103,8 @@ void update(DeviceDx12* device, float dt)
 	cb_frame.deltatime = dt;
 
 	// update dynamic material
-	mat_lib["box"]->tex_transform.pos = Rehenz::Vector(-0.5f, -0.5f, 0) * Rehenz::GetMatrixRz(t * 1.0f);
-	mat_lib["box"]->tex_transform.axes.roll = t * 1.0f;
+	mat_lib["plaid"]->tex_transform.pos = Rehenz::Vector(-0.5f, -0.5f, 0) * Rehenz::GetMatrixRz(t * 1.0f);
+	mat_lib["plaid"]->tex_transform.axes.roll = t * 1.0f;
 }
 
 bool init(DeviceDx12* device)
@@ -192,6 +192,7 @@ bool init(DeviceDx12* device)
 
 	// init texs
 	tex_lib["plaid"] = TextureDx12::CreateTexturePlaid();
+	tex_lib["wood_box"] = TextureDx12::CreateTextureFromFile(L"img/wood_box.png");
 	for (auto& p : tex_lib)
 	{
 		if (!p.second)
@@ -251,14 +252,22 @@ bool init(DeviceDx12* device)
 	mat_yellow->fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
 	mat_yellow->roughness = 0.08f;
 	mat_lib["yellow"] = mat_yellow;
-	auto mat_box = std::make_shared<MaterialDx12>();
-	mat_box->tex_dh_slot = device->GetCbvSlot();
-	tex_lib["plaid"]->CreateSrv(mat_box->tex_dh_slot, device);
-	mat_box->diffuse_albedo = XMFLOAT3(1, 1, 1);
-	mat_box->alpha = 1.0f;
-	mat_box->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
-	mat_box->roughness = 0.1f;
-	mat_lib["box"] = mat_box;
+	auto mat_plaid = std::make_shared<MaterialDx12>();
+	mat_plaid->tex_dh_slot = device->GetCbvSlot();
+	tex_lib["plaid"]->CreateSrv(mat_plaid->tex_dh_slot, device);
+	mat_plaid->diffuse_albedo = XMFLOAT3(1, 1, 1);
+	mat_plaid->alpha = 1.0f;
+	mat_plaid->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
+	mat_plaid->roughness = 0.1f;
+	mat_lib["plaid"] = mat_plaid;
+	auto mat_wood_box = std::make_shared<MaterialDx12>();
+	mat_wood_box->tex_dh_slot = device->GetCbvSlot();
+	tex_lib["wood_box"]->CreateSrv(mat_wood_box->tex_dh_slot, device);
+	mat_wood_box->diffuse_albedo = XMFLOAT3(1, 1, 1);
+	mat_wood_box->alpha = 1.0f;
+	mat_wood_box->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
+	mat_wood_box->roughness = 0.1f;
+	mat_lib["wood_box"] = mat_wood_box;
 
 	// init objs
 	UINT cb_slot = 0;
@@ -294,7 +303,7 @@ bool init(DeviceDx12* device)
 	point_light->transform.scale = Rehenz::Vector(0.13f, 0.13f, 0.13f);
 	obj_lib["point_light"] = point_light;
 	pso_objs["matcolor"].push_back("point_light");
-	auto box = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["box"]);
+	auto box = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["cube2"], mat_lib["wood_box"]);
 	box->transform.pos = Rehenz::Vector(3.5f, -2.5f, 2.5f);
 	box->transform.axes = Rehenz::AircraftAxes(0, -0.2f, 0);
 	box->transform.scale = Rehenz::Vector(0.5f, 0.5f, 0.5f);

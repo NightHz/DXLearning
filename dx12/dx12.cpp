@@ -1,4 +1,5 @@
 #include "dx12.h"
+#include <wincodec.h>
 
 namespace Dx12
 {
@@ -96,6 +97,71 @@ namespace Dx12
         }
 
         return shader_blob;
+    }
+
+    ComPtr<ID3DBlob> UtilDx12::LoadImageFile(const std::wstring& filename, UINT& width, UINT& height, DXGI_FORMAT& format)
+    {
+        HRESULT hr = S_OK;
+
+        // create wic factory
+        ComPtr<IWICImagingFactory2> wic_factory;
+        hr = CoInitialize(nullptr);
+        if (FAILED(hr))
+            return nullptr;
+        hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(wic_factory.GetAddressOf()));
+        if (FAILED(hr))
+            return nullptr;
+
+        // load image from file
+        ComPtr<IWICBitmapDecoder> bitmap_src;
+        ComPtr<IWICBitmapFrameDecode> frame;
+        hr = wic_factory->CreateDecoderFromFilename(filename.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand, bitmap_src.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+        hr = bitmap_src->GetFrame(0, frame.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+
+        // convert file format
+        ComPtr<IWICFormatConverter> format_converter;
+        WICPixelFormatGUID wic_format_in;
+        WICPixelFormatGUID wic_format_out = GUID_WICPixelFormat32bppRGBA;
+        BOOL can_convert;
+        hr = frame->GetPixelFormat(&wic_format_in);
+        if (FAILED(hr))
+            return nullptr;
+        hr = wic_factory->CreateFormatConverter(format_converter.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+        hr = format_converter->CanConvert(wic_format_in, wic_format_out, &can_convert);
+        if (FAILED(hr))
+            return nullptr;
+        if (!can_convert)
+            return nullptr;
+        hr = format_converter->Initialize(frame.Get(), wic_format_out, WICBitmapDitherTypeNone, nullptr, 0, WICBitmapPaletteTypeCustom);
+
+        // load info
+        hr = format_converter->GetSize(&width, &height);
+        if (FAILED(hr))
+            return nullptr;
+        format = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+        // create blob
+        UINT size = width * height * sizeof(UINT);
+        ComPtr<ID3DBlob> blob;
+        hr = D3DCreateBlob(size, blob.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+
+        // load pixels
+        BYTE* data = static_cast<BYTE*>(blob->GetBufferPointer());
+        hr = format_converter->CopyPixels(nullptr, width * sizeof(UINT), size, data);
+        if (FAILED(hr))
+            return nullptr;
+
+        CoUninitialize();
+
+        return blob;
     }
 
     bool UtilDx12::WaitFenceValue(ID3D12Fence1* fence, UINT64 value)
@@ -1286,7 +1352,7 @@ namespace Dx12
         tex_copy_src.PlacedFootprint.Footprint.Width = width;
         tex_copy_src.PlacedFootprint.Footprint.Height = height;
         tex_copy_src.PlacedFootprint.Footprint.Depth = 1;
-        tex_copy_src.PlacedFootprint.Footprint.RowPitch = blob_pitch;
+        tex_copy_src.PlacedFootprint.Footprint.RowPitch = uploader_pitch;
         cmd_list->CopyTextureRegion(&tex_copy_dest, 0, 0, 0, &tex_copy_src, nullptr);
         auto rc_barr = UtilDx12::GetTransitionStruct(rc.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ);
         cmd_list->ResourceBarrier(1, &rc_barr);
@@ -1347,6 +1413,18 @@ namespace Dx12
         p->pixel_size = sizeof(UINT);
         p->width = width;
         p->height = width;
+
+        return p;
+    }
+
+    std::shared_ptr<TextureDx12> TextureDx12::CreateTextureFromFile(const std::wstring& filename)
+    {
+        std::shared_ptr<TextureDx12> p(new TextureDx12());
+
+        p->rc_blob = UtilDx12::LoadImageFile(filename, p->width, p->height, p->format);
+        if (!p->rc_blob)
+            return nullptr;
+        p->pixel_size = sizeof(UINT);
 
         return p;
     }
