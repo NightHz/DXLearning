@@ -127,6 +127,7 @@ bool init(DeviceDx12* device)
 	shader_lib["vs_transform"] = UtilDx12::CompileShaderFile(L"dx12_vs_transform.hlsl", "vs");
 	shader_lib["vs_transform4"] = UtilDx12::CompileShaderFile(L"dx12_vs_transform4.hlsl", "vs");
 	shader_lib["vs_light"] = UtilDx12::CompileShaderFile(L"dx12_vs_light.hlsl", "vs");
+	shader_lib["vs_water"] = UtilDx12::CompileShaderFile(L"dx12_vs_water.hlsl", "vs");
 	shader_lib["ps_color"] = UtilDx12::CompileShaderFile(L"dx12_ps_color.hlsl", "ps");
 	shader_lib["ps_light"] = UtilDx12::CompileShaderFile(L"dx12_ps_light.hlsl", "ps");
 	shader_lib["ps_light_tex1"] = UtilDx12::CompileShaderFile(L"dx12_ps_light_tex1.hlsl", "ps");
@@ -162,6 +163,10 @@ bool init(DeviceDx12* device)
 	pso_creator.SetVS(shader_lib["vs_transform"].Get());
 	pso_creator.SetPS(shader_lib["ps_mat"].Get());
 	pso_lib["matcolor"] = pso_creator.CreatePSO(device->device.Get());
+	pso_creator.SetInputLayout(*il_lib["rehenz"]);
+	pso_creator.SetVS(shader_lib["vs_water"].Get());
+	pso_creator.SetPS(shader_lib["ps_light_tex1"].Get());
+	pso_lib["water"] = pso_creator.CreatePSO(device->device.Get());
 	for (auto& p : pso_lib)
 	{
 		if (!p.second)
@@ -176,7 +181,7 @@ bool init(DeviceDx12* device)
 	mesh_lib["cone"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0));
 	mesh_lib["frustum"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0.36f));
 	mesh_lib["grid"] = MeshDx12::CreateGrid(1, 1);
-	mesh_lib["grid_smooth"] = MeshDx12::CreateGrid(100, 100);
+	mesh_lib["grid_smooth"] = MeshDx12::CreateGrid(240, 240);
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
@@ -194,6 +199,7 @@ bool init(DeviceDx12* device)
 	tex_lib["plaid"] = TextureDx12::CreateTexturePlaid();
 	tex_lib["wood_box"] = TextureDx12::CreateTextureFromFile(L"img/wood_box.png");
 	tex_lib["green_pattern"] = TextureDx12::CreateTextureFromFile(L"img/green_pattern.png");
+	tex_lib["water"] = TextureDx12::CreateTextureFromFile(L"img/water.png");
 	for (auto& p : tex_lib)
 	{
 		if (!p.second)
@@ -231,13 +237,15 @@ bool init(DeviceDx12* device)
 	auto mat_green_tex = std::make_shared<MaterialDx12>();
 	mat_green_tex->tex_dh_slot = device->GetCbvSlot();
 	tex_lib["green_pattern"]->CreateSrv(mat_green_tex->tex_dh_slot, device);
-	mat_green_tex->diffuse_albedo = XMFLOAT3(1, 1, 1); //XMFLOAT3(0.2f, 0.6f, 0.2f);
+	mat_green_tex->diffuse_albedo = XMFLOAT3(1, 1, 1);
 	mat_green_tex->alpha = 1.0f;
 	mat_green_tex->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
 	mat_green_tex->roughness = 0.125f;
 	mat_lib["green_tex"] = mat_green_tex;
 	auto mat_water = std::make_shared<MaterialDx12>();
-	mat_water->diffuse_albedo = XMFLOAT3(0, 0.2f, 0.6f);
+	mat_water->tex_dh_slot = device->GetCbvSlot();
+	tex_lib["water"]->CreateSrv(mat_water->tex_dh_slot, device);
+	mat_water->diffuse_albedo = XMFLOAT3(1, 1, 1); //XMFLOAT3(0, 0.2f, 0.6f);
 	mat_water->alpha = 1.0f;
 	mat_water->fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
 	mat_water->roughness = 0;
@@ -291,6 +299,12 @@ bool init(DeviceDx12* device)
 	ground->uv_transform.scale = Rehenz::Vector(8, 8, 1);
 	obj_lib["ground"] = ground;
 	pso_objs["pslight_tex1"].push_back("ground");
+	auto water = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["grid_smooth"], mat_lib["water"]);
+	water->transform.pos = Rehenz::Vector(0, -2.6f, 0);
+	water->transform.scale = Rehenz::Vector(10, 0.2f, 10);
+	water->uv_transform.scale = Rehenz::Vector(8, 8, 1);
+	obj_lib["water"] = water;
+	pso_objs["water"].push_back("water");
 	for (float z = -6; z <= 6; z += 3)
 	{
 		for (float x = -6; x <= 6; x += 12)

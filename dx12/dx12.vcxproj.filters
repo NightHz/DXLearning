@@ -116,6 +116,9 @@
     <FxCompile Include="dx12_ps_mat.hlsl">
       <Filter>shader</Filter>
     </FxCompile>
+    <FxCompile Include="dx12_vs_water.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="blinn_phong.hlsli">
