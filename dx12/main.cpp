@@ -30,6 +30,7 @@ CBFrame cb_frame;
 CBLight cb_light;
 
 base_library<std::vector<std::string>> pso_objs; // pso - objs
+std::vector<std::pair<std::string, std::string>> transparent_pso_objs;
 
 
 void update(DeviceDx12* device, float dt)
@@ -166,6 +167,7 @@ bool init(DeviceDx12* device)
 	pso_creator.SetInputLayout(*il_lib["rehenz"]);
 	pso_creator.SetVS(shader_lib["vs_water"].Get());
 	pso_creator.SetPS(shader_lib["ps_light_tex1"].Get());
+	pso_creator.SetBSAlpha();
 	pso_lib["water"] = pso_creator.CreatePSO(device->device.Get());
 	for (auto& p : pso_lib)
 	{
@@ -246,7 +248,7 @@ bool init(DeviceDx12* device)
 	mat_water->tex_dh_slot = device->GetCbvSlot();
 	tex_lib["water"]->CreateSrv(mat_water->tex_dh_slot, device);
 	mat_water->diffuse_albedo = XMFLOAT3(1, 1, 1); //XMFLOAT3(0, 0.2f, 0.6f);
-	mat_water->alpha = 1.0f;
+	mat_water->alpha = 0.7f;
 	mat_water->fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
 	mat_water->roughness = 0;
 	mat_lib["water"] = mat_water;
@@ -304,7 +306,7 @@ bool init(DeviceDx12* device)
 	water->transform.scale = Rehenz::Vector(10, 0.2f, 10);
 	water->uv_transform.scale = Rehenz::Vector(8, 8, 1);
 	obj_lib["water"] = water;
-	pso_objs["water"].push_back("water");
+	transparent_pso_objs.emplace_back("water", "water");
 	for (float z = -6; z <= 6; z += 3)
 	{
 		for (float x = -6; x <= 6; x += 12)
@@ -396,6 +398,13 @@ bool draw(DeviceDx12* device)
 			if (!obj_lib[obj_name]->Draw(device))
 				return false;
 		}
+	}
+	for (auto& pair : transparent_pso_objs)
+	{
+		device->cmd_list->SetPipelineState(pso_lib[pair.first].Get());
+		device->SetRootParameter3(sampler_slots["default"]);
+		if (!obj_lib[pair.second]->Draw(device))
+			return false;
 	}
 
 	return true;

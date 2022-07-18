@@ -516,6 +516,32 @@ namespace Dx12
         }
         inline void SetRSFillMode(D3D12_FILL_MODE mode = D3D12_FILL_MODE_SOLID) { pso_desc.RasterizerState.FillMode = mode; }
         inline void SetRSCullMode(D3D12_CULL_MODE mode = D3D12_CULL_MODE_BACK) { pso_desc.RasterizerState.CullMode = mode; }
+        inline void SetBSAlpha()
+        {
+            pso_desc.BlendState.RenderTarget[0].BlendEnable = true;
+            pso_desc.BlendState.RenderTarget[0].LogicOpEnable = false;
+            pso_desc.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+            pso_desc.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+            pso_desc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+            pso_desc.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+            pso_desc.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+            pso_desc.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+            pso_desc.BlendState.RenderTarget[0].LogicOp = D3D12_LOGIC_OP_NOOP;
+            pso_desc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+        }
+        inline void ResetBS()
+        {
+            pso_desc.BlendState.RenderTarget[0].BlendEnable = false;
+            pso_desc.BlendState.RenderTarget[0].LogicOpEnable = false;
+            pso_desc.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_ONE;
+            pso_desc.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_ZERO;
+            pso_desc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+            pso_desc.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+            pso_desc.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+            pso_desc.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+            pso_desc.BlendState.RenderTarget[0].LogicOp = D3D12_LOGIC_OP_NOOP;
+            pso_desc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+        }
 
         ComPtr<ID3D12PipelineState> CreatePSO(ID3D12Device8* device);
     };

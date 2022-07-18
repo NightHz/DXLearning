@@ -33,5 +33,5 @@ float4 main(PSInput input) : SV_TARGET
     }
     color += mat0.emissive;
 
-    return float4(saturate(color), 1);
+    return float4(saturate(color), mat0.alpha);
 }
