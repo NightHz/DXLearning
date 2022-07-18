@@ -17,10 +17,13 @@ cbuffer CBFrame : register(b1)
     matrix proj;
     matrix view_proj;
     float3 eye_pos;
-    float3 eye_at;
-    float2 screen_size;
     float time;
+    float3 eye_at;
     float deltatime;
+    float2 screen_size;
+    float fog_start;
+    float fog_end;
+    float3 fog_color;
 };
 cbuffer CBLight : register(b2)
 {

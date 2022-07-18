@@ -103,6 +103,9 @@ void update(DeviceDx12* device, float dt)
 	cb_frame.screen_size = XMFLOAT2(device->vp.Width, device->vp.Height);
 	cb_frame.time = t;
 	cb_frame.deltatime = dt;
+	cb_frame.fog_color = XMFLOAT3(0.746f, 0.746f, 0.746f);
+	cb_frame.fog_start = 10;
+	cb_frame.fog_end = 20;
 
 	// update dynamic material
 	mat_lib["plaid"]->tex_transform.pos = Rehenz::Vector(-0.5f, -0.5f, 0) * Rehenz::GetMatrixRz(t * 1.0f);
@@ -340,6 +343,7 @@ bool init(DeviceDx12* device)
 	// init camera
 	camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
 	camera_trans.axes = Rehenz::AircraftAxes(0.4f, -0.3f, 0);
+	camera_proj.z_near = 0.1f;
 	camera_proj.z_far = 100;
 	camera_proj.aspect = device->vp.Width / device->vp.Height;
 

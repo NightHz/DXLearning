@@ -78,12 +78,14 @@ namespace Dx12
         XMFLOAT4X4 proj;
         XMFLOAT4X4 view_proj;
         XMFLOAT3 eye_pos;
-        float _pad1;
-        XMFLOAT3 eye_at;
-        float _pad2;
-        XMFLOAT2 screen_size;
         float time;
+        XMFLOAT3 eye_at;
         float deltatime;
+        XMFLOAT2 screen_size;
+        float fog_start;
+        float fog_end;
+        XMFLOAT3 fog_color;
+        float _pad1;
     };
     const float light_type_directional = 1;
     const float light_type_point = 2;
