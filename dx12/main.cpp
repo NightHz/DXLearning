@@ -3,6 +3,7 @@
 #include "Rehenz/input.h"
 #include <unordered_map>
 #include <timeapi.h>
+#include <map>
 
 using std::cout;
 using std::wcout;
@@ -30,7 +31,7 @@ CBFrame cb_frame;
 CBLight cb_light;
 
 base_library<std::vector<std::string>> pso_objs; // pso - objs
-std::vector<std::pair<std::string, std::string>> transparent_pso_objs;
+std::map<int, std::pair<std::string, std::string>> transparent_pso_objs; // order - (pso - objs)
 
 
 void update(DeviceDx12* device, float dt)
@@ -306,7 +307,7 @@ bool init(DeviceDx12* device)
 	water->transform.scale = Rehenz::Vector(10, 0.2f, 10);
 	water->uv_transform.scale = Rehenz::Vector(8, 8, 1);
 	obj_lib["water"] = water;
-	transparent_pso_objs.emplace_back("water", "water");
+	transparent_pso_objs[10] = std::make_pair("water", "water");
 	for (float z = -6; z <= 6; z += 3)
 	{
 		for (float x = -6; x <= 6; x += 12)
@@ -401,9 +402,9 @@ bool draw(DeviceDx12* device)
 	}
 	for (auto& pair : transparent_pso_objs)
 	{
-		device->cmd_list->SetPipelineState(pso_lib[pair.first].Get());
+		device->cmd_list->SetPipelineState(pso_lib[pair.second.first].Get());
 		device->SetRootParameter3(sampler_slots["default"]);
-		if (!obj_lib[pair.second]->Draw(device))
+		if (!obj_lib[pair.second.second]->Draw(device))
 			return false;
 	}
 
