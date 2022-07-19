@@ -225,15 +225,15 @@ namespace Rehenz
 		float q11 = q(1) * q(1), q22 = q(2) * q(2), q33 = q(3) * q(3);
 		float q12 = q(1) * q(2), q23 = q(2) * q(3), q13 = q(1) * q(3);
 		float q01 = q(0) * q(1), q02 = q(0) * q(2), q03 = q(0) * q(3);
-		result(1, 1) = 1 - 2 * (q22 + q33);
-		result(2, 2) = 1 - 2 * (q11 + q33);
-		result(3, 3) = 1 - 2 * (q11 + q22);
-		result(1, 2) = 2 * (q12 - q03);
-		result(2, 1) = 2 * (q12 + q03);
-		result(2, 3) = 2 * (q23 - q01);
-		result(3, 2) = 2 * (q23 + q01);
-		result(3, 1) = 2 * (q13 - q02);
-		result(1, 3) = 2 * (q13 + q02);
+		result(0, 0) = 1 - 2 * (q22 + q33);
+		result(1, 1) = 1 - 2 * (q11 + q33);
+		result(2, 2) = 1 - 2 * (q11 + q22);
+		result(0, 1) = 2 * (q12 - q03);
+		result(1, 0) = 2 * (q12 + q03);
+		result(1, 2) = 2 * (q23 - q01);
+		result(2, 1) = 2 * (q23 + q01);
+		result(2, 0) = 2 * (q13 - q02);
+		result(0, 2) = 2 * (q13 + q02);
 		return result;
 	}
 

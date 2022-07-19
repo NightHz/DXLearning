@@ -26,6 +26,7 @@ base_library<std::shared_ptr<ObjectDx12>> obj_lib;
 
 Rehenz::Transform camera_trans;
 Rehenz::Projection camera_proj;
+Rehenz::AircraftAxes light_dir;
 
 CBFrame cb_frame;
 CBLight cb_light;
@@ -71,16 +72,17 @@ void update(DeviceDx12* device, float dt)
 	}
 
 	// control object
-	float obj_rotate_angle = 3 * dt;
-	auto obj = obj_lib["cube"];
-	if (KeyIsDown('I')) obj->transform.axes.pitch += obj_rotate_angle;
-	else if (KeyIsDown('K')) obj->transform.axes.pitch -= obj_rotate_angle;
-	if (KeyIsDown('J')) obj->transform.axes.yaw -= obj_rotate_angle;
-	else if (KeyIsDown('L')) obj->transform.axes.yaw += obj_rotate_angle;
-	if (KeyIsDown('U')) obj->transform.axes.roll -= obj_rotate_angle;
-	else if (KeyIsDown('O')) obj->transform.axes.roll += obj_rotate_angle;
+	//float obj_rotate_angle = 3 * dt;
+	//auto obj = obj_lib["cube"];
+	//if (KeyIsDown('I')) obj->transform.axes.pitch += obj_rotate_angle;
+	//else if (KeyIsDown('K')) obj->transform.axes.pitch -= obj_rotate_angle;
+	//if (KeyIsDown('J')) obj->transform.axes.yaw -= obj_rotate_angle;
+	//else if (KeyIsDown('L')) obj->transform.axes.yaw += obj_rotate_angle;
+	//if (KeyIsDown('U')) obj->transform.axes.roll -= obj_rotate_angle;
+	//else if (KeyIsDown('O')) obj->transform.axes.roll += obj_rotate_angle;
 
 	// control light
+	//float light_rotate_angle = 3 * dt;
 	if (KeyIsDown('1')) cb_light.lights[0].type = light_type_directional;
 	else if (KeyIsDown('2')) cb_light.lights[0].type = 0;
 	if (KeyIsDown('3')) cb_light.lights[1].type = light_type_point, mat_lib["light"]->emissive = XMFLOAT3(1, 1, 1);
@@ -89,6 +91,11 @@ void update(DeviceDx12* device, float dt)
 	else if (KeyIsDown('6')) cb_light.lights[2].type = 0;
 	dxm::XMStoreFloat3(&cb_light.lights[2].direction, ToXmVector(camera_trans.GetFront()));
 	dxm::XMStoreFloat3(&cb_light.lights[2].position, ToXmVector(camera_trans.pos - Rehenz::Vector(0, 0.5f, 0)));
+	//if (KeyIsDown('I')) light_dir.pitch += light_rotate_angle;
+	//else if (KeyIsDown('K')) light_dir.pitch -= light_rotate_angle;
+	//if (KeyIsDown('J')) light_dir.yaw -= light_rotate_angle;
+	//else if (KeyIsDown('L')) light_dir.yaw += light_rotate_angle;
+	//dxm::XMStoreFloat3(&cb_light.lights[0].direction, ToXmVector(Rehenz::Vector(0, -1, 0) * Rehenz::GetMatrixR(light_dir.ToQuaternion())));
 
 	// update cbuffer struct
 	XMMATRIX view = ToXmMatrix(camera_trans.GetInverseTransformMatrix());
