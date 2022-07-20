@@ -74,11 +74,17 @@ namespace Dx12
         return shader_blob;
     }
 
-    ComPtr<ID3DBlob> UtilDx12::CompileShaderFile(const std::wstring& filename, const std::string& shader_type)
+    ComPtr<ID3DBlob> UtilDx12::CompileShaderFile(const std::wstring& filename, const std::string& shader_type, const std::vector<std::string>& macro)
     {
         HRESULT hr = S_OK;
 
         ComPtr<ID3DBlob> shader_blob;
+
+        // get defines
+        std::vector<D3D_SHADER_MACRO> defines;
+        for (const auto& m : macro)
+            defines.push_back(D3D_SHADER_MACRO{ m.c_str(),"1" });
+        defines.push_back(D3D_SHADER_MACRO{ nullptr,nullptr });
 
         // compile shader
         UINT flags = D3DCOMPILE_ENABLE_STRICTNESS;
@@ -86,7 +92,7 @@ namespace Dx12
         flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #endif
         ComPtr<ID3DBlob> error_blob;
-        hr = D3DCompileFromFile(filename.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main", (shader_type + "_5_1").c_str(),
+        hr = D3DCompileFromFile(filename.c_str(), &defines[0], D3D_COMPILE_STANDARD_FILE_INCLUDE, "main", (shader_type + "_5_1").c_str(),
             flags, 0, shader_blob.GetAddressOf(), error_blob.GetAddressOf());
         if (FAILED(hr))
         {
@@ -1259,6 +1265,40 @@ namespace Dx12
         p->v_size = v_size;
         p->v_count = v_count;
         p->i_count = i_count;
+
+        return p;
+    }
+
+    std::shared_ptr<MeshDx12> MeshDx12::CreatePoint()
+    {
+        HRESULT hr = S_OK;
+
+        std::shared_ptr<MeshDx12> p(new MeshDx12);
+
+        // set data
+        p->topology = D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+        struct Vertex
+        {
+            XMFLOAT3 pos;
+            XMFLOAT2 size;
+        };
+        Vertex vertex;
+        vertex.pos = XMFLOAT3(0, 0, 0);
+        vertex.size = XMFLOAT2(2, 2);
+        int v_size = sizeof(Vertex);
+        int v_count = 1;
+        int vs_size = v_size * v_count;
+
+        // create vb blob
+        hr = D3DCreateBlob(vs_size, p->vb_blob.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+        ::memcpy(p->vb_blob->GetBufferPointer(), &vertex, vs_size);
+
+        // set size & count
+        p->v_size = v_size;
+        p->v_count = v_count;
+        p->i_count = 0;
 
         return p;
     }

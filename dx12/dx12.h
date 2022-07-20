@@ -248,7 +248,7 @@ namespace Dx12
 
         static ComPtr<ID3DBlob> LoadShaderFile(const std::wstring& filename);
         // shader_type : vs hs ds gs ps cs
-        static ComPtr<ID3DBlob> CompileShaderFile(const std::wstring& filename, const std::string& shader_type);
+        static ComPtr<ID3DBlob> CompileShaderFile(const std::wstring& filename, const std::string& shader_type, const std::vector<std::string>& macro = {});
 
         // output format must be DXGI_FORMAT_R8G8B8A8_UNORM
         static ComPtr<ID3DBlob> LoadImageFile(const std::wstring& filename, UINT& width, UINT& height, DXGI_FORMAT& format);
@@ -516,6 +516,11 @@ namespace Dx12
         {
             pso_desc.InputLayout.pInputElementDescs = &desc[0]; pso_desc.InputLayout.NumElements = static_cast<UINT>(desc.size());
         }
+        inline void SetInputTopology(D3D12_PRIMITIVE_TOPOLOGY_TYPE topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE)
+        {
+            pso_desc.PrimitiveTopologyType = topology;
+        }
+
         inline void SetRSFillMode(D3D12_FILL_MODE mode = D3D12_FILL_MODE_SOLID) { pso_desc.RasterizerState.FillMode = mode; }
         inline void SetRSCullMode(D3D12_CULL_MODE mode = D3D12_CULL_MODE_BACK) { pso_desc.RasterizerState.CullMode = mode; }
         inline void SetBSAlpha()
@@ -593,6 +598,7 @@ namespace Dx12
         static std::shared_ptr<MeshDx12> CreateCube();
         static std::shared_ptr<MeshDx12> CreateFromRehenzMesh(std::shared_ptr<Rehenz::Mesh> mesh);
         static std::shared_ptr<MeshDx12> CreateGrid(int xn, int yn);
+        static std::shared_ptr<MeshDx12> CreatePoint();
     };
 
     class MaterialDx12 : public MaterialForCB

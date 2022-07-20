@@ -134,6 +134,10 @@ bool init(DeviceDx12* device)
 	il[3] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
 	il[4] = { "TEXCOORD", 1, DXGI_FORMAT_R32G32_FLOAT, 0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
 	il_lib["rehenz"] = std::make_shared<std::vector<D3D12_INPUT_ELEMENT_DESC>>(std::move(il));
+	il = std::vector<D3D12_INPUT_ELEMENT_DESC>(2);
+	il[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+	il[1] = { "SIZE", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+	il_lib["pos+size"] = std::make_shared<std::vector<D3D12_INPUT_ELEMENT_DESC>>(std::move(il));
 
 	// init shader
 	shader_lib["vs_transform"] = UtilDx12::CompileShaderFile(L"dx12_vs_transform.hlsl", "vs");
@@ -144,6 +148,9 @@ bool init(DeviceDx12* device)
 	shader_lib["ps_light"] = UtilDx12::CompileShaderFile(L"dx12_ps_light.hlsl", "ps");
 	shader_lib["ps_light_tex1"] = UtilDx12::CompileShaderFile(L"dx12_ps_light_tex1.hlsl", "ps");
 	shader_lib["ps_mat"] = UtilDx12::CompileShaderFile(L"dx12_ps_mat.hlsl", "ps");
+	shader_lib["vs_billboard"] = UtilDx12::CompileShaderFile(L"dx12_vs_billboard.hlsl", "vs");
+	shader_lib["gs_billboard"] = UtilDx12::CompileShaderFile(L"dx12_gs_billboard.hlsl", "gs");
+	shader_lib["ps_light_tex"] = UtilDx12::CompileShaderFile(L"dx12_ps_light_tex.hlsl", "ps", { "ALPHA_CLIP" });
 	for (auto& p : shader_lib)
 	{
 		if (!p.second)
@@ -180,6 +187,13 @@ bool init(DeviceDx12* device)
 	pso_creator.SetPS(shader_lib["ps_light_tex1"].Get());
 	pso_creator.SetBSAlpha();
 	pso_lib["water"] = pso_creator.CreatePSO(device->device.Get());
+	pso_creator.SetInputLayout(*il_lib["pos+size"]);
+	pso_creator.SetInputTopology(D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT);
+	pso_creator.SetVS(shader_lib["vs_billboard"].Get());
+	pso_creator.SetGS(shader_lib["gs_billboard"].Get());
+	pso_creator.SetPS(shader_lib["ps_light_tex"].Get());
+	pso_creator.ResetBS();
+	pso_lib["billboard"] = pso_creator.CreatePSO(device->device.Get());
 	for (auto& p : pso_lib)
 	{
 		if (!p.second)
@@ -195,6 +209,7 @@ bool init(DeviceDx12* device)
 	mesh_lib["frustum"] = MeshDx12::CreateFromRehenzMesh(Rehenz::CreateFrustumMesh(0.36f));
 	mesh_lib["grid"] = MeshDx12::CreateGrid(1, 1);
 	mesh_lib["grid_smooth"] = MeshDx12::CreateGrid(240, 240);
+	mesh_lib["point"] = MeshDx12::CreatePoint();
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
@@ -207,12 +222,15 @@ bool init(DeviceDx12* device)
 		mesh_lib["grid"].get(), mesh_lib["grid_smooth"].get()},
 		device->device.Get(), device->cmd_list.Get()))
 		return false;
+	if (!mesh_lib["point"]->UploadToGpu(device->device.Get(), device->cmd_list.Get()))
+		return false;
 
 	// init texs
 	tex_lib["plaid"] = TextureDx12::CreateTexturePlaid();
 	tex_lib["wood_box"] = TextureDx12::CreateTextureFromFile(L"img/wood_box.png");
 	tex_lib["green_pattern"] = TextureDx12::CreateTextureFromFile(L"img/green_pattern.png");
 	tex_lib["water"] = TextureDx12::CreateTextureFromFile(L"img/water.png");
+	tex_lib["billboard"] = TextureDx12::CreateTextureFromFile(L"img/billboard.webp");
 	for (auto& p : tex_lib)
 	{
 		if (!p.second)
@@ -298,6 +316,14 @@ bool init(DeviceDx12* device)
 	mat_wood_box->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
 	mat_wood_box->roughness = 0.1f;
 	mat_lib["wood_box"] = mat_wood_box;
+	auto mat_billboard = std::make_shared<MaterialDx12>();
+	mat_billboard->tex_dh_slot = device->GetCbvSlot();
+	tex_lib["billboard"]->CreateSrv(mat_billboard->tex_dh_slot, device);
+	mat_billboard->diffuse_albedo = XMFLOAT3(1, 1, 1);
+	mat_billboard->alpha = 1.0f;
+	mat_billboard->fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	mat_billboard->roughness = 0.8f;
+	mat_lib["billboard"] = mat_billboard;
 
 	// init objs
 	UINT cb_slot = 0;
@@ -346,6 +372,11 @@ bool init(DeviceDx12* device)
 	box->transform.scale = Rehenz::Vector(0.5f, 0.5f, 0.5f);
 	obj_lib["box"] = box;
 	pso_objs["pslight_tex1"].push_back("box");
+	auto billboard = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["point"], mat_lib["billboard"]);
+	billboard->transform.pos = Rehenz::Vector(-3.0f, -2.0f, 3.5f);
+	billboard->transform.axes = Rehenz::AircraftAxes(0, 0.2f, 0);
+	obj_lib["billboard"] = billboard;
+	pso_objs["billboard"].push_back("billboard");
 
 	// init camera
 	camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);
