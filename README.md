@@ -172,6 +172,18 @@ $\theta_i$ 为宏观入射角， $\theta_h$ 为微观入射角， $F_S$ 为镜�
 ![](img/dx12_05blend.gif)
 
 
+### 工作流程
+
+为了达到某种渲染效果，或利用 GPU 做某种计算。
+
+首先，需要想好我们的主要逻辑，即 shader 需要哪些资源，据此设计创建根签名；并对不同的 pass 创建相应的 PSO 。
+
+然后，创建实际存在的资源，这些资源存放在显存，可以以纹理、缓冲区等形式存在，作为输入的资源，需利用上传堆从内存拷贝到显存，作为结果的资源，需利用回读堆拷贝到内存；接着在描述符堆上创建描述符，描述符有 CBV 、 SRV 、 UAV ，不同种类的描述符提供不同的访问方式与权限，也绑定不同的寄存器。
+
+最后，按照设计好的逻辑，上传更新的内存数据；绑定根签名、 PSO 、描述符堆；转换资源状态；设置根参数，即各种资源描述符；图形管线额外设置 IA 与 OM 的描述符；调用核心工作函数 `Drawxxx` 或 `Dispatch` ；回读结果的显存数据。
+
+在 shader 中，可以通过 `Texture` 访问纹理资源，或通过 `RWStructuredBuffer` `ConsumeStructuredBuffer` `AppendStructuredBuffer` 等访问缓冲区，具体可参照 [HLSL 数据类型](https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-data-types)的页面。对于计算着色器，可以使用 `groupshared float4 group_cache[256];` 连接线程组的共享内存。
+
 
 
 ## Direct3D 11 <sup>[docs](https://docs.microsoft.com/en-us/windows/win32/direct3d11/atoc-dx-graphics-direct3d-11)</sup>
