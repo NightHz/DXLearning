@@ -599,6 +599,7 @@ namespace Dx12
         static std::shared_ptr<MeshDx12> CreateFromRehenzMesh(std::shared_ptr<Rehenz::Mesh> mesh);
         static std::shared_ptr<MeshDx12> CreateGrid(int xn, int yn);
         static std::shared_ptr<MeshDx12> CreatePoint();
+        static std::shared_ptr<MeshDx12> CreatePatchGrid(int xn, int yn);
     };
 
     class MaterialDx12 : public MaterialForCB

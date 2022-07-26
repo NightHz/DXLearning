@@ -34,7 +34,6 @@ VSOutput main(VSInput input)
     output.posH = mul(pos, view_proj);
     output.normW = normalize(norm);
     output.color = input.color;
-    float2 uv = input.uv + float2(1, 1) * 0.03f * time;
-    output.uv = mul(float4(uv, 0, 1), uv_tf).xy;
+    output.uv = mul(float4(input.uv, 0, 1), uv_tf).xy;
     return output;
 }

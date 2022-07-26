@@ -117,6 +117,7 @@ void update(DeviceDx12* device, float dt)
 	// update dynamic material
 	mat_lib["plaid"]->tex_transform.pos = Rehenz::Vector(-0.5f, -0.5f, 0) * Rehenz::GetMatrixRz(t * 1.0f);
 	mat_lib["plaid"]->tex_transform.axes.roll = t * 1.0f;
+	mat_lib["water"]->tex_transform.pos = 0.24f * t * Rehenz::Vector(1, 1, 0);
 }
 
 bool init(DeviceDx12* device)
@@ -151,6 +152,9 @@ bool init(DeviceDx12* device)
 	shader_lib["vs_billboard"] = UtilDx12::CompileShaderFile(L"dx12_vs_billboard.hlsl", "vs");
 	shader_lib["gs_billboard"] = UtilDx12::CompileShaderFile(L"dx12_gs_billboard.hlsl", "gs");
 	shader_lib["ps_light_tex"] = UtilDx12::CompileShaderFile(L"dx12_ps_light_tex.hlsl", "ps", { "ALPHA_CLIP" });
+	shader_lib["vs_transform3"] = UtilDx12::CompileShaderFile(L"dx12_vs_transform3.hlsl", "vs");
+	shader_lib["hs_water"] = UtilDx12::CompileShaderFile(L"dx12_hs_water.hlsl", "hs");
+	shader_lib["ds_water"] = UtilDx12::CompileShaderFile(L"dx12_ds_water.hlsl", "ds");
 	for (auto& p : shader_lib)
 	{
 		if (!p.second)
@@ -194,6 +198,15 @@ bool init(DeviceDx12* device)
 	pso_creator.SetPS(shader_lib["ps_light_tex"].Get());
 	pso_creator.ResetBS();
 	pso_lib["billboard"] = pso_creator.CreatePSO(device->device.Get());
+	pso_creator.SetInputLayout(*il_lib["rehenz"]);
+	pso_creator.SetInputTopology(D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH);
+	pso_creator.SetVS(shader_lib["vs_transform3"].Get());
+	pso_creator.SetHS(shader_lib["hs_water"].Get());
+	pso_creator.SetDS(shader_lib["ds_water"].Get());
+	pso_creator.ResetGS();
+	pso_creator.SetPS(shader_lib["ps_light_tex1"].Get());
+	pso_creator.SetBSAlpha();
+	pso_lib["water2"] = pso_creator.CreatePSO(device->device.Get());
 	for (auto& p : pso_lib)
 	{
 		if (!p.second)
@@ -210,6 +223,7 @@ bool init(DeviceDx12* device)
 	mesh_lib["grid"] = MeshDx12::CreateGrid(1, 1);
 	mesh_lib["grid_smooth"] = MeshDx12::CreateGrid(240, 240);
 	mesh_lib["point"] = MeshDx12::CreatePoint();
+	mesh_lib["grid_patch"] = MeshDx12::CreatePatchGrid(4, 4);
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
@@ -224,6 +238,14 @@ bool init(DeviceDx12* device)
 		return false;
 	if (!mesh_lib["point"]->UploadToGpu(device->device.Get(), device->cmd_list.Get()))
 		return false;
+	for (auto& p : mesh_lib)
+	{
+		if (!p.second->vb)
+		{
+			if (!p.second->UploadToGpu(device->device.Get(), device->cmd_list.Get()))
+				return false;
+		}
+	}
 
 	// init texs
 	tex_lib["plaid"] = TextureDx12::CreateTexturePlaid();
@@ -338,12 +360,12 @@ bool init(DeviceDx12* device)
 	ground->uv_transform.scale = Rehenz::Vector(8, 8, 1);
 	obj_lib["ground"] = ground;
 	pso_objs["pslight_tex1"].push_back("ground");
-	auto water = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["grid_smooth"], mat_lib["water"]);
+	auto water = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["grid_patch"], mat_lib["water"]);
 	water->transform.pos = Rehenz::Vector(0, -2.6f, 0);
 	water->transform.scale = Rehenz::Vector(10, 0.2f, 10);
 	water->uv_transform.scale = Rehenz::Vector(8, 8, 1);
 	obj_lib["water"] = water;
-	transparent_pso_objs[10] = std::make_pair("water", "water");
+	transparent_pso_objs[10] = std::make_pair("water2", "water");
 	for (float z = -6; z <= 6; z += 3)
 	{
 		for (float x = -6; x <= 6; x += 12)

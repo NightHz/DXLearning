@@ -97,7 +97,8 @@ namespace Dx12
         if (FAILED(hr))
         {
 #ifdef _DEBUG
-            OutputDebugString(static_cast<char*>(error_blob->GetBufferPointer()));
+            if (error_blob)
+                OutputDebugString(static_cast<char*>(error_blob->GetBufferPointer()));
 #endif
             return nullptr;
         }
@@ -1299,6 +1300,82 @@ namespace Dx12
         p->v_size = v_size;
         p->v_count = v_count;
         p->i_count = 0;
+
+        return p;
+    }
+
+    std::shared_ptr<MeshDx12> MeshDx12::CreatePatchGrid(int xn, int yn)
+    {
+        HRESULT hr = S_OK;
+
+        std::shared_ptr<MeshDx12> p(new MeshDx12);
+
+        xn = Rehenz::Clamp(xn, 1, 240);
+        yn = Rehenz::Clamp(yn, 1, 240);
+
+        // set data
+        p->topology = D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST;
+        struct Vertex
+        {
+            XMFLOAT3 pos;
+            XMFLOAT3 normal;
+            XMFLOAT4 color;
+            XMFLOAT2 uv;
+            XMFLOAT2 uv2;
+        };
+        std::vector<Vertex> vertices;
+        std::vector<UINT16> indices;
+        for (int y = 0; y <= yn; y++)
+        {
+            for (int x = 0; x <= xn; x++)
+            {
+                float xf = x / static_cast<float>(xn), yf = y / static_cast<float>(yn);
+                Vertex v;
+                v.pos = XMFLOAT3(xf * 2 - 1, 0, yf * 2 - 1);
+                v.normal = XMFLOAT3(0, 1, 0);
+                v.color = XMFLOAT4(1, 1, 1, 1);
+                v.uv = XMFLOAT2(xf, yf);
+                v.uv2 = XMFLOAT2(0, 0);
+                vertices.push_back(v);
+            }
+        }
+        for (int y = 0; y < yn; y++)
+        {
+            for (int x = 0; x < xn; x++)
+            {
+                UINT16 v1 = static_cast<UINT16>(y * (xn + 1) + x);
+                UINT16 v2 = v1 + 1;
+                UINT16 v3 = static_cast<UINT16>(v1 + xn + 1);
+                UINT16 v4 = v3 + 1;
+                indices.push_back(v2); indices.push_back(v1);
+                indices.push_back(v4); indices.push_back(v3);
+            }
+        }
+        indices.clear();
+        indices.push_back(xn);
+        indices.push_back(0);
+        indices.push_back(yn* (xn + 1) + xn);
+        indices.push_back(yn* (xn + 1));
+        int v_size = sizeof(Vertex);
+        int v_count = static_cast<int>(vertices.size());
+        int vs_size = v_size * v_count;
+        int i_count = static_cast<int>(indices.size());
+        int is_size = 2 * i_count;
+
+        // create vb blob & ib blob
+        hr = D3DCreateBlob(vs_size, p->vb_blob.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+        ::memcpy(p->vb_blob->GetBufferPointer(), &vertices[0], vs_size);
+        hr = D3DCreateBlob(is_size, p->ib_blob.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+        ::memcpy(p->ib_blob->GetBufferPointer(), &indices[0], is_size);
+
+        // set size & count
+        p->v_size = v_size;
+        p->v_count = v_count;
+        p->i_count = i_count;
 
         return p;
     }

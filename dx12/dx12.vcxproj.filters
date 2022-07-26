@@ -128,6 +128,15 @@
     <FxCompile Include="dx12_ps_light_tex.hlsl">
       <Filter>shader</Filter>
     </FxCompile>
+    <FxCompile Include="dx12_ds_water.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+    <FxCompile Include="dx12_hs_water.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+    <FxCompile Include="dx12_vs_transform3.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="blinn_phong.hlsli">
