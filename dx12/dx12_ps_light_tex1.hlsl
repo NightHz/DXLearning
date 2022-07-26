@@ -36,7 +36,7 @@ float4 main(PSInput input) : SV_TARGET
     color += mat0.emissive;
     float4 output = float4(saturate(color), mat0.alpha);
 
-#ifndef DISABLE_FOG
+#ifdef FOG
     float s = saturate((dist_eye - fog_start) / (fog_end - fog_start));
     output = lerp(output, float4(fog_color, 1), s);
 #endif
