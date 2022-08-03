@@ -155,6 +155,8 @@ bool init(DeviceDx12* device)
 	shader_lib["vs_transform3"] = UtilDx12::CompileShaderFile(L"dx12_vs_transform3.hlsl", "vs");
 	shader_lib["hs_water"] = UtilDx12::CompileShaderFile(L"dx12_hs_water.hlsl", "hs");
 	shader_lib["ds_water"] = UtilDx12::CompileShaderFile(L"dx12_ds_water.hlsl", "ds");
+	shader_lib["hs_bezier"] = UtilDx12::CompileShaderFile(L"dx12_hs_bezier.hlsl", "hs");
+	shader_lib["ds_bezier"] = UtilDx12::CompileShaderFile(L"dx12_ds_bezier.hlsl", "ds");
 	for (auto& p : shader_lib)
 	{
 		if (!p.second)
@@ -207,6 +209,15 @@ bool init(DeviceDx12* device)
 	pso_creator.SetPS(shader_lib["ps_light_tex1"].Get());
 	pso_creator.SetBSAlpha();
 	pso_lib["water2"] = pso_creator.CreatePSO(device->device.Get());
+	pso_creator.SetInputLayout(*il_lib["rehenz"]);
+	pso_creator.SetInputTopology(D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH);
+	pso_creator.SetVS(shader_lib["vs_transform3"].Get());
+	pso_creator.SetHS(shader_lib["hs_bezier"].Get());
+	pso_creator.SetDS(shader_lib["ds_bezier"].Get());
+	pso_creator.ResetGS();
+	pso_creator.SetPS(shader_lib["ps_light_tex"].Get());
+	pso_creator.ResetBS();
+	pso_lib["bezier"] = pso_creator.CreatePSO(device->device.Get());
 	for (auto& p : pso_lib)
 	{
 		if (!p.second)
@@ -224,6 +235,7 @@ bool init(DeviceDx12* device)
 	mesh_lib["grid_smooth"] = MeshDx12::CreateGrid(240, 240);
 	mesh_lib["point"] = MeshDx12::CreatePoint();
 	mesh_lib["grid_patch"] = MeshDx12::CreatePatchGrid(4, 4);
+	mesh_lib["patch_bezier"] = MeshDx12::CreatePatchBezier();
 	for (auto& p : mesh_lib)
 	{
 		if (!p.second)
@@ -399,6 +411,11 @@ bool init(DeviceDx12* device)
 	billboard->transform.axes = Rehenz::AircraftAxes(0, 0.2f, 0);
 	obj_lib["billboard"] = billboard;
 	pso_objs["billboard"].push_back("billboard");
+	auto bezier_surface = std::make_shared<ObjectDx12>(cb_slot++, mesh_lib["patch_bezier"], mat_lib["plaid"]);
+	bezier_surface->transform.pos = Rehenz::Vector(0, -20, 0);
+	bezier_surface->transform.scale = Rehenz::Vector(0.1f, 0.1f, 0.1f);
+	obj_lib["bezier_surface"] = bezier_surface;
+	pso_objs["bezier"].push_back("bezier_surface");
 
 	// init camera
 	camera_trans.pos = Rehenz::Vector(1.2f, 1.6f, -4, 0);

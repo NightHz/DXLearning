@@ -137,6 +137,12 @@
     <FxCompile Include="dx12_vs_transform3.hlsl">
       <Filter>shader</Filter>
     </FxCompile>
+    <FxCompile Include="dx12_hs_bezier.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
+    <FxCompile Include="dx12_ds_bezier.hlsl">
+      <Filter>shader</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="blinn_phong.hlsli">

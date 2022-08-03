@@ -1352,10 +1352,10 @@ namespace Dx12
             }
         }
         indices.clear();
-        indices.push_back(xn);
+        indices.push_back(static_cast<UINT16>(xn));
         indices.push_back(0);
-        indices.push_back(yn* (xn + 1) + xn);
-        indices.push_back(yn* (xn + 1));
+        indices.push_back(static_cast<UINT16>(yn* (xn + 1) + xn));
+        indices.push_back(static_cast<UINT16>(yn* (xn + 1)));
         int v_size = sizeof(Vertex);
         int v_count = static_cast<int>(vertices.size());
         int vs_size = v_size * v_count;
@@ -1376,6 +1376,60 @@ namespace Dx12
         p->v_size = v_size;
         p->v_count = v_count;
         p->i_count = i_count;
+
+        return p;
+    }
+
+    std::shared_ptr<MeshDx12> MeshDx12::CreatePatchBezier()
+    {
+        HRESULT hr = S_OK;
+
+        std::shared_ptr<MeshDx12> p(new MeshDx12);
+
+        // set data
+        p->topology = D3D_PRIMITIVE_TOPOLOGY_16_CONTROL_POINT_PATCHLIST;
+        struct Vertex
+        {
+            XMFLOAT3 pos;
+            XMFLOAT3 normal;
+            XMFLOAT4 color;
+            XMFLOAT2 uv;
+            XMFLOAT2 uv2;
+        };
+        std::vector<Vertex> vertices(16);
+        vertices[0].pos = XMFLOAT3(-10, -10, 15);
+        vertices[1].pos = XMFLOAT3(-5, 0, 15);
+        vertices[2].pos = XMFLOAT3(5, 0, 15);
+        vertices[3].pos = XMFLOAT3(10, 0, 15);
+        vertices[4].pos = XMFLOAT3(-15, 0, 5);
+        vertices[5].pos = XMFLOAT3(-5, 0, 5);
+        vertices[6].pos = XMFLOAT3(5, 20, 5);
+        vertices[7].pos = XMFLOAT3(15, 0, 5);
+        vertices[8].pos = XMFLOAT3(-15, 0, -5);
+        vertices[9].pos = XMFLOAT3(-5, 0, -5);
+        vertices[10].pos = XMFLOAT3(+5, 0, -5);
+        vertices[11].pos = XMFLOAT3(+15, 0, -5);
+        vertices[12].pos = XMFLOAT3(-10, 10, -15);
+        vertices[13].pos = XMFLOAT3(-5, 0, -15);
+        vertices[14].pos = XMFLOAT3(5, 0, -15);
+        vertices[15].pos = XMFLOAT3(25, 10, -15);
+        vertices[0].uv = XMFLOAT2(0, 0);
+        vertices[3].uv = XMFLOAT2(1, 0);
+        vertices[12].uv = XMFLOAT2(0, 1);
+        vertices[15].uv = XMFLOAT2(1, 1);
+        int v_size = sizeof(Vertex);
+        int v_count = static_cast<int>(vertices.size());
+        int vs_size = v_size * v_count;
+
+        // create vb blob
+        hr = D3DCreateBlob(vs_size, p->vb_blob.GetAddressOf());
+        if (FAILED(hr))
+            return nullptr;
+        ::memcpy(p->vb_blob->GetBufferPointer(), &vertices[0], vs_size);
+
+        // set size & count
+        p->v_size = v_size;
+        p->v_count = v_count;
 
         return p;
     }
