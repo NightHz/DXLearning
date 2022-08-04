@@ -112,6 +112,7 @@ namespace Dx12
 
     class UtilDx12;
     class DeviceDx12;
+    class DescriptorHeapsDx12;
     class FrameResourceDx12;
     class CBufferBaseDx12;
     template<typename T> class CBufferDx12;
@@ -416,6 +417,102 @@ namespace Dx12
         auto dh = sampler_heap->GetGPUDescriptorHandleForHeapStart();
         dh.ptr += sampler_size * static_cast<UINT64>(i);
         return dh;
+    };
+
+    class DescriptorHeapsDx12
+    {
+    private:
+        ComPtr<ID3D12Device8> device;
+
+        // descriptor size
+        UINT rtv_size, dsv_size, cbv_size, sampler_size;
+        // descriptor heap size
+        UINT rtv_heap_size, dsv_heap_size, cbv_heap_size, sampler_heap_size;
+        static const UINT rtv_heap_default_size = 10, dsv_heap_default_size = 10, cbv_heap_default_size = 80, sampler_heap_default_size = 10;
+        // descriptor heap
+        ComPtr<ID3D12DescriptorHeap> rtv_heap;
+        ComPtr<ID3D12DescriptorHeap> dsv_heap;
+        ComPtr<ID3D12DescriptorHeap> cbv_heap; // also srv heap and uav heap
+        ComPtr<ID3D12DescriptorHeap> sampler_heap;
+        // descriptor allocate counter
+        int rtv_heap_i, dsv_heap_i, cbv_heap_i, sampler_heap_i;
+
+        // get cpu descriptor handle
+        inline static D3D12_CPU_DESCRIPTOR_HANDLE GetCpuDescriptor(ID3D12DescriptorHeap* heap, UINT descriptor_size, UINT i)
+        {
+            auto dh = heap->GetCPUDescriptorHandleForHeapStart();
+            dh.ptr += descriptor_size * static_cast<SIZE_T>(i);
+            return dh;
+        }
+        // get gpu descriptor handle
+        inline static D3D12_GPU_DESCRIPTOR_HANDLE GetGpuDescriptor(ID3D12DescriptorHeap* heap, UINT descriptor_size, UINT i)
+        {
+            auto dh = heap->GetGPUDescriptorHandleForHeapStart();
+            dh.ptr += descriptor_size * static_cast<UINT64>(i);
+            return dh;
+        }
+        
+        // get descriptor heap description struct
+        inline static D3D12_DESCRIPTOR_HEAP_DESC GetDescriptorHeapDesc(D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flag, UINT heap_size)
+        {
+            D3D12_DESCRIPTOR_HEAP_DESC desc{};
+            desc.Type = type;
+            desc.Flags = flag;
+            desc.NumDescriptors = heap_size;
+            desc.NodeMask = 0; // for multi-adapter systems
+            return desc;
+        }
+
+    public:
+        DescriptorHeapsDx12();
+        DescriptorHeapsDx12(const DescriptorHeapsDx12&) = delete;
+        DescriptorHeapsDx12& operator=(const DescriptorHeapsDx12&) = delete;
+        ~DescriptorHeapsDx12();
+
+        // initialization, set 0 size to disable heap
+        HRESULT Create(ComPtr<ID3D12Device8> _device, UINT _rtv_heap_size = rtv_heap_default_size, UINT _dsv_heap_size = dsv_heap_default_size,
+            UINT _cbv_heap_size = cbv_heap_default_size, UINT _sampler_heap_size = sampler_heap_default_size);
+        // clean up
+        void Free();
+
+        // get cbv / srv / uav heap
+        inline ID3D12DescriptorHeap* GetCbvHeap() { return cbv_heap.Get(); }
+        // get sampler heap
+        inline ID3D12DescriptorHeap* GetSamplerHeap() { return sampler_heap.Get(); }
+
+        // get rtv descriptor
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetRtv(UINT i) { return GetCpuDescriptor(rtv_heap.Get(), rtv_size, i); }
+        // get dsv descriptor
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetDsv(UINT i) { return GetCpuDescriptor(dsv_heap.Get(), dsv_size, i); }
+        // get cbv / srv / uav descriptor
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetCbv(UINT i) { return GetCpuDescriptor(cbv_heap.Get(), cbv_size, i); }
+        // get cbv / srv / uav gpu descriptor
+        inline D3D12_GPU_DESCRIPTOR_HANDLE GetCbvGpu(UINT i) { return GetGpuDescriptor(cbv_heap.Get(), cbv_size, i); }
+        // get cbv / srv / uav descriptor
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetSrv(UINT i) { return GetCbv(i); }
+        // get cbv / srv / uav gpu descriptor
+        inline D3D12_GPU_DESCRIPTOR_HANDLE GetSrvGpu(UINT i) { return GetCbvGpu(i); }
+        // get cbv / srv / uav descriptor
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetUav(UINT i) { return GetCbv(i); }
+        // get cbv / srv / uav gpu descriptor
+        inline D3D12_GPU_DESCRIPTOR_HANDLE GetUavGpu(UINT i) { return GetCbvGpu(i); }
+        // get sampler descriptor
+        inline D3D12_CPU_DESCRIPTOR_HANDLE GetSampler(UINT i) { return GetCpuDescriptor(sampler_heap.Get(), sampler_size, i); }
+        // get sampler gpu descriptor
+        inline D3D12_GPU_DESCRIPTOR_HANDLE GetSamplerGpu(UINT i) { return GetGpuDescriptor(sampler_heap.Get(), sampler_size, i); }
+
+        // allocate empty rtv slots
+        inline UINT AllocateRtvSlot() { return rtv_heap_i++; }
+        // allocate empty dsv slots
+        inline UINT AllocateDsvSlot() { return dsv_heap_i++; }
+        // allocate continuous empty cbv / srv / uav slots, return first slot
+        inline UINT AllocateCbvSlots(UINT count = 1) { UINT slot = cbv_heap_i; cbv_heap_i += count; return slot; }
+        // allocate continuous empty cbv / srv / uav slots, return first slot
+        inline UINT AllocateSrvSlots(UINT count = 1) { return AllocateCbvSlots(count); }
+        // allocate continuous empty cbv / srv / uav slots, return first slot
+        inline UINT AllocateUavSlots(UINT count = 1) { return AllocateCbvSlots(count); }
+        // allocate continuous empty sampler slots, return first slot
+        inline UINT AllocateSamplerSlots(UINT count = 1) { UINT slot = sampler_heap_i; sampler_heap_i += count; return slot; }
     };
 
     class FrameResourceDx12

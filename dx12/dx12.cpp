@@ -778,6 +778,85 @@ namespace Dx12
             }
         }
     }
+    
+    DescriptorHeapsDx12::DescriptorHeapsDx12()
+    {
+        rtv_size = dsv_size = cbv_size = sampler_size = 0;
+        rtv_heap_size = dsv_heap_size = cbv_heap_size = sampler_heap_size = 0;
+        rtv_heap_i = dsv_heap_i = cbv_heap_i = sampler_heap_i = 0;
+    }
+
+    DescriptorHeapsDx12::~DescriptorHeapsDx12()
+    {
+        Free();
+    }
+
+    HRESULT DescriptorHeapsDx12::Create(ComPtr<ID3D12Device8> _device, UINT _rtv_heap_size, UINT _dsv_heap_size, UINT _cbv_heap_size, UINT _sampler_heap_size)
+    {
+        Free();
+
+        HRESULT hr = S_OK;
+
+        device = std::move(_device);
+
+        // get descriptor size
+        rtv_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+        dsv_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+        cbv_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        sampler_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+
+        // set descriptor heap size
+        rtv_heap_size = _rtv_heap_size;
+        dsv_heap_size = _dsv_heap_size;
+        cbv_heap_size = _cbv_heap_size;
+        sampler_heap_size = _sampler_heap_size;
+
+        // create descriptor heap
+        D3D12_DESCRIPTOR_HEAP_DESC dh_desc{};
+        if (rtv_heap_size > 0)
+        {
+            dh_desc = GetDescriptorHeapDesc(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, rtv_heap_size);
+            hr = device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(rtv_heap.GetAddressOf()));
+            if (FAILED(hr))
+                return hr;
+        }
+        if (dsv_heap_size > 0)
+        {
+            dh_desc = GetDescriptorHeapDesc(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, D3D12_DESCRIPTOR_HEAP_FLAG_NONE, dsv_heap_size);
+            hr = device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(dsv_heap.GetAddressOf()));
+            if (FAILED(hr))
+                return hr;
+        }
+        if (rtv_heap_size > 0)
+        {
+            dh_desc = GetDescriptorHeapDesc(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, cbv_heap_size);
+            hr = device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(cbv_heap.GetAddressOf()));
+            if (FAILED(hr))
+                return hr;
+        }
+        if (rtv_heap_size > 0)
+        {
+            dh_desc = GetDescriptorHeapDesc(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE, sampler_heap_size);
+            hr = device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(sampler_heap.GetAddressOf()));
+            if (FAILED(hr))
+                return hr;
+        }
+
+        // reset descriptor allocate counter
+        rtv_heap_i = dsv_heap_i = cbv_heap_i = sampler_heap_i = 0;
+
+        return S_OK;
+    }
+
+    void DescriptorHeapsDx12::Free()
+    {
+        rtv_heap_size = dsv_heap_size = cbv_heap_size = sampler_heap_size = 0;
+        rtv_heap = nullptr;
+        dsv_heap = nullptr;
+        cbv_heap = nullptr;
+        sampler_heap = nullptr;
+        device = nullptr;
+    }
 
     FrameResourceDx12::FrameResourceDx12()
     {
