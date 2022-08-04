@@ -210,12 +210,6 @@ namespace Dx12
         current_fence_v = 0;
         sc_format = DXGI_FORMAT_UNKNOWN;
         sc_buffer_count = 0;
-        rtv_size = 0;
-        dsv_size = 0;
-        cbv_size = 0;
-        sampler_size = 0;
-        cbv_heap_i = 0;
-        sampler_heap_i = 0;
         ZeroMemory(&vp, sizeof(vp));
         ZeroMemory(&sr, sizeof(sr));
         current_frame_i = 0;
@@ -290,17 +284,17 @@ namespace Dx12
 
     void DeviceDx12::SetRootParameter1(UINT dh_slot)
     {
-        cmd_list->SetGraphicsRootDescriptorTable(1, GetCbvGpu(dh_slot));
+        cmd_list->SetGraphicsRootDescriptorTable(1, heaps->GetCbvGpu(dh_slot));
     }
 
     void DeviceDx12::SetRootParameter2(UINT dh_slot)
     {
-        cmd_list->SetGraphicsRootDescriptorTable(2, GetCbvGpu(dh_slot));
+        cmd_list->SetGraphicsRootDescriptorTable(2, heaps->GetCbvGpu(dh_slot));
     }
 
     void DeviceDx12::SetRootParameter3(UINT dh_slot)
     {
-        cmd_list->SetGraphicsRootDescriptorTable(3, GetSamplerGpu(dh_slot));
+        cmd_list->SetGraphicsRootDescriptorTable(3, heaps->GetSamplerGpu(dh_slot));
     }
 
     std::shared_ptr<DeviceDx12> DeviceDx12::CreateDevice(Rehenz::SimpleWindow* window)
@@ -391,38 +385,8 @@ namespace Dx12
             return nullptr;
 
         // create descriptor heap
-        p->rtv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-        p->dsv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-        p->cbv_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        p->sampler_size = p->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-        D3D12_DESCRIPTOR_HEAP_DESC dh_desc;
-        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-        dh_desc.NumDescriptors = p->sc_buffer_count;
-        dh_desc.NodeMask = 0;
-        hr = p->device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(p->rtv_heap.GetAddressOf()));
-        if (FAILED(hr))
-            return nullptr;
-        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-        dh_desc.NumDescriptors = 1;
-        dh_desc.NodeMask = 0;
-        hr = p->device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(p->dsv_heap.GetAddressOf()));
-        if (FAILED(hr))
-            return nullptr;
-        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        dh_desc.NumDescriptors = cbv_heap_size;
-        dh_desc.NodeMask = 0;
-        hr = p->device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(p->cbv_heap.GetAddressOf()));
-        if (FAILED(hr))
-            return nullptr;
-        p->cbv_heap_i = 0;
-        dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-        dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        dh_desc.NumDescriptors = sampler_heap_size;
-        dh_desc.NodeMask = 0;
-        hr = p->device->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(p->sampler_heap.GetAddressOf()));
+        p->heaps = std::make_unique<DescriptorHeapsDx12>();
+        hr = p->heaps->Create(p->device);
         if (FAILED(hr))
             return nullptr;
 
@@ -433,7 +397,7 @@ namespace Dx12
             hr = p->sc->GetBuffer(i, IID_PPV_ARGS(p->rtv_buffers[i].GetAddressOf()));
             if (FAILED(hr))
                 return nullptr;
-            p->device->CreateRenderTargetView(p->rtv_buffers[i].Get(), nullptr, p->GetRtv(i));
+            p->device->CreateRenderTargetView(p->rtv_buffers[i].Get(), nullptr, p->heaps->GetRtv(p->heaps->AllocateRtvSlot()));
         }
 
         // create depth stencil buffer
@@ -460,11 +424,11 @@ namespace Dx12
             return nullptr;
 
         // create depth stencil view
-        p->device->CreateDepthStencilView(p->dsv_buffer.Get(), nullptr, p->GetDsv(0));
+        p->device->CreateDepthStencilView(p->dsv_buffer.Get(), nullptr, p->heaps->GetDsv(p->heaps->AllocateDsvSlot()));
 
         // create cbv for frame resource
         for (int i = 0; i < p->frame_rc_count; i++)
-            p->frame_rcs[i].CreateCbv(p.get());
+            p->frame_rcs[i].CreateCbv(p->device.Get(), p->heaps.get());
 
         // set viewport
         p->vp.TopLeftX = 0;
@@ -533,17 +497,17 @@ namespace Dx12
         cmd_list->RSSetScissorRects(1, &sr);
 
         // clear
+        auto rtv = heaps->GetRtv(sc->GetCurrentBackBufferIndex());
+        auto dsv = heaps->GetDsv(0);
         float bg_color[4]{ 0.7804f,0.8627f,0.4078f,0 };
-        cmd_list->ClearRenderTargetView(GetCurrentRtv(), bg_color, 0, nullptr);
-        cmd_list->ClearDepthStencilView(GetDsv(0), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+        cmd_list->ClearRenderTargetView(rtv, bg_color, 0, nullptr);
+        cmd_list->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
         // set render target
-        auto rtv = GetCurrentRtv();
-        auto dsv = GetDsv(0);
         cmd_list->OMSetRenderTargets(1, &rtv, true, &dsv);
 
         // set heaps
-        ID3D12DescriptorHeap* dhs[]{ cbv_heap.Get(), sampler_heap.Get() };
+        ID3D12DescriptorHeap* dhs[]{ heaps->GetCbvHeap(), heaps->GetSamplerHeap() };
         cmd_list->SetDescriptorHeaps(_countof(dhs), dhs);
 
         // map cbuffer
@@ -891,13 +855,13 @@ namespace Dx12
         return true;
     }
 
-    void FrameResourceDx12::CreateCbv(DeviceDx12* device)
+    void FrameResourceDx12::CreateCbv(ID3D12Device8* device, DescriptorHeapsDx12* heaps)
     {
-        cb_frame_dh_slot = device->GetCbvSlot(2);
+        cb_frame_dh_slot = heaps->AllocateCbvSlots(2);
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = cb_frame->GetCbvDesc(0);
-        device->device->CreateConstantBufferView(&cbv_desc, device->GetCbv(cb_frame_dh_slot));
+        device->CreateConstantBufferView(&cbv_desc, heaps->GetCbv(cb_frame_dh_slot));
         cbv_desc = cb_light->GetCbvDesc(0);
-        device->device->CreateConstantBufferView(&cbv_desc, device->GetCbv(cb_frame_dh_slot + 1));
+        device->CreateConstantBufferView(&cbv_desc, heaps->GetCbv(cb_frame_dh_slot + 1));
     }
 
     CBufferBaseDx12::CBufferBaseDx12(UINT _count, UINT _struct_size)
@@ -1610,7 +1574,7 @@ namespace Dx12
         return true;
     }
 
-    void TextureDx12::CreateSrv(UINT _dh_slot, DeviceDx12* device)
+    void TextureDx12::CreateSrv(UINT _dh_slot, ID3D12Device8* device, DescriptorHeapsDx12* heaps)
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc;
         srv_desc.Format = format;
@@ -1621,7 +1585,7 @@ namespace Dx12
         srv_desc.Texture2D.PlaneSlice = 0;
         srv_desc.Texture2D.ResourceMinLODClamp = 0;
         dh_slot = _dh_slot;
-        device->device->CreateShaderResourceView(rc.Get(), &srv_desc, device->GetCbv(dh_slot));
+        device->CreateShaderResourceView(rc.Get(), &srv_desc, heaps->GetCbv(dh_slot));
     }
 
     void TextureDx12::FreeUploader()

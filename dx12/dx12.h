@@ -276,15 +276,7 @@ namespace Dx12
         ComPtr<IDXGISwapChain4> sc;
 
         // descriptor heap
-        UINT rtv_size, dsv_size, cbv_size, sampler_size;
-        ComPtr<ID3D12DescriptorHeap> rtv_heap;
-        ComPtr<ID3D12DescriptorHeap> dsv_heap;
-        static const int cbv_heap_size = 200;
-        ComPtr<ID3D12DescriptorHeap> cbv_heap; // also srv heap and uav heap
-        int cbv_heap_i;
-        static const int sampler_heap_size = 20;
-        ComPtr<ID3D12DescriptorHeap> sampler_heap;
-        int sampler_heap_i;
+        std::unique_ptr<DescriptorHeapsDx12> heaps;
 
         // render target buffer
         std::vector<ComPtr<ID3D12Resource2>> rtv_buffers;
@@ -323,24 +315,8 @@ namespace Dx12
         // flush command queue
         bool FlushCmdQueue();
 
-        // get rtv descriptor
-        inline D3D12_CPU_DESCRIPTOR_HANDLE GetRtv(UINT i);
-        // get current rtv descriptor
-        inline D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRtv() { return GetRtv(sc->GetCurrentBackBufferIndex()); }
-        // get dsv descriptor
-        inline D3D12_CPU_DESCRIPTOR_HANDLE GetDsv(UINT i);
-        // get cbv / srv / uav descriptor
-        inline D3D12_CPU_DESCRIPTOR_HANDLE GetCbv(UINT i);
-        // get cbv / srv / uav gpu descriptor
-        inline D3D12_GPU_DESCRIPTOR_HANDLE GetCbvGpu(UINT i);
-        // get continuous empty cbv slots, return first slot
-        inline UINT GetCbvSlot(UINT count = 1) { UINT slot = cbv_heap_i; cbv_heap_i += count; return slot; }
-        // get sampler descriptor
-        inline D3D12_CPU_DESCRIPTOR_HANDLE GetSampler(UINT i);
-        // get sampler gpu descriptor
-        inline D3D12_GPU_DESCRIPTOR_HANDLE GetSamplerGpu(UINT i);
-        // get continuous empty sampler slots, return first slot
-        inline UINT GetSamplerSlot(UINT count = 1) { UINT slot = sampler_heap_i; sampler_heap_i += count; return slot; }
+        // get descriptor heap
+        inline DescriptorHeapsDx12* GetDescriptorHeap() { return heaps.get(); }
 
         // get current render target buffer
         inline ID3D12Resource2* GetCurrentRtvBuffer() { return rtv_buffers[sc->GetCurrentBackBufferIndex()].Get(); }
@@ -382,43 +358,6 @@ namespace Dx12
         static void PrintAdapterOutputDisplayInfo(std::wostream& out);
     };
 
-    inline D3D12_CPU_DESCRIPTOR_HANDLE DeviceDx12::GetRtv(UINT i)
-    {
-        auto dh = rtv_heap->GetCPUDescriptorHandleForHeapStart();
-        dh.ptr += rtv_size * static_cast<SIZE_T>(i);
-        return dh;
-    };
-    inline D3D12_CPU_DESCRIPTOR_HANDLE DeviceDx12::GetDsv(UINT i)
-    {
-        auto dh = dsv_heap->GetCPUDescriptorHandleForHeapStart();
-        dh.ptr += dsv_size * static_cast<SIZE_T>(i);
-        return dh;
-    };
-    inline D3D12_CPU_DESCRIPTOR_HANDLE DeviceDx12::GetCbv(UINT i)
-    {
-        auto dh = cbv_heap->GetCPUDescriptorHandleForHeapStart();
-        dh.ptr += cbv_size * static_cast<SIZE_T>(i);
-        return dh;
-    };
-    inline D3D12_GPU_DESCRIPTOR_HANDLE DeviceDx12::GetCbvGpu(UINT i)
-    {
-        auto dh = cbv_heap->GetGPUDescriptorHandleForHeapStart();
-        dh.ptr += cbv_size * static_cast<UINT64>(i);
-        return dh;
-    };
-    inline D3D12_CPU_DESCRIPTOR_HANDLE DeviceDx12::GetSampler(UINT i)
-    {
-        auto dh = sampler_heap->GetCPUDescriptorHandleForHeapStart();
-        dh.ptr += sampler_size * static_cast<SIZE_T>(i);
-        return dh;
-    };
-    inline D3D12_GPU_DESCRIPTOR_HANDLE DeviceDx12::GetSamplerGpu(UINT i)
-    {
-        auto dh = sampler_heap->GetGPUDescriptorHandleForHeapStart();
-        dh.ptr += sampler_size * static_cast<UINT64>(i);
-        return dh;
-    };
-
     class DescriptorHeapsDx12
     {
     private:
@@ -428,7 +367,7 @@ namespace Dx12
         UINT rtv_size, dsv_size, cbv_size, sampler_size;
         // descriptor heap size
         UINT rtv_heap_size, dsv_heap_size, cbv_heap_size, sampler_heap_size;
-        static const UINT rtv_heap_default_size = 10, dsv_heap_default_size = 10, cbv_heap_default_size = 80, sampler_heap_default_size = 10;
+        static const UINT rtv_heap_default_size = 10, dsv_heap_default_size = 10, cbv_heap_default_size = 200, sampler_heap_default_size = 20;
         // descriptor heap
         ComPtr<ID3D12DescriptorHeap> rtv_heap;
         ComPtr<ID3D12DescriptorHeap> dsv_heap;
@@ -534,7 +473,7 @@ namespace Dx12
         ~FrameResourceDx12();
 
         bool Create(ID3D12Device8* device);
-        void CreateCbv(DeviceDx12* device);
+        void CreateCbv(ID3D12Device8* device, DescriptorHeapsDx12* heaps);
 
         inline D3D12_GPU_VIRTUAL_ADDRESS GetCBObjGpuLocation(UINT cb_slot);
     };
@@ -736,7 +675,7 @@ namespace Dx12
         ~TextureDx12();
 
         bool UploadToGpu(ID3D12Device8* device, ID3D12GraphicsCommandList6* cmd_list);
-        void CreateSrv(UINT _dh_slot, DeviceDx12* device);
+        void CreateSrv(UINT _dh_slot, ID3D12Device8* device, DescriptorHeapsDx12* heaps);
 
         void FreeUploader();
 

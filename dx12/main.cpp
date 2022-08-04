@@ -122,6 +122,8 @@ void update(DeviceDx12* device, float dt)
 
 bool init(DeviceDx12* device)
 {
+	DescriptorHeapsDx12* heaps = device->GetDescriptorHeap();
+
 	// init input layout
 	std::vector<D3D12_INPUT_ELEMENT_DESC> il;
 	il.resize(2);
@@ -278,19 +280,19 @@ bool init(DeviceDx12* device)
 
 	// init samplers
 	D3D12_SAMPLER_DESC sampler_desc;
-	sampler_slots["default"] = device->GetSamplerSlot(6);
+	sampler_slots["default"] = heaps->AllocateSamplerSlots(6);
 	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_MIN_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
-	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 0));
+	device->device->CreateSampler(&sampler_desc, heaps->GetSampler(sampler_slots["default"] + 0));
 	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_MIN_MAG_MIP_POINT, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
-	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 1));
+	device->device->CreateSampler(&sampler_desc, heaps->GetSampler(sampler_slots["default"] + 1));
 	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_MIN_MAG_MIP_LINEAR, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
-	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 2));
+	device->device->CreateSampler(&sampler_desc, heaps->GetSampler(sampler_slots["default"] + 2));
 	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_MIN_MAG_MIP_LINEAR, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
-	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 3));
+	device->device->CreateSampler(&sampler_desc, heaps->GetSampler(sampler_slots["default"] + 3));
 	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_ANISOTROPIC, D3D12_TEXTURE_ADDRESS_MODE_WRAP);
-	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 4));
+	device->device->CreateSampler(&sampler_desc, heaps->GetSampler(sampler_slots["default"] + 4));
 	sampler_desc = UtilDx12::GetSamplerDesc(D3D12_FILTER_ANISOTROPIC, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
-	device->device->CreateSampler(&sampler_desc, device->GetSampler(sampler_slots["default"] + 5));
+	device->device->CreateSampler(&sampler_desc, heaps->GetSampler(sampler_slots["default"] + 5));
 
 	// init mats
 	auto mat_grass = std::make_shared<MaterialDx12>();
@@ -300,16 +302,16 @@ bool init(DeviceDx12* device)
 	mat_grass->roughness = 0.125f;
 	mat_lib["grass"] = mat_grass;
 	auto mat_green_tex = std::make_shared<MaterialDx12>();
-	mat_green_tex->tex_dh_slot = device->GetCbvSlot();
-	tex_lib["green_pattern"]->CreateSrv(mat_green_tex->tex_dh_slot, device);
+	mat_green_tex->tex_dh_slot = heaps->AllocateCbvSlots();
+	tex_lib["green_pattern"]->CreateSrv(mat_green_tex->tex_dh_slot, device->device.Get(), heaps);
 	mat_green_tex->diffuse_albedo = XMFLOAT3(1, 1, 1);
 	mat_green_tex->alpha = 1.0f;
 	mat_green_tex->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
 	mat_green_tex->roughness = 0.125f;
 	mat_lib["green_tex"] = mat_green_tex;
 	auto mat_water = std::make_shared<MaterialDx12>();
-	mat_water->tex_dh_slot = device->GetCbvSlot();
-	tex_lib["water"]->CreateSrv(mat_water->tex_dh_slot, device);
+	mat_water->tex_dh_slot = heaps->AllocateCbvSlots();
+	tex_lib["water"]->CreateSrv(mat_water->tex_dh_slot, device->device.Get(), heaps);
 	mat_water->diffuse_albedo = XMFLOAT3(1, 1, 1); //XMFLOAT3(0, 0.2f, 0.6f);
 	mat_water->alpha = 0.7f;
 	mat_water->fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
@@ -335,24 +337,24 @@ bool init(DeviceDx12* device)
 	mat_yellow->roughness = 0.08f;
 	mat_lib["yellow"] = mat_yellow;
 	auto mat_plaid = std::make_shared<MaterialDx12>();
-	mat_plaid->tex_dh_slot = device->GetCbvSlot();
-	tex_lib["plaid"]->CreateSrv(mat_plaid->tex_dh_slot, device);
+	mat_plaid->tex_dh_slot = heaps->AllocateCbvSlots();
+	tex_lib["plaid"]->CreateSrv(mat_plaid->tex_dh_slot, device->device.Get(), heaps);
 	mat_plaid->diffuse_albedo = XMFLOAT3(1, 1, 1);
 	mat_plaid->alpha = 1.0f;
 	mat_plaid->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
 	mat_plaid->roughness = 0.1f;
 	mat_lib["plaid"] = mat_plaid;
 	auto mat_wood_box = std::make_shared<MaterialDx12>();
-	mat_wood_box->tex_dh_slot = device->GetCbvSlot();
-	tex_lib["wood_box"]->CreateSrv(mat_wood_box->tex_dh_slot, device);
+	mat_wood_box->tex_dh_slot = heaps->AllocateCbvSlots();
+	tex_lib["wood_box"]->CreateSrv(mat_wood_box->tex_dh_slot, device->device.Get(), heaps);
 	mat_wood_box->diffuse_albedo = XMFLOAT3(1.2f, 1.2f, 1.2f);
 	mat_wood_box->alpha = 1.0f;
 	mat_wood_box->fresnel_r0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
 	mat_wood_box->roughness = 0.1f;
 	mat_lib["wood_box"] = mat_wood_box;
 	auto mat_billboard = std::make_shared<MaterialDx12>();
-	mat_billboard->tex_dh_slot = device->GetCbvSlot();
-	tex_lib["billboard"]->CreateSrv(mat_billboard->tex_dh_slot, device);
+	mat_billboard->tex_dh_slot = heaps->AllocateCbvSlots();
+	tex_lib["billboard"]->CreateSrv(mat_billboard->tex_dh_slot, device->device.Get(), heaps);
 	mat_billboard->diffuse_albedo = XMFLOAT3(1, 1, 1);
 	mat_billboard->alpha = 1.0f;
 	mat_billboard->fresnel_r0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
