@@ -358,6 +358,8 @@ namespace Dx12
         static void PrintAdapterOutputDisplayInfo(std::wostream& out);
     };
 
+    // to do : smart allocate slots with resize
+    //         support to recycle slot
     class DescriptorHeapsDx12
     {
     private:
@@ -390,7 +392,7 @@ namespace Dx12
             dh.ptr += descriptor_size * static_cast<UINT64>(i);
             return dh;
         }
-        
+
         // get descriptor heap description struct
         inline static D3D12_DESCRIPTOR_HEAP_DESC GetDescriptorHeapDesc(D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flag, UINT heap_size)
         {
