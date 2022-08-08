@@ -1,5 +1,9 @@
 #include "dx12.h"
 #include <wincodec.h>
+#include <iostream>
+#include <timeapi.h>
+using std::cout;
+using std::endl;
 
 namespace Dx12
 {
@@ -359,28 +363,25 @@ namespace Dx12
 
         // create swap chain
         p->sc_format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        p->sc_buffer_count = 2;
-        DXGI_SWAP_CHAIN_DESC sc_desc;
-        sc_desc.BufferDesc.Width = window->GetWidth();
-        sc_desc.BufferDesc.Height = window->GetHeight();
-        sc_desc.BufferDesc.RefreshRate.Numerator = 60;
-        sc_desc.BufferDesc.RefreshRate.Denominator = 1;
-        sc_desc.BufferDesc.Format = p->sc_format;
-        sc_desc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-        sc_desc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
-        sc_desc.SampleDesc.Count = 1;
-        sc_desc.SampleDesc.Quality = 0;
-        sc_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-        sc_desc.BufferCount = p->sc_buffer_count;
-        sc_desc.OutputWindow = window->GetHwnd();
-        sc_desc.Windowed = true;
-        sc_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-        sc_desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-        ComPtr<IDXGISwapChain> sc0;
-        hr = factory->CreateSwapChain(p->cmd_queue.Get(), &sc_desc, sc0.GetAddressOf());
+        p->sc_buffer_count = 3;
+        DXGI_SWAP_CHAIN_DESC1 sc_desc1;
+        sc_desc1.Width= window->GetWidth();
+        sc_desc1.Height = window->GetHeight();
+        sc_desc1.Format = p->sc_format;
+        sc_desc1.Stereo = false;
+        sc_desc1.SampleDesc.Count = 1;
+        sc_desc1.SampleDesc.Quality = 0;
+        sc_desc1.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        sc_desc1.BufferCount = p->sc_buffer_count;
+        sc_desc1.Scaling = DXGI_SCALING_STRETCH;
+        sc_desc1.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+        sc_desc1.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+        sc_desc1.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING | DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+        ComPtr<IDXGISwapChain1> sc1;
+        hr = factory->CreateSwapChainForHwnd(p->cmd_queue.Get(), window->GetHwnd(), &sc_desc1, nullptr, nullptr, sc1.GetAddressOf());
         if (FAILED(hr))
             return nullptr;
-        hr = sc0.As(&p->sc);
+        hr = sc1.As(&p->sc);
         if (FAILED(hr))
             return nullptr;
 
@@ -545,9 +546,14 @@ namespace Dx12
             return false;
 
         // swap
-        hr = sc->Present(0, 0);
+        static int count = 0;
+        auto t0 = timeGetTime();
+        hr = sc->Present(0, 0);// DXGI_PRESENT_ALLOW_TEARING);
         if (FAILED(hr))
             return false;
+        auto t1 = timeGetTime();
+        cout << count << " : \t " << t0 << " \t -> \t " << t1 << " \t\t " << t1 - t0 << " ms" << endl;
+        count++;
 
         // next frame
         NextFrame();

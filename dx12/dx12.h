@@ -288,7 +288,7 @@ namespace Dx12
 
 
         // frame resource
-        static const int frame_rc_count = 3;
+        static const int frame_rc_count = 30;
         std::unique_ptr<FrameResourceDx12[]> frame_rcs;
         int current_frame_i;
 

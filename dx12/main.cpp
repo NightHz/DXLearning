@@ -532,6 +532,7 @@ int main()
 
 	// create second fps counter to count draw fps
 	auto fps_counter2 = std::make_shared<Rehenz::FpsCounter>(timeGetTime);
+	fps_counter2->LockFps(0);
 	auto updateFps = [&window, &fps_counter2](Rehenz::uint fps)
 	{
 		window->SetTitle(window->title_base + TEXT(" fps:") + ToString(fps) + TEXT(" draw fps:") + ToString(fps_counter2->GetLastFps()));
@@ -560,8 +561,14 @@ int main()
 		update(device.get(), window->fps_counter.GetLastDeltatime() / 1000.0f);
 
 		// draw
+		static int wait_gpu = 0;
 		if (device->CheckCurrentCmdState())
 		{
+			if (wait_gpu > 0)
+			{
+				cout << "wait GPU " << wait_gpu << "ms" << endl;
+				wait_gpu = 0;
+			}
 			if (!device->ReadyPresent())
 				return 1;
 			if (!draw(device.get()))
@@ -569,6 +576,13 @@ int main()
 			if (!device->Present())
 				return 1;
 			fps_counter2->Present();
+		}
+		else
+		{
+			wait_gpu++;
+			auto t0 = timeGetTime();
+			while (timeGetTime() - t0 < 1)
+				;
 		}
 		window->Present();
 
