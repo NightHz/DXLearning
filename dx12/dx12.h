@@ -288,7 +288,10 @@ namespace Dx12
 
 
         // frame resource
-        static const int frame_rc_count = 30;
+        static const int frame_rc_count = 3;
+        static const int swapchain_buffer_count = 3;
+        static const int swapchain_present_sync_interval = 0;
+        static const UINT swapchain_present_flag = (DXGI_PRESENT_ALLOW_TEARING & 0);
         std::unique_ptr<FrameResourceDx12[]> frame_rcs;
         int current_frame_i;
 

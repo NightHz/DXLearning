@@ -363,7 +363,7 @@ namespace Dx12
 
         // create swap chain
         p->sc_format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        p->sc_buffer_count = 3;
+        p->sc_buffer_count = swapchain_buffer_count;
         DXGI_SWAP_CHAIN_DESC1 sc_desc1;
         sc_desc1.Width= window->GetWidth();
         sc_desc1.Height = window->GetHeight();
@@ -548,11 +548,11 @@ namespace Dx12
         // swap
         static int count = 0;
         auto t0 = timeGetTime();
-        hr = sc->Present(0, 0);// DXGI_PRESENT_ALLOW_TEARING);
+        hr = sc->Present(swapchain_present_sync_interval, swapchain_present_flag);
         if (FAILED(hr))
             return false;
         auto t1 = timeGetTime();
-        cout << count << " : \t " << t0 << " \t -> \t " << t1 << " \t\t " << t1 - t0 << " ms" << endl;
+        cout << "wait present " << count << " : \t " << t1 - t0 << " ms" << endl;
         count++;
 
         // next frame

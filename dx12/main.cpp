@@ -566,7 +566,7 @@ int main()
 		{
 			if (wait_gpu > 0)
 			{
-				cout << "wait GPU " << wait_gpu << "ms" << endl;
+				cout << "wait GPU : \t " << wait_gpu << "ms" << endl;
 				wait_gpu = 0;
 			}
 			if (!device->ReadyPresent())
