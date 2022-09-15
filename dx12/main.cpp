@@ -518,7 +518,7 @@ int main()
 	auto window = std::make_shared<Rehenz::SimpleWindowWithFC>(GetModuleHandle(nullptr), 800, 600, "dx12 example");
 	if (!window->CheckWindowState())
 		return 1;
-	window->fps_counter.LockFps(0);
+	window->fps_counter.LockFps(480);
 	cout << "finish create window" << endl;
 
 	// create device
@@ -532,6 +532,7 @@ int main()
 
 	// create second fps counter to count draw fps
 	auto fps_counter2 = std::make_shared<Rehenz::FpsCounter>(timeGetTime);
+	fps_counter2->LockFps(240);
 	auto updateFps = [&window, &fps_counter2](Rehenz::uint fps)
 	{
 		window->SetTitle(window->title_base + TEXT(" fps:") + ToString(fps) + TEXT(" draw fps:") + ToString(fps_counter2->GetLastFps()));

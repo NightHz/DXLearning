@@ -190,26 +190,9 @@ namespace Dx12
         return true;
     }
 
-    bool DeviceDx12::FlushCmdQueue()
-    {
-        HRESULT hr = S_OK;
-
-        current_fence_v++;
-        hr = cmd_queue->Signal(fence.Get(), current_fence_v);
-        if (FAILED(hr))
-            return false;
-        //OutputDebugString((std::string() + "Flush command and CPU mark " + std::to_string(current_fence_v) + ".\n").c_str());
-        if (!UtilDx12::WaitFenceValue(fence.Get(), current_fence_v))
-            return false;
-
-        return true;
-    }
-
     DeviceDx12::DeviceDx12()
     {
         current_fence_v = 0;
-        sc_format = DXGI_FORMAT_UNKNOWN;
-        sc_buffer_count = 0;
         ZeroMemory(&vp, sizeof(vp));
         ZeroMemory(&sr, sizeof(sr));
         current_frame_i = 0;
@@ -274,6 +257,21 @@ namespace Dx12
     {
         if (!UtilDx12::WaitFenceValue(fence.Get(), GetCurrentFrameResource().fence_v))
             return false;
+        return true;
+    }
+
+    bool DeviceDx12::FlushCmdQueue()
+    {
+        HRESULT hr = S_OK;
+
+        current_fence_v++;
+        hr = cmd_queue->Signal(fence.Get(), current_fence_v);
+        if (FAILED(hr))
+            return false;
+        //OutputDebugString((std::string() + "Flush command and CPU mark " + std::to_string(current_fence_v) + ".\n").c_str());
+        if (!UtilDx12::WaitFenceValue(fence.Get(), current_fence_v))
+            return false;
+
         return true;
     }
 
@@ -358,29 +356,24 @@ namespace Dx12
             return nullptr;
 
         // create swap chain
-        p->sc_format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        p->sc_buffer_count = 2;
-        DXGI_SWAP_CHAIN_DESC sc_desc;
-        sc_desc.BufferDesc.Width = window->GetWidth();
-        sc_desc.BufferDesc.Height = window->GetHeight();
-        sc_desc.BufferDesc.RefreshRate.Numerator = 60;
-        sc_desc.BufferDesc.RefreshRate.Denominator = 1;
-        sc_desc.BufferDesc.Format = p->sc_format;
-        sc_desc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-        sc_desc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
-        sc_desc.SampleDesc.Count = 1;
-        sc_desc.SampleDesc.Quality = 0;
-        sc_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-        sc_desc.BufferCount = p->sc_buffer_count;
-        sc_desc.OutputWindow = window->GetHwnd();
-        sc_desc.Windowed = true;
-        sc_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-        sc_desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-        ComPtr<IDXGISwapChain> sc0;
-        hr = factory->CreateSwapChain(p->cmd_queue.Get(), &sc_desc, sc0.GetAddressOf());
+        DXGI_SWAP_CHAIN_DESC1 sc_desc1;
+        sc_desc1.Width = window->GetWidth();
+        sc_desc1.Height = window->GetHeight();
+        sc_desc1.Format = p->sc_format;
+        sc_desc1.Stereo = false;
+        sc_desc1.SampleDesc.Count = 1;
+        sc_desc1.SampleDesc.Quality = 0;
+        sc_desc1.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        sc_desc1.BufferCount = p->sc_buffer_count;
+        sc_desc1.Scaling = DXGI_SCALING_STRETCH;
+        sc_desc1.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+        sc_desc1.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+        sc_desc1.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+        ComPtr<IDXGISwapChain1> sc1;
+        hr = factory->CreateSwapChainForHwnd(p->cmd_queue.Get(), window->GetHwnd(), &sc_desc1, nullptr, nullptr, sc1.GetAddressOf());
         if (FAILED(hr))
             return nullptr;
-        hr = sc0.As(&p->sc);
+        hr = sc1.As(&p->sc);
         if (FAILED(hr))
             return nullptr;
 
@@ -397,7 +390,7 @@ namespace Dx12
             hr = p->sc->GetBuffer(i, IID_PPV_ARGS(p->rtv_buffers[i].GetAddressOf()));
             if (FAILED(hr))
                 return nullptr;
-            p->device->CreateRenderTargetView(p->rtv_buffers[i].Get(), nullptr, p->heaps->GetRtv(p->heaps->AllocateRtvSlot()));
+            p->device->CreateRenderTargetView(p->rtv_buffers[i].Get(), nullptr, p->heaps->GetRtv(i));
         }
 
         // create depth stencil buffer

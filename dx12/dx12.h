@@ -271,8 +271,8 @@ namespace Dx12
         ComPtr<ID3D12GraphicsCommandList6> cmd_list;
 
         // swap chain
-        DXGI_FORMAT sc_format;
-        UINT sc_buffer_count;
+        static const DXGI_FORMAT sc_format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        static const UINT sc_buffer_count = 2;
         ComPtr<IDXGISwapChain4> sc;
 
         // descriptor heap
@@ -288,7 +288,7 @@ namespace Dx12
 
 
         // frame resource
-        static const int frame_rc_count = 3;
+        static const int frame_rc_count = 2;
         std::unique_ptr<FrameResourceDx12[]> frame_rcs;
         int current_frame_i;
 
